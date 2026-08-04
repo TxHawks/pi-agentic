@@ -117,3 +117,17 @@ After live testing:
 - restore or delete any temporary agent files created for the repro
 - remove temporary session dirs if no longer needed
 - clear test-only environment variables
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in GitHub Issues for `TxHawks/pi-agentic`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Triage uses the five canonical default labels. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Domain documentation uses a single-context layout. See `docs/agents/domain.md`.
