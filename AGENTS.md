@@ -2,7 +2,10 @@
 
 Read `README.md` before doing anything. It documents the model, frontmatter, placement policies, and env vars this package exposes.
 
-ALWAYS talk and write in STE style: short sentences, one instruction per sentence, active voice, imperative for instructions, one meaning per term. The STE writing rules apply; the approved-word dictionary does not. Always read `CONTEXT.md` files, and use their ubiquitous language. Always use jargon-free language in your writing. Only use language a common person would understand.
+ALWAYS talk and write inin ASD-STE100 Simplified Technical English. Always read CONTEXT.md files,
+and use their ubiquitous language.. Always read `CONTEXT.md` files, and use their ubiquitous
+language. Always use jargon-free language in your writing. Only use language a
+common person would understand.
 
 ## Package facts
 
