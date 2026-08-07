@@ -65,8 +65,11 @@ _Avoid_: run metadata
 **Observation log**:
 The durable log of one run's events.
 
+**Exit record**:
+The durable record of one run's process end: the exit code, the signal if one ended the process, and the end time.
+
 **Run artifacts**:
-All durable files of one run: the run record, the observation log, and prompt and task files. Run artifacts never include the child's Pi session transcript.
+All durable files of one run: the run record, the exit record, the observation log, and prompt and task files. Run artifacts never include the child's Pi session transcript.
 
 **Peek**:
 A bounded, non-blocking read of a run's progress. A peek returns at once with whatever exists. A peek returns progress facts. It does not return the child's message content.
