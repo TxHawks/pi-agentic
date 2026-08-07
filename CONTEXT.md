@@ -69,7 +69,10 @@ The durable log of one run's events.
 All durable files of one run: the run record, the observation log, and prompt and task files. Run artifacts never include the child's Pi session transcript.
 
 **Peek**:
-A bounded, non-blocking read of a run's progress. A peek returns at once with whatever exists.
+A bounded, non-blocking read of a run's progress. A peek returns at once with whatever exists. A peek returns progress facts. It does not return the child's message content.
+
+**Live view**:
+The human-facing, continuously updating view of one run's full content.
 
 ### Control
 
