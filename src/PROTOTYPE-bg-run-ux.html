@@ -1,0 +1,682 @@
+<!doctype html>
+<!--
+  PROTOTYPE - throwaway. Do not merge into production code.
+
+  Question (wayfinder ticket #13): what widget and overlay experience makes
+  background runs understandable and controllable?
+
+  Plan: three variants of the background-run widget + overlay, hosted in a mock
+  Pi terminal frame, switchable via #variant= (hash, because this file opens
+  over file://). Six scenarios cover the ticket cases.
+
+  How to run: double-click this file (or: open src/PROTOTYPE-bg-run-ux.html).
+
+  Keys:
+    [ / ]        previous / next variant  (arrow keys also work while the overlay is closed)
+    1 .. 6       switch scenario
+    o            open / close the overlay
+    up / down    select a run (A, C)   left / right: switch run (B) or move selection column
+    Tab          switch detail tab (C)
+    i s c w d x  interrupt / stop / claim / wake / dismiss / delete (contextual)
+    h            show or hide dismissed rows (B)
+    Esc          close the overlay / cancel
+
+  Feasibility notes baked into the designs (verified against pi 0.84.1):
+    - widgets are display-only (no key input); string widgets cap at 10 lines
+    - overlays are full custom components with key input and live re-render
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PROTOTYPE - background-run UX</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#151a21; --text:#c9d1d9; --dim:#8b949e; --faint:#484f58;
+    --accent:#58a6ff; --ok:#3fb950; --warn:#d29922; --err:#f85149; --think:#6e7681;
+    --sel:#1f2937; --border:#30363d; --purple:#bc8cff; --cyan:#39c5cf;
+  }
+  *{box-sizing:border-box}
+  body{background:#05070a;color:var(--text);font:13px/1.45 "SF Mono",Menlo,Consolas,monospace;
+       margin:0;padding:18px 18px 90px;display:flex;gap:14px;justify-content:center}
+  #term{width:980px;max-width:96vw;background:var(--bg);border:1px solid var(--border);
+        border-radius:8px;padding:10px 14px 12px;position:relative;min-height:640px;
+        display:flex;flex-direction:column}
+  #chat{flex:1;overflow:hidden;color:var(--dim);white-space:pre-wrap}
+  #chat .u{color:var(--text)}
+  #chat .t{color:var(--faint)}
+  #widget{white-space:pre;margin:8px 0 6px;min-height:20px}
+  #editor{border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--faint)}
+  #statusline{color:var(--faint);margin-top:6px;font-size:12px;display:flex;justify-content:space-between}
+  #overlay{position:absolute;inset:26px 30px 84px;background:var(--panel);
+           border:1px solid var(--accent);border-radius:8px;padding:8px 12px;
+           white-space:pre-wrap;overflow:hidden;box-shadow:0 12px 40px #000c;display:none}
+  #overlay.open{display:block}
+  .ok{color:var(--ok)} .warn{color:var(--warn)} .err{color:var(--err)}
+  .dim{color:var(--dim)} .faint{color:var(--faint)} .acc{color:var(--accent)}
+  .think{color:var(--think);font-style:italic} .cyan{color:var(--cyan)} .pur{color:var(--purple)}
+  .selrow{background:var(--sel);display:inline-block;width:100%}
+  .b{font-weight:700}
+  #bar{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;background:#e6edf3;
+       color:#0d1117;border-radius:999px;padding:7px 16px;display:flex;gap:14px;align-items:center;
+       font-weight:600;box-shadow:0 6px 24px #000a;z-index:9;font-size:13px}
+  #bar button{font:inherit;border:0;background:#0d1117;color:#e6edf3;border-radius:999px;
+       padding:2px 10px;cursor:pointer}
+  #bar .sc{background:#c6d0da;color:#0d1117;padding:2px 8px;border-radius:6px;cursor:pointer}
+  #bar .sc.on{background:#0d1117;color:#fff}
+  #drawer{position:fixed;right:8px;top:8px;width:330px;max-height:86vh;overflow:auto;
+       background:#0d1117;border:1px solid var(--border);border-radius:8px;padding:8px;z-index:8}
+  #drawer pre{font-size:10px;color:var(--dim);margin:4px 0 0;white-space:pre-wrap}
+  #drawer summary{cursor:pointer;color:var(--accent);font-size:12px}
+  .note{color:#0d1117;background:#f2cc60;border-radius:4px;padding:0 4px}
+</style>
+</head>
+<body>
+<div id="term">
+  <div id="chat"></div>
+  <div id="widget"></div>
+  <div id="editor">&gt; <span style="border-left:6px solid var(--dim)">&nbsp;</span></div>
+  <div id="statusline"><span id="slLeft">claude-fable-5 · main</span><span id="slRight"></span></div>
+  <div id="overlay"></div>
+</div>
+
+<div id="bar">
+  <button id="prevV">&#9664;</button>
+  <span id="vLabel">A</span>
+  <button id="nextV">&#9654;</button>
+  <span style="border-left:1px solid #aab;height:16px"></span>
+  <span id="scens"></span>
+  <span style="border-left:1px solid #aab;height:16px"></span>
+  <span style="font-weight:400">o: overlay</span>
+</div>
+
+<details id="drawer"><summary>state (prototype inspector)</summary><pre id="stateJson"></pre></details>
+
+<script>
+/* ---------------- scenario data (glossary language: run, settled, undelivered,
+   orphaned, lost, released, hibernated, claim, wake, dismiss, delete) -------- */
+
+const FILLER = [
+  {k:'think', s:'The retry wrapper swallows the abort signal. I check the queue drain path next.'},
+  {k:'text',  s:'I move the backoff logic into `retryWithBackoff` so the abort signal passes through.'},
+  {k:'tool',  s:'read src/queue/drain.ts'},
+  {k:'toolend',s:'read done - 148 lines'},
+  {k:'tool',  s:'edit src/retry.ts'},
+  {k:'toolend',s:'edit done - 2 changes'},
+  {k:'text',  s:'The tests still cover the old path. I update them now.'},
+  {k:'tool',  s:'bash pnpm test --filter retry'},
+  {k:'toolend',s:'bash done - 41 tests passed'},
+];
+
+function R(o){ return Object.assign({
+  id:'', name:'', agent:'worker', mode:'bg', pane:null,
+  state:'running', outcome:null, own:'owned', ownerNote:'',
+  delivered:false, dismissed:false,
+  task:'', model:'sonnet-5', startAgo:120, settledAgo:0,
+  tools:0, ctx:0, curTool:null, curToolAgo:0, lastEv:1,
+  stream:false, script:[], typing:null,
+  flags:{}, tail:[], msg:'',
+}, o); }
+
+const SCENARIOS = {
+ 1: {name:'Busy', make:()=>[
+   R({id:'r1', name:'api-hardening', task:'Harden the API error paths', startAgo:754, tools:12, ctx:34,
+      stream:true, tail:[
+        {k:'text', s:'I found three places where a failed retry hides the first error.'},
+        {k:'tool', s:'read src/api/errors.ts'}, {k:'toolend', s:'read done - 210 lines'},
+      ], script:FILLER.slice()}),
+   R({id:'r2', name:'test-triage', task:'Make the flaky queue tests stable', startAgo:433, tools:7, ctx:21,
+      curTool:'bash pnpm test --filter queue', curToolAgo:12, lastEv:12,
+      tail:[{k:'text',s:'Two tests share one temp directory. I isolate them.'},
+            {k:'tool',s:'bash pnpm test --filter queue'}]}),
+   R({id:'r3', name:'dep-survey', task:'List the packages we can remove', state:'launching', startAgo:2,
+      msg:'record written - waiting for the process (spawn grace)'}),
+   R({id:'r4', name:'doc-sync', task:'Keep the docs in sync with the new API', startAgo:1140, tools:3, ctx:9,
+      lastEv:243, flags:{stall:true},
+      tail:[{k:'tool',s:'bash pnpm run docs:build'},{k:'warn',s:'no events for 4m - the run may be stalled'}]}),
+   R({id:'r5', name:'repl-explorer', agent:'scout', mode:'pane', pane:2, task:'Explore the failing REPL session',
+      startAgo:301, tools:5, ctx:14, lastEv:3,
+      msg:'interactive run - its live view is the pane itself'}),
+   R({id:'r6', name:'ux-audit', task:'Audit the overlay copy', state:'settled', outcome:'success',
+      settledAgo:480, tools:9, tail:[{k:'text',s:'Done. I list eight copy fixes, three are urgent.'}]}),
+ ]},
+ 2: {name:'After restart', make:()=>[
+   R({id:'r1', name:'api-hardening', task:'Harden the API error paths', startAgo:2210, tools:31, ctx:58,
+      stream:true, flags:{reattached:true, truncated:'showing the last 64 KB - older output is not loaded'},
+      tail:[{k:'info',s:'reattached after the parent restarted - the run never noticed'},
+            {k:'text',s:'The middleware rewrite is done; I am on the tests now.'}], script:FILLER.slice()}),
+   R({id:'r2', name:'long-migration', task:'Migrate the fixture data', startAgo:5420, tools:44, ctx:71,
+      own:'released', lastEv:8, ownerNote:'released at the last parent exit (continue policy)',
+      tail:[{k:'tool',s:'bash node scripts/migrate.mjs --step 7'}]}),
+   R({id:'r3', name:'lint-sweep', task:'Fix every lint warning', state:'settled', outcome:'success',
+      settledAgo:1900, tools:18, msg:'settled while no parent was open',
+      tail:[{k:'text',s:'All 61 warnings are fixed. Two rules stay disabled - see the summary.'}]}),
+   R({id:'r4', name:'ux-audit', task:'Audit the overlay copy', state:'settled', outcome:'success',
+      settledAgo:120, delivered:true, tools:9}),
+ ]},
+ 3: {name:'Trouble', make:()=>[
+   R({id:'r1', name:'tidy-docs', task:'Rewrite the setup guide', startAgo:3600, tools:22, ctx:40,
+      own:'orphaned', ownerNote:'owner crashed 12m ago', lastEv:5,
+      tail:[{k:'tool',s:'edit docs/setup.md'},{k:'toolend',s:'edit done - 5 changes'}]}),
+   R({id:'r2', name:'planner', agent:'scout', task:'Plan the storage rework', state:'lost', startAgo:4100,
+      msg:'process not confirmed - lost is not final; this can return to running or settled'}),
+   R({id:'r3', name:'bench-suite', task:'Benchmark the hot paths', state:'settled', outcome:'failure',
+      settledAgo:660, tools:6, msg:'the provider kept failing after retries',
+      tail:[{k:'err',s:'auto-retry gave up after 5 attempts (provider 529)'}]}),
+   R({id:'r4', name:'schema-check', task:'Verify the config schema', state:'settled', outcome:'interrupted',
+      settledAgo:300, tools:4, flags:{turnTail:true},
+      tail:[{k:'text',s:'The enum handling is wrong in two places. Fixing the first'}]}),
+   R({id:'r5', name:'crawler', task:'Index the wiki export', startAgo:8000, tools:210, ctx:12, lastEv:1, stream:true,
+      flags:{logSoft:'the log is 182 MB - unusually large', unknown:3}, script:FILLER.slice()}),
+ ]},
+ 4: {name:'All done', make:()=>[
+   R({id:'r1', name:'api-hardening', task:'Harden the API error paths', state:'settled', outcome:'success',
+      settledAgo:1200, delivered:true, tools:12}),
+   R({id:'r2', name:'lint-sweep', task:'Fix every lint warning', state:'settled', outcome:'success',
+      settledAgo:400, tools:18, tail:[{k:'text',s:'All 61 warnings are fixed.'}]}),
+   R({id:'r3', name:'crawler', task:'Index the wiki export', state:'settled', outcome:'stopped',
+      settledAgo:900, delivered:true, tools:210, msg:'stopped on request'}),
+   R({id:'r4', name:'dep-survey', task:'List the packages we can remove', state:'settled', outcome:'incomplete',
+      settledAgo:150, tools:2, msg:'the process ended cleanly but wrote no trusted final answer',
+      tail:[{k:'text',s:'Candidates so far: left-pad-ng, old-glob,'}]}),
+ ]},
+ 5: {name:'Hibernated', make:()=>[
+   R({id:'h1', name:'api-hardening', task:'Harden the API error paths', state:'hibernated', outcome:'success',
+      settledAgo:7200, tools:12, msg:'session kept - wake it with a new task'}),
+   R({id:'h2', name:'schema-check', task:'Verify the config schema', state:'hibernated', outcome:'interrupted',
+      settledAgo:3600, tools:4, flags:{turnTail:true},
+      msg:'last run was interrupted - a wake adds a note: the last turn may be incomplete'}),
+   R({id:'h3', name:'planner', agent:'scout', task:'Plan the storage rework', state:'lost',
+      flags:{wakeRefused:'a process still sits on pid 4821 and cannot be ruled out - wake clears when the pid frees'},
+      startAgo:9000}),
+   R({id:'r4', name:'test-triage', task:'Make the flaky queue tests stable', startAgo:433, tools:7, ctx:21,
+      lastEv:2, stream:true, script:FILLER.slice()}),
+ ]},
+ 6: {name:'Cold peek', make:()=>[
+   R({id:'r1', name:'long-migration', task:'Migrate the fixture data', startAgo:5420, tools:44, ctx:71, lastEv:2,
+      stream:true, flags:{truncated:'showing the last 64 KB - older output is not loaded', torn:true},
+      msg:'just claimed - this view opened at once with what exists',
+      tail:[{k:'tool',s:'bash node scripts/migrate.mjs --step 7'},{k:'toolend',s:'bash done - step 7 of 12'}],
+      script:FILLER.slice()}),
+   R({id:'r2', name:'crawler', task:'Index the wiki export', startAgo:8000, tools:210, ctx:12, lastEv:4,
+      flags:{restarted:'the log file changed under us - history was rebuilt from the tail'},
+      tail:[{k:'tool',s:'bash node scripts/crawl.mjs --shard 9'}]}),
+   R({id:'r3', name:'dep-survey', task:'List the packages we can remove', startAgo:60, tools:0, ctx:0,
+      flags:{noData:true}, msg:'no events yet - the log is not readable from here; this view retries by itself'}),
+   R({id:'r4', name:'fresh-start', task:'Draft the release notes', state:'launching', startAgo:1}),
+ ]},
+};
+
+/* ---------------- state ---------------- */
+const VARIANTS = [
+  {key:'A', name:'Lanes - summary widget, command-center overlay'},
+  {key:'B', name:'Tree - the widget is the list, per-run live view'},
+  {key:'C', name:'Inbox - needs-you first, master-detail overlay'},
+];
+let st = {
+  v:0, sc:1, runs:[], sel:0, overlay:false, tab:0, showDismissed:false,
+  confirm:null, toast:'', simNow:0, spin:0,
+};
+const SPIN='◜◠◝◞◡◟';
+
+function loadHash(){
+  const h = new URLSearchParams(location.hash.slice(1));
+  const v = VARIANTS.findIndex(x=>x.key===(h.get('variant')||'A'));
+  st.v = v<0?0:v;
+  st.sc = Math.min(6, Math.max(1, +(h.get('scenario')||1)));
+}
+function saveHash(){
+  history.replaceState(null,'', '#variant='+VARIANTS[st.v].key+'&scenario='+st.sc);
+}
+function loadScenario(){
+  st.runs = SCENARIOS[st.sc].make();
+  st.sel = 0; st.overlay = false; st.confirm = null; st.toast=''; st.simNow = 0; st.tab = 0;
+}
+
+/* ---------------- shared vocab + helpers ---------------- */
+function fmtDur(s){ s=Math.max(0,Math.round(s));
+  if(s<60) return s+'s';
+  if(s<3600) return Math.floor(s/60)+'m'+String(s%60).padStart(2,'0')+'s';
+  return Math.floor(s/3600)+'h'+String(Math.floor(s/60)%60).padStart(2,'0')+'m'; }
+function esc(x){ return x.replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+function elapsed(r){ return r.state==='settled'||r.state==='hibernated' ? r.startAgo : r.startAgo + st.simNow; }
+function agoSettled(r){ return fmtDur(r.settledAgo + st.simNow)+' ago'; }
+
+function statusWord(r){
+  if(r.state==='launching') return 'launching';
+  if(r.state==='lost') return 'lost';
+  if(r.state==='hibernated') return 'hibernated';
+  if(r.state==='running') return r.msgOverride||'running';
+  return {success:'done', failure:'failed', incomplete:'incomplete',
+          interrupted:'interrupted', stopped:'stopped'}[r.outcome]||'settled';
+}
+function statusCls(r){
+  if(r.state==='lost') return 'err';
+  if(r.state==='launching') return 'dim';
+  if(r.state==='hibernated') return 'pur';
+  if(r.state==='running') return r.flags.stall?'warn':'acc';
+  return {success:'ok', failure:'err', incomplete:'warn', interrupted:'warn', stopped:'dim'}[r.outcome]||'dim';
+}
+function glyph(r){
+  if(r.state==='launching') return '◌';
+  if(r.state==='lost') return '?';
+  if(r.state==='hibernated') return '~';
+  if(r.state==='running') return SPIN[st.spin%SPIN.length];
+  return {success:'✓', failure:'✕', incomplete:'◐', interrupted:'⚡', stopped:'■'}[r.outcome]||'•';
+}
+function fresh(r){ // freshness cue for running runs
+  if(r.state!=='running') return null;
+  const a = r.lastEv;
+  if(r.flags.noData) return {txt:'no data', cls:'faint'};
+  if(a<5) return {txt:'live·'+(a<2?'now':Math.round(a)+'s'), cls:'ok'};
+  if(a<60) return {txt:'last event '+Math.round(a)+'s ago', cls:'warn'};
+  return {txt:'no events for '+fmtDur(a), cls:'err'};
+}
+function needsYou(r){
+  if(r.dismissed) return false;
+  if(r.own==='orphaned' && (r.state==='running'||r.state==='launching'||r.state==='lost')) return true;
+  if(r.state==='lost') return true;
+  if(r.state==='settled' && !r.delivered && r.outcome!=='success') return true;
+  return false;
+}
+function nextVerb(r){
+  if(r.state==='lost') return r.flags.wakeRefused ? 'wait' : 'watch';
+  if(r.own==='orphaned') return 'claim';
+  if(r.own==='released') return 'claim';
+  if(r.state==='hibernated') return 'wake';
+  if(r.state==='settled' && !r.delivered) return r.outcome==='interrupted' ? 'wake' : 'read';
+  return '';
+}
+function ownBadge(r){
+  if(r.own==='orphaned') return {txt:'orphaned'+(r.ownerNote?' · '+r.ownerNote:''), cls:'err'};
+  if(r.own==='released') return {txt:'released', cls:'warn'};
+  return null;
+}
+function counts(){
+  const live = st.runs.filter(r=>!r.dismissed);
+  return {
+    running: live.filter(r=>r.state==='running'||r.state==='launching').length,
+    needs: live.filter(needsYou).length,
+    results: live.filter(r=>r.state==='settled' && !r.delivered && r.outcome==='success').length,
+    hib: live.filter(r=>r.state==='hibernated').length,
+  };
+}
+function flagLines(r){
+  const f=r.flags, out=[];
+  if(f.reattached) out.push(['info','reattached after the parent restarted']);
+  if(f.truncated) out.push(['warn', f.truncated]);
+  if(f.restarted) out.push(['warn', f.restarted]);
+  if(f.unknown) out.push(['warn', f.unknown+' events not understood (newer Pi than this extension?)']);
+  if(f.logSoft) out.push(['warn', f.logSoft]);
+  if(f.stall) out.push(['err','no events for '+fmtDur(r.lastEv)+' - the run may be stalled']);
+  if(f.turnTail) out.push(['warn','the last turn may be incomplete (the run was interrupted)']);
+  if(f.wakeRefused) out.push(['err','wake refused: '+f.wakeRefused]);
+  if(r.state==='settled' && !r.delivered) out.push(['info','undelivered result - waiting for its owner']);
+  return out;
+}
+
+/* ---------------- actions (prototype-local, mimic the contract) ------------- */
+function visibleActions(r){
+  const a=[];
+  if(!r) return a;
+  if(r.state==='running'&&r.own==='owned'){ a.push(['i','interrupt'],['s','stop']); }
+  if(r.state==='running'&&r.own!=='owned'){ a.push(['c','claim']); if(r.own==='orphaned') a.push(['s','stop']); }
+  if(r.state==='launching'){ a.push(['i','interrupt (fails: still launching)']); }
+  if(r.state==='hibernated'||r.state==='settled'&&!r.delivered&&r.outcome==='interrupted') a.push(['w','wake']);
+  if(r.state==='lost'&&!r.flags.wakeRefused) a.push(['w','wake (needs proof the old process is dead)']);
+  if(r.state==='settled'||r.state==='hibernated'||r.state==='lost'){ a.push(['d','dismiss'],['x','delete']); }
+  return a;
+}
+function doAction(key){
+  const r = selRun(); if(!r) return;
+  const t=(m)=>{ st.toast=m; };
+  if(key==='i'){
+    if(r.state==='launching'){ t('interrupt failed: still launching - retry shortly'); return; }
+    if(r.state!=='running'){ t('interrupt failed: already settled'); return; }
+    t('interrupt applied - the request is delivered; the effect arrives as a settled event');
+    r.stream=false; r.msgOverride='interrupt sent';
+    setTimeout(()=>{ r.state='settled'; r.outcome='interrupted'; r.flags.turnTail=true;
+      r.settledAgo=0; r.startAgo=elapsed(r); r.msgOverride=''; render(); }, 1800);
+  }
+  if(key==='s'){
+    if(r.state!=='running'){ t('stop failed: nothing to stop'); return; }
+    t('stop applied - SIGTERM now, SIGKILL after the window if needed');
+    r.stream=false; r.msgOverride='stop sent';
+    setTimeout(()=>{ r.state='settled'; r.outcome='stopped'; r.settledAgo=0;
+      r.startAgo=elapsed(r); r.msgOverride=''; render(); }, 1400);
+  }
+  if(key==='c'){
+    if(r.own!=='released'&&r.own!=='orphaned'){ t('claim failed: the run has a living owner'); return; }
+    r.own='owned'; r.ownerNote='';
+    t('claimed - this session is now the owner and receives the result');
+  }
+  if(key==='w'){
+    if(r.flags.wakeRefused){ t('wake refused: '+r.flags.wakeRefused); return; }
+    if(r.state==='lost'){ t('wake applied - the old process is confirmed dead; a new run starts'); }
+    else if(r.state==='hibernated'||r.outcome==='interrupted'){ t('wake applied - a new run starts on this session'); }
+    else { t('wake failed: the session is not hibernated'); return; }
+    const note = (r.outcome==='interrupted'||r.flags.turnTail);
+    r.state='running'; r.outcome=null; r.own='owned'; r.delivered=false; r.dismissed=false;
+    r.startAgo=0; r.lastEv=0; r.tools=0; r.ctx=0; r.stream=true; r.script=FILLER.slice();
+    r.flags={resumeOf:true, wakeNote:note}; r.msg='';
+    r.tail = note ? [{k:'info',s:'wake note: the previous turn was interrupted - its tail may be missing; do not assume the last actions completed'}] : [{k:'info',s:'woken - new run on the same session'}];
+  }
+  if(key==='d'){ r.dismissed=true; t('dismissed - the row is hidden; nothing is removed'); fixSel(); }
+  if(key==='x'){ st.confirm=r.id; }
+}
+function confirmDelete(yes){
+  const r = st.runs.find(x=>x.id===st.confirm); st.confirm=null;
+  if(yes&&r){ st.runs = st.runs.filter(x=>x!==r);
+    st.toast='deleted - run artifacts removed; the Pi session transcript is kept'; fixSel(); }
+}
+
+/* ---------------- visible list per variant ---------------- */
+function listRuns(){ // ordered, per current variant's hierarchy bet
+  const live = st.runs.filter(r=>!r.dismissed);
+  const dismissed = st.runs.filter(r=>r.dismissed);
+  const running = live.filter(r=>(r.state==='running'||r.state==='launching') && !needsYou(r));
+  const needs = live.filter(needsYou);
+  const results = live.filter(r=>r.state==='settled'&&!r.delivered&&r.outcome==='success');
+  const done = live.filter(r=>r.state==='settled'&&r.delivered);
+  const hib = live.filter(r=>r.state==='hibernated');
+  if(VARIANTS[st.v].key==='C')
+    return {groups:[['needs you',needs],['running',running],['results',results],['hibernated',hib],['done',done],
+                    ['dismissed',st.showDismissed?dismissed:[]]]};
+  return {groups:[['needs you',needs],['running',running],['results',results],['hibernated',hib],['done',done],
+                  ['dismissed',st.showDismissed?dismissed:[]]]};
+}
+function flatList(){ return listRuns().groups.flatMap(([,rs])=>rs); }
+function selRun(){ return flatList()[st.sel]; }
+function fixSel(){ st.sel = Math.min(st.sel, Math.max(0, flatList().length-1)); }
+
+/* ---------------- widget renderers ---------------- */
+function span(cls, s){ return '<span class="'+cls+'">'+s+'</span>'; }
+
+function widgetA(){
+  const c = counts(); const out=[];
+  if(!st.runs.filter(r=>!r.dismissed).length) return [];
+  const bits=[];
+  if(c.running) bits.push(span('acc', c.running+' running'));
+  if(c.needs) bits.push(span('err', c.needs+' need you'));
+  if(c.results) bits.push(span('ok', c.results+' result'+(c.results>1?'s':'')+' waiting'));
+  if(c.hib) bits.push(span('pur', c.hib+' hibernated'));
+  out.push(span('b','● Agents')+'  '+bits.join(span('faint',' · '))+span('faint','   (o: open)'));
+  const needs = st.runs.filter(r=>!r.dismissed&&needsYou(r));
+  if(needs.length){
+    out.push('  '+span('err','⚠ ')+needs.map(r=>span('err',nextVerb(r)+' '+r.name)
+      +span('dim',' ('+statusWord(r)+(r.ownerNote?' · '+r.ownerNote:'')+')')).join(span('faint',' · ')));
+  }
+  return out;
+}
+
+function widgetB(){
+  const {groups} = listRuns(); const out=[]; const c=counts();
+  const rows = groups.flatMap(([g,rs])=>g==='hibernated'||g==='done'||g==='dismissed'?[]:rs);
+  const hib = c.hib;
+  if(!rows.length && !hib) return [];
+  out.push(span('b','● Agents')+span('faint',' · ')+span('acc',c.running+' running')
+    +(c.results?span('faint',' · ')+span('ok',c.results+' waiting'):'')
+    +(c.needs?span('faint',' · ')+span('err',c.needs+' need you'):''));
+  const max=6;
+  rows.slice(0,max).forEach((r,i)=>{
+    const last = i===Math.min(rows.length,max)-1 && !hib;
+    const f=fresh(r); const ob=ownBadge(r);
+    let line=(last?'└─ ':'├─ ')+span(statusCls(r),glyph(r))+' '+span('b',r.name)+span('acc',' ['+r.agent+']');
+    if(r.mode==='pane') line+=span('pur',' pane '+r.pane);
+    if(ob) line+=span('faint',' · ')+span(ob.cls,ob.txt.split(' · ')[0]);
+    if(r.state==='running'){ line+=span('faint',' · ')+span('dim',r.tools+' tools · '+r.ctx+'% ctx');
+      if(r.curTool) line+=span('faint',' · ')+span('cyan','▸ '+r.curTool+' '+fmtDur(r.curToolAgo+st.simNow));
+    } else line+=span('faint',' · ')+span(statusCls(r),statusWord(r))
+      +(r.state==='settled'&&!r.delivered?span('ok',' · result waiting'):'')
+      +span('dim',r.state==='settled'?' · '+agoSettled(r):'');
+    if(f) line+='  '+span(f.cls,'●'+f.txt.replace('live·',''));
+    out.push(line);
+  });
+  if(rows.length>max) out.push(span('faint','   … +'+(rows.length-max)+' more - o to open'));
+  if(hib) out.push(span('faint',(rows.length? '   ':'')+'~ '+hib+' hibernated · o to open'));
+  return out;
+}
+
+function widgetC(){
+  const c = counts(); const out=[];
+  if(!st.runs.filter(r=>!r.dismissed).length) return [];
+  const needs = st.runs.filter(r=>!r.dismissed&&needsYou(r));
+  if(needs.length)
+    out.push(span('err','⚠ needs you: ')+needs.map(r=>span('b',nextVerb(r)+' '+r.name)
+      +span('dim',' ('+statusWord(r)+(r.state==='settled'?', '+agoSettled(r):'')+')')).join(span('faint',' · ')));
+  const quiet=[];
+  if(c.running) quiet.push(span('acc','▶ '+c.running+' running'));
+  if(c.results) quiet.push(span('ok','✉ '+c.results+' result'+(c.results>1?'s':'')+' waiting'));
+  if(c.hib) quiet.push(span('pur','~ '+c.hib+' hibernated'));
+  out.push((quiet.length?quiet.join(span('faint',' · ')):span('dim','all quiet'))+span('faint','   (o: open)'));
+  return out;
+}
+
+/* ---------------- overlay renderers ---------------- */
+function tailHtml(r, maxLines){
+  if(r.flags.noData) return span('faint','  no events yet - the log is not readable from here.\n  This view retries by itself.');
+  const kinds={think:'think', text:'', tool:'cyan', toolend:'dim', info:'acc', warn:'warn', err:'err'};
+  let lines = r.tail.map(e=>{
+    const pre = e.k==='tool'?'▸ ':e.k==='toolend'?'  ':e.k==='info'?'ℹ ':e.k==='warn'||e.k==='err'?'⚠ ':'';
+    let s = esc(e.s);
+    if(e===r.tail[r.tail.length-1] && r.typing) s = s.slice(0, r.typing.pos)+span('faint','▊');
+    return span(kinds[e.k]||'', pre+s);
+  });
+  if(r.flags.torn) lines.push(span('faint','⋯ {"type":"message_upd')+span('warn','  (partial line - still being written)'));
+  return lines.slice(-maxLines).join('\n');
+}
+function headerFacts(r){
+  const f=fresh(r); const ob=ownBadge(r);
+  const bits=[span(statusCls(r),statusWord(r))];
+  bits.push(span(ob?ob.cls:'dim', ob?ob.txt:'owned'));
+  if(f) bits.push(span(f.cls,f.txt));
+  if(r.state==='running'||r.state==='launching') bits.push(span('dim',fmtDur(elapsed(r))));
+  if(r.state==='settled') bits.push(span('dim','settled '+agoSettled(r)));
+  bits.push(span('dim',r.tools+' tools'));
+  if(r.ctx) bits.push(span('dim',r.ctx+'% ctx'));
+  return bits.join(span('faint',' · '));
+}
+function footer(html){ return '\n'+span('faint','─'.repeat(96))+'\n'+html; }
+function confirmBar(){
+  const r = st.runs.find(x=>x.id===st.confirm);
+  return footer(span('warn','delete the run artifacts of "'+r.name+'"? The Pi session transcript is kept.  ')
+    + span('b','[y] yes   [n] no'));
+}
+function actionBar(r){
+  const acts = visibleActions(r).map(([k,l])=>span('b','['+k+'] ')+span('dim',l)).join('   ');
+  const toast = st.toast? '\n'+span('note',esc(st.toast)) : '';
+  return footer((acts||span('faint','no actions for this row'))
+    + '   '+span('faint','Esc: close')) + toast;
+}
+
+function overlayA(){
+  const c=counts(); const {groups}=listRuns(); const flat=flatList(); const r=selRun();
+  let head = span('b','Background runs')+span('faint','  ·  ')+span('acc',c.running+' running')
+    +span('faint',' · ')+span('err',c.needs+' need you')+span('faint',' · ')
+    +span('ok',c.results+' waiting')+span('faint',' · ')+span('pur',c.hib+' hibernated')+'\n'
+    +span('faint','─'.repeat(96))+'\n';
+  const left=[]; let idx=0;
+  for(const [g,rs] of groups){ if(!rs.length) continue;
+    left.push(span('faint',g.toUpperCase()));
+    for(const x of rs){ const on = idx===st.sel;
+      const row = (on?'▸ ':'  ')+span(statusCls(x),glyph(x))+' '+x.name
+        + (x.mode==='pane'?span('pur',' ⌗'):'')
+        + span('dim',' '+(x.state==='settled'?agoSettled(x):x.state==='running'?fmtDur(elapsed(x)):''));
+      left.push(on?span('selrow',row):row); idx++; }
+  }
+  while(left.length<20) left.push('');
+  const right=[];
+  if(r){
+    right.push(span('b',r.name)+span('acc',' ['+r.agent+']')+span('dim',' · '+r.model)
+      + (r.mode==='pane'?span('pur','  interactive - pane '+r.pane):''));
+    right.push(headerFacts(r));
+    right.push(span('dim','task: ')+span('','' +esc(r.task)));
+    for(const [cls,msg] of flagLines(r)) right.push(span(cls==='info'?'acc':cls,'• '+msg));
+    if(r.msg) right.push(span('dim','• '+r.msg));
+    right.push(span('faint','── live view '+ (r.state==='running'?'(streaming)':'(final)')+' '+'─'.repeat(40)));
+    if(r.mode==='pane') right.push(span('dim','the pane is the live view - press f to focus it (not simulated)'));
+    else right.push(tailHtml(r, 11));
+  }
+  const L=22, W=34;
+  const body = left.slice(0,L).map((l,i)=>{
+    const plain=l.replace(/<[^>]+>/g,''); const pad=Math.max(0,W-plain.length);
+    return l+' '.repeat(pad)+span('faint','│ ')+(right[i]||'');
+  }).join('\n');
+  return head+body+(st.confirm?confirmBar():actionBar(r));
+}
+
+function overlayB(){
+  const flat=flatList(); if(!flat.length) return span('dim','no runs');
+  st.sel=Math.min(st.sel,flat.length-1);
+  const r=flat[st.sel];
+  let out = span('faint','◀ ')+span('b',(st.sel+1)+'/'+flat.length)+span('faint',' ▶  ')
+    + span('b',r.name)+span('acc',' ['+r.agent+']')+span('dim',' · '+r.model)
+    + (r.mode==='pane'?span('pur','  pane '+r.pane):'')+'\n'
+    + headerFacts(r)+'\n'
+    + span('dim','task: '+esc(r.task))+'\n';
+  for(const [cls,msg] of flagLines(r)) out+=span(cls==='info'?'acc':cls,'• '+msg)+'\n';
+  if(r.msg) out+=span('dim','• '+r.msg)+'\n';
+  out += span('faint','─'.repeat(96))+'\n';
+  out += r.mode==='pane'
+    ? span('dim','interactive run - the pane is the live view; press f to focus it (not simulated)')
+    : tailHtml(r, 18);
+  return out+(st.confirm?confirmBar():actionBar(r));
+}
+
+function overlayC(){
+  const {groups}=listRuns(); const flat=flatList(); const r=selRun();
+  const tabs=['tail','facts','actions'];
+  let head = span('b','Runs')+'   '+tabs.map((t,i)=>i===st.tab?span('selrow b',' '+t+' '):span('dim',' '+t+' ')).join('')
+    + span('faint','   Tab: switch · h: dismissed rows')+'\n'+span('faint','─'.repeat(96))+'\n';
+  const left=[]; let idx=0;
+  for(const [g,rs] of groups){ if(!rs.length) continue;
+    left.push(span('faint',g.toUpperCase()));
+    for(const x of rs){ const on=idx===st.sel; const f=fresh(x);
+      const verb=nextVerb(x);
+      const row=(on?'▸ ':'  ')+span(statusCls(x),glyph(x))+' '+x.name.padEnd(16).slice(0,16)
+        +span('dim',(statusWord(x)+(x.own!=='owned'?'·'+x.own:'')).padEnd(20).slice(0,20))
+        +(f?span(f.cls,f.txt.padEnd(12).slice(0,12)):' '.repeat(12))
+        +(verb?span('b','→ '+verb):'');
+      left.push(on?span('selrow',row):row); idx++; }
+  }
+  while(left.length<20) left.push('');
+  const right=[];
+  if(r){
+    if(st.tab===0){ right.push(span('faint','live view - full content (human only)'));
+      right.push(...(r.mode==='pane'
+        ? [span('dim','pane '+r.pane+' is the live view (f: focus)')]
+        : tailHtml(r, 15).split('\n'))); }
+    if(st.tab===1){
+      right.push(span('b',r.name)+span('acc',' ['+r.agent+']'));
+      right.push(headerFacts(r));
+      right.push(span('dim','task: '+esc(r.task)));
+      right.push(span('dim','session: kept (transcript survives delete)'));
+      right.push(span('dim','mode: '+(r.mode==='pane'?'interactive, pane '+r.pane:'background')));
+      for(const [cls,msg] of flagLines(r)) right.push(span(cls==='info'?'acc':cls,'• '+msg));
+      if(r.msg) right.push(span('dim','• '+r.msg));
+    }
+    if(st.tab===2){
+      right.push(span('faint','actions for this run'));
+      for(const [k,l] of visibleActions(r)) right.push(span('b','['+k+'] ')+l);
+      right.push('');
+      right.push(span('dim','dismiss hides the row and removes nothing.'));
+      right.push(span('dim','delete removes the run artifacts; the Pi session transcript is kept.'));
+    }
+  }
+  const L=20, W=52;
+  const body=left.slice(0,L).map((l,i)=>{
+    const plain=l.replace(/<[^>]+>/g,''); const pad=Math.max(0,W-plain.length);
+    return l+' '.repeat(pad)+span('faint','│ ')+(right[i]||'');
+  }).join('\n');
+  return head+body+(st.confirm?confirmBar():actionBar(r));
+}
+
+/* ---------------- chat scrollback (context density) ---------------- */
+const CHAT =
+`<span class="u">&gt; Refactor the retry logic, fix the flaky tests, and keep the docs in sync.</span>
+
+I split this into background runs and kept one interactive pane for the REPL question.
+<span class="t">  ⏺ subagent (background): api-hardening, test-triage, doc-sync, dep-survey ✓</span>
+<span class="t">  ⏺ subagent (interactive): repl-explorer in pane 2 ✓</span>
+
+The children run on their own. Results arrive here when each run settles;
+this session stays free for other work.
+`;
+
+/* ---------------- tick + render ---------------- */
+function tick(){
+  st.simNow+=0.5; st.spin++;
+  for(const r of st.runs){
+    if(r.state!=='running') continue;
+    if(r.curTool) r.curToolAgo+=0; // shown via +simNow
+    if(r.stream){
+      if(r.typing){ r.typing.pos+=7; r.lastEv=0;
+        if(r.typing.pos>=r.typing.len) r.typing=null; }
+      else if(st.spin%3===0){
+        if(!r.script.length) r.script=FILLER.slice();
+        const e=r.script.shift(); r.tail.push({k:e.k,s:e.s}); r.lastEv=0;
+        if(e.k==='text'||e.k==='think') r.typing={pos:4,len:e.s.length};
+        if(e.k==='tool'){ r.curTool=e.s; r.curToolAgo=-st.simNow; }
+        if(e.k==='toolend'){ r.curTool=null; r.tools++; r.ctx=Math.min(99,r.ctx+1); }
+        if(r.tail.length>40) r.tail.shift();
+      } else r.lastEv+=0.5;
+    } else r.lastEv+=0.5;
+  }
+  render();
+}
+function render(){
+  saveHash();
+  document.getElementById('chat').innerHTML=CHAT;
+  const wfn=[widgetA,widgetB,widgetC][st.v];
+  const wl=wfn();
+  document.getElementById('widget').innerHTML = wl.length?wl.join('\n'):span('faint','(widget hidden - nothing to show)');
+  const ov=document.getElementById('overlay');
+  ov.className = st.overlay?'open':'';
+  if(st.overlay) ov.innerHTML=[overlayA,overlayB,overlayC][st.v]();
+  document.getElementById('vLabel').textContent=VARIANTS[st.v].key+' — '+VARIANTS[st.v].name;
+  document.getElementById('slRight').textContent='scenario '+st.sc+': '+SCENARIOS[st.sc].name;
+  const scens=document.getElementById('scens');
+  scens.innerHTML=Object.keys(SCENARIOS).map(k=>'<span class="sc'+(+k===st.sc?' on':'')+'" data-k="'+k+'">'+k+'</span>').join(' ');
+  document.getElementById('stateJson').textContent = JSON.stringify(st.runs.map(r=>({
+    id:r.id,name:r.name,state:r.state,outcome:r.outcome,own:r.own,
+    delivered:r.delivered,dismissed:r.dismissed,flags:r.flags})),null,1);
+}
+
+/* ---------------- input ---------------- */
+function cycleVariant(d){ st.v=(st.v+d+VARIANTS.length)%VARIANTS.length; st.toast=''; render(); }
+function setScenario(k){ st.sc=k; loadScenario(); render(); }
+document.getElementById('prevV').onclick=()=>cycleVariant(-1);
+document.getElementById('nextV').onclick=()=>cycleVariant(1);
+document.getElementById('scens').onclick=e=>{ if(e.target.dataset.k) setScenario(+e.target.dataset.k); };
+
+document.addEventListener('keydown',e=>{
+  if(e.target.matches('input,textarea,[contenteditable]')) return;
+  const k=e.key;
+  if(st.confirm){ if(k==='y') confirmDelete(true); if(k==='n'||k==='Escape') confirmDelete(false); render(); return; }
+  if(k==='[') return cycleVariant(-1);
+  if(k===']') return cycleVariant(1);
+  if(k>='1'&&k<='6') return setScenario(+k);
+  if(k==='o'){ st.overlay=!st.overlay; st.toast=''; return render(); }
+  if(!st.overlay){
+    if(k==='ArrowLeft') return cycleVariant(-1);
+    if(k==='ArrowRight') return cycleVariant(1);
+    return;
+  }
+  if(k==='Escape'){ st.overlay=false; return render(); }
+  const flat=flatList();
+  if(k==='ArrowUp'){ st.sel=Math.max(0,st.sel-1); st.toast=''; }
+  if(k==='ArrowDown'){ st.sel=Math.min(flat.length-1,st.sel+1); st.toast=''; }
+  if(VARIANTS[st.v].key==='B'){
+    if(k==='ArrowLeft'){ st.sel=Math.max(0,st.sel-1); st.toast=''; }
+    if(k==='ArrowRight'){ st.sel=Math.min(flat.length-1,st.sel+1); st.toast=''; }
+  }
+  if(VARIANTS[st.v].key==='C'&&k==='Tab'){ e.preventDefault(); st.tab=(st.tab+1)%3; }
+  if(k==='h'){ st.showDismissed=!st.showDismissed; fixSel(); }
+  if('iscwdx'.includes(k)) doAction(k);
+  render();
+});
+
+loadHash(); loadScenario(); render();
+setInterval(tick, 500);
+</script>
+</body>
+</html>
