@@ -5,32 +5,35 @@
   Question (wayfinder ticket #13): what widget and overlay experience makes
   background runs understandable and controllable?
 
-  Round 2. Round 1 picked the "Tree" bet: the widget IS the list of runs, and
-  the overlay is a single-run live view (no list inside the overlay).
-  This round shows three interpretations of that bet, switchable via #variant=.
-  Round 1 (Lanes / Tree / Inbox) is the previous commit on this branch.
+  Round 3: the merged design. Round 1 picked "the widget is the list, the
+  overlay is a one-run live view". Round 2 picked the Ledger widget (B1) and
+  the Cards overlay (B2). This file is that merge, with the round-2 fix list:
+    - widget: no tree glyphs (indent shows nesting), no tool noise, hard cap
+      with a collapse line; child runs indent under their parent run
+    - overlay: sticky footer bar; context shown as tokens (140K / 1M);
+      dismiss and delete always offered (delete on a live run = stop and
+      delete, behind a confirm); pane runs get [f]ocus in the footer and no
+      duplicated header note; hint reads "switch tab"
+  Rounds 1 and 2 are the previous commits on this branch.
 
   How to run: double-click this file (or: open src/PROTOTYPE-bg-run-ux.html).
 
   Keys:
-    [ / ]        previous / next interpretation (arrows too, while overlay is closed)
     1 .. 6       switch scenario (only while the overlay is closed)
     o            open / close the overlay
-    left / right page runs inside the overlay
-    1 .. 9       jump to run N inside the overlay (B2)
-    j            jump list (B3)   !: toggle flag details (B3)
-    i s c w d x  interrupt / stop / claim / wake / dismiss / delete (contextual)
+    left / right switch tab inside the overlay; 1..9 jumps to tab N
+    i s c w d x f  interrupt / stop / claim / wake / dismiss / delete / focus
     h            show or hide dismissed rows
     Esc          close the overlay / cancel
 
-  Feasibility notes baked into the designs (verified against pi 0.84.1):
+  Feasibility notes baked into the design (verified against pi 0.84.1):
     - widgets are display-only (no key input); string widgets cap at 10 lines
     - overlays are full custom components with key input and live re-render
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>PROTOTYPE - background-run UX (round 2: interpretations of B)</title>
+<title>PROTOTYPE - background-run UX (round 3: merged design)</title>
 <style>
   :root{
     --bg:#0e1116; --panel:#151a21; --text:#c9d1d9; --dim:#8b949e; --faint:#484f58;
@@ -51,8 +54,10 @@
   #statusline{color:var(--faint);margin-top:6px;font-size:12px;display:flex;justify-content:space-between}
   #overlay{position:absolute;inset:26px 30px 84px;background:var(--panel);
            border:1px solid var(--accent);border-radius:8px;padding:8px 12px;
-           white-space:pre-wrap;overflow:hidden;box-shadow:0 12px 40px #000c;display:none}
-  #overlay.open{display:block}
+           overflow:hidden;box-shadow:0 12px 40px #000c;display:none;flex-direction:column}
+  #overlay.open{display:flex}
+  #ovBody{flex:1;overflow:hidden;white-space:pre-wrap}
+  #ovFoot{border-top:1px solid var(--border);padding-top:5px;margin-top:6px;white-space:pre-wrap}
   .ok{color:var(--ok)} .warn{color:var(--warn)} .err{color:var(--err)}
   .dim{color:var(--dim)} .faint{color:var(--faint)} .acc{color:var(--accent)}
   .think{color:var(--think);font-style:italic} .cyan{color:var(--cyan)} .pur{color:var(--purple)}
@@ -61,8 +66,6 @@
   #bar{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;background:#e6edf3;
        color:#0d1117;border-radius:999px;padding:7px 16px;display:flex;gap:14px;align-items:center;
        font-weight:600;box-shadow:0 6px 24px #000a;z-index:9;font-size:13px}
-  #bar button{font:inherit;border:0;background:#0d1117;color:#e6edf3;border-radius:999px;
-       padding:2px 10px;cursor:pointer}
   #bar .sc{background:#c6d0da;color:#0d1117;padding:2px 8px;border-radius:6px;cursor:pointer}
   #bar .sc.on{background:#0d1117;color:#fff}
   #drawer{position:fixed;right:8px;top:8px;width:330px;max-height:86vh;overflow:auto;
@@ -78,13 +81,11 @@
   <div id="widget"></div>
   <div id="editor">&gt; <span style="border-left:6px solid var(--dim)">&nbsp;</span></div>
   <div id="statusline"><span id="slLeft">claude-fable-5 · main</span><span id="slRight"></span></div>
-  <div id="overlay"></div>
+  <div id="overlay"><div id="ovBody"></div><div id="ovFoot"></div></div>
 </div>
 
 <div id="bar">
-  <button id="prevV">&#9664;</button>
-  <span id="vLabel">B1</span>
-  <button id="nextV">&#9654;</button>
+  <span>round 3 — merged: ledger widget + cards overlay</span>
   <span style="border-left:1px solid #aab;height:16px"></span>
   <span id="scens"></span>
   <span style="border-left:1px solid #aab;height:16px"></span>
@@ -110,128 +111,126 @@ const FILLER = [
 ];
 
 function R(o){ return Object.assign({
-  id:'', name:'', agent:'worker', mode:'bg', pane:null,
+  id:'', name:'', agent:'worker', mode:'bg', pane:null, parent:null, depth:0,
   state:'running', outcome:null, own:'owned', ownerNote:'',
   delivered:false, dismissed:false,
-  task:'', model:'sonnet-5', startAgo:120, settledAgo:0,
-  tools:0, ctx:0, curTool:null, curToolAgo:0, lastEv:1,
+  task:'', model:'sonnet-5', win:'1M', startAgo:120, settledAgo:0,
+  tools:0, ctxK:0, curTool:null, curToolAgo:0, lastEv:1,
   stream:false, script:[], typing:null,
   flags:{}, tail:[], msg:'', msgOverride:'',
 }, o); }
 
 const SCENARIOS = {
  1: {name:'Busy', make:()=>[
-   R({id:'r1', name:'api-hardening', task:'Harden the API error paths', startAgo:754, tools:12, ctx:34,
+   R({id:'r1', name:'api-hardening', task:'Harden the API error paths', startAgo:754, tools:12, ctxK:140,
       stream:true, tail:[
         {k:'text', s:'I found three places where a failed retry hides the first error.'},
         {k:'tool', s:'read src/api/errors.ts'}, {k:'toolend', s:'read done - 210 lines'},
       ], script:FILLER.slice()}),
-   R({id:'r2', name:'test-triage', task:'Make the flaky queue tests stable', startAgo:433, tools:7, ctx:21,
+   R({id:'r1a', parent:'r1', name:'api-docs-check', task:'Check the API docs against the new error paths',
+      startAgo:220, tools:4, ctxK:22, lastEv:3,
+      tail:[{k:'text',s:'Two doc pages still show the old error codes.'}]}),
+   R({id:'r1b', parent:'r1a', name:'link-checker', agent:'scout', task:'Verify every link in the touched pages',
+      startAgo:80, tools:2, ctxK:8, lastEv:1, stream:true, script:FILLER.slice(),
+      tail:[{k:'tool',s:'bash node scripts/check-links.mjs'}]}),
+   R({id:'r2', name:'test-triage', task:'Make the flaky queue tests stable', startAgo:433, tools:7, ctxK:87,
       curTool:'bash pnpm test --filter queue', curToolAgo:12, lastEv:12,
       tail:[{k:'text',s:'Two tests share one temp directory. I isolate them.'},
             {k:'tool',s:'bash pnpm test --filter queue'}]}),
    R({id:'r3', name:'dep-survey', task:'List the packages we can remove', state:'launching', startAgo:2,
       msg:'record written - waiting for the process (spawn grace)'}),
-   R({id:'r4', name:'doc-sync', task:'Keep the docs in sync with the new API', startAgo:1140, tools:3, ctx:9,
+   R({id:'r4', name:'doc-sync', task:'Keep the docs in sync with the new API', startAgo:1140, tools:3, ctxK:36,
       lastEv:243, flags:{stall:true},
       tail:[{k:'tool',s:'bash pnpm run docs:build'},{k:'warn',s:'no events for 4m - the run may be stalled'}]}),
    R({id:'r5', name:'repl-explorer', agent:'scout', mode:'pane', pane:2, task:'Explore the failing REPL session',
-      startAgo:301, tools:5, ctx:14, lastEv:3,
-      msg:'interactive run - its live view is the pane itself'}),
+      startAgo:301, tools:5, ctxK:56, lastEv:3}),
    R({id:'r6', name:'ux-audit', task:'Audit the overlay copy', state:'settled', outcome:'success',
-      settledAgo:480, tools:9, tail:[{k:'text',s:'Done. I list eight copy fixes, three are urgent.'}]}),
+      settledAgo:480, tools:9, ctxK:64, tail:[{k:'text',s:'Done. I list eight copy fixes, three are urgent.'}]}),
  ]},
  2: {name:'After restart', make:()=>[
-   R({id:'r1', name:'api-hardening', task:'Harden the API error paths', startAgo:2210, tools:31, ctx:58,
+   R({id:'r1', name:'api-hardening', task:'Harden the API error paths', startAgo:2210, tools:31, ctxK:412,
       stream:true, flags:{reattached:true, truncated:'showing the last 64 KB - older output is not loaded'},
       tail:[{k:'info',s:'reattached after the parent restarted - the run never noticed'},
             {k:'text',s:'The middleware rewrite is done; I am on the tests now.'}], script:FILLER.slice()}),
-   R({id:'r2', name:'long-migration', task:'Migrate the fixture data', startAgo:5420, tools:44, ctx:71,
+   R({id:'r2', name:'long-migration', task:'Migrate the fixture data', startAgo:5420, tools:44, ctxK:530,
       own:'released', lastEv:8, ownerNote:'released at the last parent exit (continue policy)',
       tail:[{k:'tool',s:'bash node scripts/migrate.mjs --step 7'}]}),
    R({id:'r3', name:'lint-sweep', task:'Fix every lint warning', state:'settled', outcome:'success',
-      settledAgo:1900, tools:18, msg:'settled while no parent was open',
+      settledAgo:1900, tools:18, ctxK:96, msg:'settled while no parent was open',
       tail:[{k:'text',s:'All 61 warnings are fixed. Two rules stay disabled - see the summary.'}]}),
    R({id:'r4', name:'ux-audit', task:'Audit the overlay copy', state:'settled', outcome:'success',
-      settledAgo:120, delivered:true, tools:9}),
+      settledAgo:120, delivered:true, tools:9, ctxK:64}),
  ]},
  3: {name:'Trouble', make:()=>[
-   R({id:'r1', name:'tidy-docs', task:'Rewrite the setup guide', startAgo:3600, tools:22, ctx:40,
+   R({id:'r1', name:'tidy-docs', task:'Rewrite the setup guide', startAgo:3600, tools:22, ctxK:180,
       own:'orphaned', ownerNote:'owner crashed 12m ago', lastEv:5,
       tail:[{k:'tool',s:'edit docs/setup.md'},{k:'toolend',s:'edit done - 5 changes'}]}),
    R({id:'r2', name:'planner', agent:'scout', task:'Plan the storage rework', state:'lost', startAgo:4100,
       msg:'process not confirmed - lost is not final; this can return to running or settled'}),
    R({id:'r3', name:'bench-suite', task:'Benchmark the hot paths', state:'settled', outcome:'failure',
-      settledAgo:660, tools:6, msg:'the provider kept failing after retries',
+      settledAgo:660, tools:6, ctxK:41, msg:'the provider kept failing after retries',
       tail:[{k:'err',s:'auto-retry gave up after 5 attempts (provider 529)'}]}),
    R({id:'r4', name:'schema-check', task:'Verify the config schema', state:'settled', outcome:'interrupted',
-      settledAgo:300, tools:4, flags:{turnTail:true},
+      settledAgo:300, tools:4, ctxK:28, flags:{turnTail:true},
       tail:[{k:'text',s:'The enum handling is wrong in two places. Fixing the first'}]}),
-   R({id:'r5', name:'crawler', task:'Index the wiki export', startAgo:8000, tools:210, ctx:12, lastEv:1, stream:true,
+   R({id:'r5', name:'crawler', task:'Index the wiki export', startAgo:8000, tools:210, ctxK:118, lastEv:1, stream:true,
       flags:{logSoft:'the log is 182 MB - unusually large', unknown:3}, script:FILLER.slice()}),
  ]},
  4: {name:'All done', make:()=>[
    R({id:'r1', name:'api-hardening', task:'Harden the API error paths', state:'settled', outcome:'success',
-      settledAgo:1200, delivered:true, tools:12}),
+      settledAgo:1200, delivered:true, tools:12, ctxK:140}),
    R({id:'r2', name:'lint-sweep', task:'Fix every lint warning', state:'settled', outcome:'success',
-      settledAgo:400, tools:18, tail:[{k:'text',s:'All 61 warnings are fixed.'}]}),
+      settledAgo:400, tools:18, ctxK:96, tail:[{k:'text',s:'All 61 warnings are fixed.'}]}),
    R({id:'r3', name:'crawler', task:'Index the wiki export', state:'settled', outcome:'stopped',
-      settledAgo:900, delivered:true, tools:210, msg:'stopped on request'}),
+      settledAgo:900, delivered:true, tools:210, ctxK:118, msg:'stopped on request'}),
    R({id:'r4', name:'dep-survey', task:'List the packages we can remove', state:'settled', outcome:'incomplete',
-      settledAgo:150, tools:2, msg:'the process ended cleanly but wrote no trusted final answer',
+      settledAgo:150, tools:2, ctxK:9, msg:'the process ended cleanly but wrote no trusted final answer',
       tail:[{k:'text',s:'Candidates so far: left-pad-ng, old-glob,'}]}),
  ]},
  5: {name:'Hibernated', make:()=>[
    R({id:'h1', name:'api-hardening', task:'Harden the API error paths', state:'hibernated', outcome:'success',
-      settledAgo:7200, tools:12, msg:'session kept - wake it with a new task'}),
+      settledAgo:7200, tools:12, ctxK:140, msg:'session kept - wake it with a new task'}),
    R({id:'h2', name:'schema-check', task:'Verify the config schema', state:'hibernated', outcome:'interrupted',
-      settledAgo:3600, tools:4, flags:{turnTail:true},
+      settledAgo:3600, tools:4, ctxK:28, flags:{turnTail:true},
       msg:'last run was interrupted - a wake adds a note: the last turn may be incomplete'}),
    R({id:'h3', name:'planner', agent:'scout', task:'Plan the storage rework', state:'lost',
       flags:{wakeRefused:'a process still sits on pid 4821 and cannot be ruled out - wake clears when the pid frees'},
       startAgo:9000}),
-   R({id:'r4', name:'test-triage', task:'Make the flaky queue tests stable', startAgo:433, tools:7, ctx:21,
+   R({id:'r4', name:'test-triage', task:'Make the flaky queue tests stable', startAgo:433, tools:7, ctxK:87,
       lastEv:2, stream:true, script:FILLER.slice()}),
  ]},
  6: {name:'Cold peek', make:()=>[
-   R({id:'r1', name:'long-migration', task:'Migrate the fixture data', startAgo:5420, tools:44, ctx:71, lastEv:2,
+   R({id:'r1', name:'long-migration', task:'Migrate the fixture data', startAgo:5420, tools:44, ctxK:530, lastEv:2,
       stream:true, flags:{truncated:'showing the last 64 KB - older output is not loaded', torn:true},
       msg:'just claimed - this view opened at once with what exists',
       tail:[{k:'tool',s:'bash node scripts/migrate.mjs --step 7'},{k:'toolend',s:'bash done - step 7 of 12'}],
       script:FILLER.slice()}),
-   R({id:'r2', name:'crawler', task:'Index the wiki export', startAgo:8000, tools:210, ctx:12, lastEv:4,
+   R({id:'r2', name:'crawler', task:'Index the wiki export', startAgo:8000, tools:210, ctxK:118, lastEv:4,
       flags:{restarted:'the log file changed under us - history was rebuilt from the tail'},
       tail:[{k:'tool',s:'bash node scripts/crawl.mjs --shard 9'}]}),
-   R({id:'r3', name:'dep-survey', task:'List the packages we can remove', startAgo:60, tools:0, ctx:0,
+   R({id:'r3', name:'dep-survey', task:'List the packages we can remove', startAgo:60, tools:0, ctxK:0,
       flags:{noData:true}, msg:'no events yet - the log is not readable from here; this view retries by itself'}),
    R({id:'r4', name:'fresh-start', task:'Draft the release notes', state:'launching', startAgo:1}),
  ]},
 };
 
 /* ---------------- state ---------------- */
-const VARIANTS = [
-  {key:'B1', name:'Ledger - flat one-line rows, bare live view'},
-  {key:'B2', name:'Cards - grouped cards, structured live view'},
-  {key:'B3', name:'Focus - one hero run + chips, full-bleed live view'},
-];
 let st = {
-  v:0, sc:1, runs:[], sel:0, overlay:false, showDismissed:false,
-  confirm:null, jump:null, flagDetail:false, toast:'', simNow:0, spin:0,
+  sc:1, runs:[], sel:0, overlay:false, showDismissed:false,
+  confirm:null, toast:'', simNow:0, spin:0,
 };
 const SPIN='◜◠◝◞◡◟';
 
 function loadHash(){
   const h = new URLSearchParams(location.hash.slice(1));
-  const v = VARIANTS.findIndex(x=>x.key===(h.get('variant')||'B1'));
-  st.v = v<0?0:v;
   st.sc = Math.min(6, Math.max(1, +(h.get('scenario')||1)));
 }
 function saveHash(){
-  history.replaceState(null,'', '#variant='+VARIANTS[st.v].key+'&scenario='+st.sc);
+  history.replaceState(null,'', '#scenario='+st.sc);
 }
 function loadScenario(){
   st.runs = SCENARIOS[st.sc].make();
-  st.sel = 0; st.overlay = false; st.confirm = null; st.jump=null; st.toast=''; st.simNow = 0;
+  st.sel = 0; st.overlay = false; st.confirm = null; st.toast=''; st.simNow = 0;
 }
 
 /* ---------------- shared vocab + helpers ---------------- */
@@ -242,6 +241,7 @@ function fmtDur(s){ s=Math.max(0,Math.round(s));
 function esc(x){ return x.replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
 function elapsed(r){ return r.state==='settled'||r.state==='hibernated' ? r.startAgo : r.startAgo + st.simNow; }
 function agoSettled(r){ return fmtDur(r.settledAgo + st.simNow)+' ago'; }
+function ctxTok(r){ return r.ctxK>=1000 ? (r.ctxK/1000).toFixed(1).replace(/\.0$/,'')+'M' : r.ctxK+'K'; }
 
 function statusWord(r){
   if(r.state==='launching') return 'launching';
@@ -265,13 +265,18 @@ function glyph(r){
   if(r.state==='running') return SPIN[st.spin%SPIN.length];
   return {success:'✓', failure:'✕', incomplete:'◐', interrupted:'⚡', stopped:'■'}[r.outcome]||'•';
 }
-function fresh(r){ // freshness cue for running runs
+function fresh(r){
   if(r.state!=='running') return null;
   const a = r.lastEv;
   if(r.flags.noData) return {txt:'no data', cls:'faint'};
   if(a<5) return {txt:'live·'+(a<2?'now':Math.round(a)+'s'), cls:'ok'};
   if(a<60) return {txt:'last event '+Math.round(a)+'s ago', cls:'warn'};
   return {txt:'no events for '+fmtDur(a), cls:'err'};
+}
+function freshDot(r){
+  const f=fresh(r); if(!f) return '';
+  const short = f.txt.replace('live·','').replace('last event ','').replace(' ago','').replace('no events for ','!');
+  return '  <span class="'+f.cls+'">●'+short+'</span>';
 }
 function needsYou(r){
   if(r.dismissed) return false;
@@ -316,40 +321,42 @@ function flagLines(r){
   if(r.state==='settled' && !r.delivered) out.push(['info','undelivered result - waiting for its owner']);
   return out;
 }
-function lastText(r){
-  for(let i=r.tail.length-1;i>=0;i--) if(r.tail[i].k==='text') return r.tail[i].s;
-  return '';
-}
 
 /* ---------------- actions (prototype-local, mimic the contract) ------------- */
+function isLive(r){ return r.state==='running'||r.state==='launching'; }
 function visibleActions(r){
   const a=[];
   if(!r) return a;
+  if(r.mode==='pane') a.push(['f','focus pane']);
   if(r.state==='running'&&r.own==='owned'){ a.push(['i','interrupt'],['s','stop']); }
   if(r.state==='running'&&r.own!=='owned'){ a.push(['c','claim']); if(r.own==='orphaned') a.push(['s','stop']); }
   if(r.state==='launching'){ a.push(['i','interrupt (fails: still launching)']); }
   if(r.state==='hibernated'||r.state==='settled'&&!r.delivered&&r.outcome==='interrupted') a.push(['w','wake']);
   if(r.state==='lost'&&!r.flags.wakeRefused) a.push(['w','wake (needs proof the old process is dead)']);
-  if(r.state==='settled'||r.state==='hibernated'||r.state==='lost'){ a.push(['d','dismiss'],['x','delete']); }
+  a.push(['d','dismiss'],['x','delete'+(isLive(r)?' (stops first)':'')]);
   return a;
 }
 function doAction(key){
   const r = selRun(); if(!r) return;
   const t=(m)=>{ st.toast=m; };
+  if(key==='f'){
+    if(r.mode!=='pane'){ t('focus applies to interactive runs only'); return; }
+    t('pane '+r.pane+' focused (not simulated in this mock)');
+  }
   if(key==='i'){
     if(r.state==='launching'){ t('interrupt failed: still launching - retry shortly'); return; }
     if(r.state!=='running'){ t('interrupt failed: already settled'); return; }
     t('interrupt applied - the request is delivered; the effect arrives as a settled event');
     r.stream=false; r.msgOverride='interrupt sent';
     setTimeout(()=>{ r.state='settled'; r.outcome='interrupted'; r.flags.turnTail=true;
-      r.settledAgo=0; r.startAgo=elapsed(r); r.msgOverride=''; render(); }, 1800);
+      r.settledAgo=0; r.startAgo=elapsed(r); r.msgOverride=''; r.dismissed=false; render(); }, 1800);
   }
   if(key==='s'){
     if(r.state!=='running'){ t('stop failed: nothing to stop'); return; }
     t('stop applied - SIGTERM now, SIGKILL after the window if needed');
     r.stream=false; r.msgOverride='stop sent';
     setTimeout(()=>{ r.state='settled'; r.outcome='stopped'; r.settledAgo=0;
-      r.startAgo=elapsed(r); r.msgOverride=''; render(); }, 1400);
+      r.startAgo=elapsed(r); r.msgOverride=''; r.dismissed=false; render(); }, 1400);
   }
   if(key==='c'){
     if(r.own!=='released'&&r.own!=='orphaned'){ t('claim failed: the run has a living owner'); return; }
@@ -363,45 +370,34 @@ function doAction(key){
     else { t('wake failed: the session is not hibernated'); return; }
     const note = (r.outcome==='interrupted'||r.flags.turnTail);
     r.state='running'; r.outcome=null; r.own='owned'; r.delivered=false; r.dismissed=false;
-    r.startAgo=0; r.lastEv=0; r.tools=0; r.ctx=0; r.stream=true; r.script=FILLER.slice();
+    r.startAgo=0; r.lastEv=0; r.tools=0; r.ctxK=0; r.stream=true; r.script=FILLER.slice();
     r.flags={resumeOf:true}; r.msg='';
     r.tail = note ? [{k:'info',s:'wake note: the previous turn was interrupted - its tail may be missing; do not assume the last actions completed'}] : [{k:'info',s:'woken - new run on the same session'}];
   }
-  if(key==='d'){ r.dismissed=true; t('dismissed - the row is hidden; nothing is removed'); fixSel(); }
+  if(key==='d'){ r.dismissed=true; t('dismissed - the row is hidden; nothing is removed. It returns if the run needs you.'); fixSel(); }
   if(key==='x'){ st.confirm=r.id; }
 }
 function confirmDelete(yes){
   const r = st.runs.find(x=>x.id===st.confirm); st.confirm=null;
-  if(yes&&r){ st.runs = st.runs.filter(x=>x!==r);
-    st.toast='deleted - run artifacts removed; the Pi session transcript is kept'; fixSel(); }
+  if(yes&&r){ st.runs = st.runs.filter(x=>x!==r && x.parent!==r.id);
+    st.toast=(isLive(r)?'stopped and deleted':'deleted')
+      +' - run artifacts removed; the Pi session transcript is kept'; fixSel(); }
 }
 
-/* ---------------- run ordering per interpretation ---------------- */
-function attention(r){
-  if(needsYou(r)) return 100;
-  if(r.flags.stall) return 90;
-  if(r.state==='running') return 60 - Math.min(50, r.lastEv*0.1);
-  if(r.state==='launching') return 55;
-  if(r.state==='settled'&&!r.delivered) return 40;
-  if(r.state==='hibernated') return 10;
-  return 5;
-}
+/* ---------------- run ordering: launch order, children under parents ------- */
 function orderRuns(){
   const vis = st.runs.filter(r=>st.showDismissed ? true : !r.dismissed);
-  const key = VARIANTS[st.v].key;
-  if(key==='B1') return vis; // launch order, flat
-  if(key==='B2'){
-    const g = x=> needsYou(x)?0 : (x.state==='running'||x.state==='launching')?1
-      : (x.state==='settled'&&!x.delivered)?2 : x.state==='hibernated'?3 : 4;
-    return vis.slice().sort((a,b)=>g(a)-g(b));
-  }
-  return vis.slice().sort((a,b)=>attention(b)-attention(a));
+  const out=[];
+  const add=(r,d)=>{ r.depth=d; out.push(r);
+    vis.filter(x=>x.parent===r.id).forEach(c=>add(c,d+1)); };
+  vis.filter(r=>!r.parent || !vis.some(x=>x.id===r.parent)).forEach(r=>add(r,0));
+  return out;
 }
 function flatList(){ return orderRuns(); }
 function selRun(){ return flatList()[st.sel]; }
 function fixSel(){ st.sel = Math.min(st.sel, Math.max(0, flatList().length-1)); }
 
-/* ---------------- widget renderers (display-only, <=10 lines) -------------- */
+/* ---------------- widget (display-only, <=10 lines) ------------------------ */
 function span(cls, s){ return '<span class="'+cls+'">'+s+'</span>'; }
 function headerCounts(){
   const c=counts(); const bits=[];
@@ -411,18 +407,18 @@ function headerCounts(){
   if(c.hib) bits.push(span('pur',c.hib+' hibernated'));
   return span('b','● Agents')+(bits.length?span('faint',' · ')+bits.join(span('faint',' · ')):'');
 }
-
-function rowLineB1(r, last){
-  const f=fresh(r); const ob=ownBadge(r);
-  let line=(last?'└─ ':'├─ ')+span(statusCls(r),glyph(r))+' '+span(r.dismissed?'faint':'b',r.name)
-    +span('acc',' ['+r.agent+']')+(r.mode==='pane'?span('pur',' pane '+r.pane):'');
+function widgetRow(r){
+  let line='  '.repeat(r.depth+1)+span(statusCls(r),glyph(r))+' '
+    +span(r.dismissed?'faint':'b',r.name)+span('acc',' ['+r.agent+']')
+    +(r.mode==='pane'?span('pur',' pane '+r.pane):'');
   if(r.dismissed) line+=span('faint',' · dismissed');
+  const ob=ownBadge(r);
   if(ob) line+=span('faint',' · ')+span(ob.cls,ob.txt.split(' · ')[0]);
   if(r.state==='running'){
-    line+=span('faint',' · ')+span('dim',r.tools+'t '+r.ctx+'%');
+    if(r.ctxK) line+=span('faint',' · ')+span('dim',ctxTok(r));
     if(r.msgOverride) line+=span('faint',' · ')+span('warn',r.msgOverride);
-    else if(r.curTool) line+=span('faint',' · ')+span('cyan','▸ '+r.curTool+' '+fmtDur(r.curToolAgo+st.simNow));
-    if(f) line+='  '+span(f.cls,'●'+f.txt.replace('live·',''));
+    if(r.flags.stall) line+=span('faint',' · ')+span('err','no events '+fmtDur(r.lastEv));
+    else line+=freshDot(r);
   } else if(r.state==='launching'){ line+=span('faint',' · ')+span('dim','launching'); }
   else {
     line+=span('faint',' · ')+span(statusCls(r),statusWord(r));
@@ -432,83 +428,27 @@ function rowLineB1(r, last){
   }
   return line;
 }
-function widgetB1(){
+function widget(){
   const rows = flatList();
   if(!rows.length) return [];
   const out=[headerCounts()];
-  const max=8;
-  rows.slice(0,max).forEach((r,i)=>out.push(rowLineB1(r, i===Math.min(rows.length,max)-1)));
-  if(rows.length>max) out.push(span('faint','   … +'+(rows.length-max)+' more - o to open'));
-  return out;
-}
-
-function widgetB2(){
-  const rows = flatList();
-  if(!rows.length) return [];
-  const cards = rows.filter(r=>needsYou(r)||r.state==='running'||r.state==='launching').slice(0,3);
-  const rest = rows.filter(r=>!cards.includes(r));
-  const out=[headerCounts()];
-  for(const r of cards){
-    const f=fresh(r); const ob=ownBadge(r);
-    let l1='┌ '+span(statusCls(r),glyph(r))+' '+span('b',r.name)+span('acc',' ['+r.agent+']')
-      +(r.mode==='pane'?span('pur',' pane '+r.pane):'')
-      +span('faint',' · ')+span(statusCls(r),statusWord(r));
-    if(ob) l1+=span('faint',' — ')+span(ob.cls,ob.txt);
-    else if(r.state==='running') l1+=span('faint',' · ')+span('dim',r.tools+' tools · '+r.ctx+'% ctx')
-      +(f?'  '+span(f.cls,f.txt):'');
-    out.push(l1);
-    out.push('│   '+span('dim',esc(r.task)));
-    const act = r.msgOverride?span('warn',r.msgOverride)
-      : r.curTool?span('cyan','▸ '+r.curTool+' — '+fmtDur(r.curToolAgo+st.simNow))
-      : needsYou(r)?span('err',nextVerb(r)+' it in the overlay (o)')
-      : lastText(r)?span('think','"'+esc(lastText(r).slice(0,70))+'"')
-      : r.msg?span('dim',r.msg):'';
-    if(act) out.push('│   '+act);
-  }
-  const restBits=[];
-  const res = rest.filter(r=>r.state==='settled'&&!r.delivered);
-  const hib = rest.filter(r=>r.state==='hibernated');
-  const done = rest.filter(r=>r.state==='settled'&&r.delivered);
-  if(res.length) restBits.push(span('ok','✓ '+res.length+' result'+(res.length>1?'s':'')+' waiting'));
-  if(hib.length) restBits.push(span('pur','~ '+hib.length+' hibernated'));
-  if(done.length) restBits.push(span('dim',done.length+' done'));
-  const moreCards = rows.filter(r=>(needsYou(r)||r.state==='running'||r.state==='launching')).length - cards.length;
-  if(moreCards>0) restBits.unshift(span('acc','+'+moreCards+' more running'));
-  if(restBits.length) out.push('  '+restBits.join(span('faint',' · '))+span('faint',' (o)'));
-  return out;
-}
-
-function widgetB3(){
-  const rows = flatList();
-  if(!rows.length) return [];
-  const hero = rows[0];
-  const others = rows.slice(1);
-  const f=fresh(hero); const ob=ownBadge(hero);
-  const out=[];
-  let l1=span('b','● Agents')+span('faint',' — focus ▸ ')+span('b',hero.name)+span('acc',' ['+hero.agent+']')
-    +span('faint',' · ')+span(statusCls(hero),statusWord(hero));
-  if(ob) l1+=span('faint',' · ')+span(ob.cls,ob.txt.split(' · ')[0]);
-  if(f) l1+=span('faint',' · ')+span(f.cls,f.txt);
-  if(hero.state==='running') l1+=span('faint',' · ')+span('dim',fmtDur(elapsed(hero))+' · '+hero.tools+' tools');
-  if(hero.state==='settled') l1+=span('dim',' · '+agoSettled(hero));
-  out.push(l1);
-  out.push('│  '+span('dim',esc(hero.task)));
-  const actLine = hero.msgOverride?span('warn',hero.msgOverride)
-    : hero.curTool?span('cyan','▸ '+hero.curTool+' — '+fmtDur(hero.curToolAgo+st.simNow))
-    : needsYou(hero)?span('err','next: '+nextVerb(hero)+' (o)')
-    : hero.msg?span('dim',hero.msg):'';
-  if(actLine) out.push('│  '+actLine);
-  const lt=lastText(hero);
-  if(lt) out.push('│  '+span('think','"'+esc(lt.slice(0,80))+'"'));
-  if(others.length){
-    const chips=others.slice(0,7).map(r=>span(statusCls(r),glyph(r)+' '+r.name)+(needsYou(r)?span('err','(!)'):''));
-    if(others.length>7) chips.push(span('faint','+'+(others.length-7)));
-    out.push('└ '+span('faint','also: ')+chips.join(span('faint',' · ')));
+  const CAP=5;
+  rows.slice(0,CAP).forEach(r=>out.push(widgetRow(r)));
+  const rest = rows.slice(CAP);
+  if(rest.length){
+    const bits=[span('dim','+'+rest.length+' more')];
+    const res=rest.filter(r=>r.state==='settled'&&!r.delivered).length;
+    const hib=rest.filter(r=>r.state==='hibernated').length;
+    const needs=rest.filter(needsYou).length;
+    if(needs) bits.push(span('err',needs+' need you'));
+    if(res) bits.push(span('ok',res+' result'+(res>1?'s':'')+' waiting'));
+    if(hib) bits.push(span('pur',hib+' hibernated'));
+    out.push('  '+bits.join(span('faint',' · '))+span('faint',' (o)'));
   }
   return out;
 }
 
-/* ---------------- overlay renderers (single-run live view) ----------------- */
+/* ---------------- overlay: run tabs + facts grid + live view --------------- */
 function tailHtml(r, maxLines){
   if(r.flags.noData) return span('faint','  no events yet - the log is not readable from here.\n  This view retries by itself.');
   const kinds={think:'think', text:'', tool:'cyan', toolend:'dim', info:'acc', warn:'warn', err:'err'};
@@ -521,45 +461,10 @@ function tailHtml(r, maxLines){
   if(r.flags.torn) lines.push(span('faint','⋯ {"type":"message_upd')+span('warn','  (partial line - still being written)'));
   return lines.slice(-maxLines).join('\n');
 }
-function pager(){ const flat=flatList(); return span('faint','◀ ')+span('b',(st.sel+1)+'/'+flat.length)+span('faint',' ▶'); }
-function headerFacts(r){
-  const f=fresh(r); const ob=ownBadge(r);
-  const bits=[span(statusCls(r),statusWord(r))];
-  bits.push(span(ob?ob.cls:'dim', ob?ob.txt:'owned'));
-  if(f) bits.push(span(f.cls,f.txt));
-  if(r.state==='running'||r.state==='launching') bits.push(span('dim',fmtDur(elapsed(r))));
-  if(r.state==='settled') bits.push(span('dim','settled '+agoSettled(r)));
-  bits.push(span('dim',r.tools+' tools'));
-  if(r.ctx) bits.push(span('dim',r.ctx+'% ctx'));
-  return bits.join(span('faint',' · '));
-}
-function confirmBar(){
-  const r = st.runs.find(x=>x.id===st.confirm);
-  return '\n'+span('faint','─'.repeat(96))+'\n'
-    +span('warn','delete the run artifacts of "'+r.name+'"? The Pi session transcript is kept.  ')
-    +span('b','[y] yes   [n] no');
-}
-function toastLine(){ return st.toast? '\n'+span('note',esc(st.toast)) : ''; }
-function paneNote(r){
-  return span('dim','interactive run - the pane is the live view; press f to focus it (not simulated)');
-}
+function plainLen(h){ return h.replace(/<[^>]+>/g,'').length; }
+function padTo(h, w){ return h+' '.repeat(Math.max(0, w-plainLen(h))); }
 
-function overlayB1(){
-  const flat=flatList(); if(!flat.length) return span('dim','no runs');
-  st.sel=Math.min(st.sel,flat.length-1);
-  const r=flat[st.sel];
-  const acts = visibleActions(r).map(([k])=>span('b','['+k+']')).join('');
-  let out = pager()+'  '+span('b',r.name)+span('acc',' ['+r.agent+']')
-    +span('faint',' · ')+headerFacts(r)
-    +'   '+acts+span('faint','  Esc')+'\n';
-  out += span('faint','─'.repeat(96))+'\n';
-  for(const [cls,msg] of flagLines(r)) out+=span(cls==='info'?'acc':cls,'⚠ '+msg)+'\n';
-  if(r.msg) out+=span('dim','• '+r.msg)+'\n';
-  out += r.mode==='pane' ? paneNote(r) : tailHtml(r, 19);
-  return out+(st.confirm?confirmBar():toastLine());
-}
-
-function overlayB2(){
+function overlayBody(){
   const flat=flatList(); if(!flat.length) return span('dim','no runs');
   st.sel=Math.min(st.sel,flat.length-1);
   const r=flat[st.sel];
@@ -573,54 +478,33 @@ function overlayB2(){
     ['state', span(statusCls(r),statusWord(r)), 'owner', span(ob?ob.cls:'dim',ob?ob.txt:'this session')],
     ['fresh', f?span(f.cls,f.txt):span('faint','—'),
      r.state==='settled'?'settled':'elapsed', r.state==='settled'?span('dim',agoSettled(r)):span('dim',fmtDur(elapsed(r)))],
-    ['tools', span('dim',String(r.tools)), 'context', span('dim',r.ctx+'%')],
+    ['tools', span('dim',String(r.tools)), 'context', span('dim',ctxTok(r)+' / '+r.win)],
     ['model', span('dim',r.model), 'mode', r.mode==='pane'?span('pur','interactive · pane '+r.pane):span('dim','background')],
     ['task', span('dim',esc(r.task)), '', ''],
   ];
   for(const [a,b,c,d] of grid){
-    out += span('faint',a.padEnd(9))+b+'<span style="display:inline-block;width:'+(38-((''+b).replace(/<[^>]+>/g,'').length))+'ch"></span>'
-        + (c?span('faint',c.padEnd(9))+d:'')+'\n';
+    out += span('faint',a.padEnd(9))+(c?padTo(b,38)+span('faint',c.padEnd(9))+d:b)+'\n';
   }
   for(const [cls,msg] of flagLines(r)) out+=span(cls==='info'?'acc':cls,'• '+msg)+'\n';
-  if(r.msg) out+=span('dim','• '+r.msg)+'\n';
+  if(r.msg&&r.mode!=='pane') out+=span('dim','• '+r.msg)+'\n';
   out += span('faint','── live view '+(r.state==='running'?'(streaming)':'(final)')+' '+'─'.repeat(70))+'\n';
-  out += r.mode==='pane' ? paneNote(r) : tailHtml(r, 10);
-  const actLine = visibleActions(r).map(([k,l])=>span('b','['+k+'] ')+span('dim',l)).join('   ');
-  out += '\n'+span('faint','─'.repeat(96))+'\n'
-    +(actLine||span('faint','no actions for this row'))+'   '
-    +span('faint','←→/1-9: run · Esc: close');
-  return out+(st.confirm?confirmBar():toastLine());
+  out += r.mode==='pane'
+    ? span('dim','interactive run - the pane is the live view')
+    : tailHtml(r, 11);
+  return out;
 }
-
-function overlayB3(){
-  const flat=flatList(); if(!flat.length) return span('dim','no runs');
-  st.sel=Math.min(st.sel,flat.length-1);
-  const r=flat[st.sel];
-  const fl=flagLines(r);
-  const chips=fl.map(([cls])=>span(cls==='info'?'acc':cls,'■')).join('');
-  let out = span('b',r.name)+span('faint',' ▸ ')+headerFacts(r)
-    +(chips?'  '+chips+span('faint',' (!)'):'')+'\n';
-  if(st.flagDetail&&fl.length){
-    for(const [cls,msg] of fl) out+=span(cls==='info'?'acc':cls,'  • '+msg)+'\n';
+function overlayFoot(){
+  const r=selRun();
+  if(st.confirm){
+    const c = st.runs.find(x=>x.id===st.confirm);
+    return span('warn', (isLive(c)?'this run is live - stop it and delete':'delete')
+      +' the run artifacts of "'+c.name+'"? The Pi session transcript is kept.  ')
+      +span('b','[y] yes   [n] no');
   }
-  if(r.msg) out+=span('dim','  • '+r.msg)+'\n';
-  out += span('faint','─'.repeat(96))+'\n';
-  if(st.jump){
-    out += span('b','jump to run')+'\n';
-    flat.forEach((x,i)=>{
-      const row=(i===st.jump.idx?'▸ ':'  ')+span(statusCls(x),glyph(x))+' '+x.name
-        +span('dim',' · '+statusWord(x))+(needsYou(x)?span('err',' · '+nextVerb(x)):'');
-      out += (i===st.jump.idx?span('selrow',row):row)+'\n';
-    });
-    out += span('faint','↑↓: move · Enter: open · Esc: cancel');
-    return out;
-  }
-  out += r.mode==='pane' ? paneNote(r) : tailHtml(r, 21);
-  out += '\n'+span('faint','─'.repeat(96))+'\n'
-    +span('faint','j: jump list · ←→: next run · actions: ')
-    +visibleActions(r).map(([k])=>span('b','['+k+']')).join('')
-    +span('faint',' · !: flags · Esc');
-  return out+(st.confirm?confirmBar():toastLine());
+  const actLine = visibleActions(r).map(([k,l])=>span('b','['+k+'] ')+span('dim',l)).join('   ');
+  return (actLine||span('faint','no actions for this row'))+'\n'
+    +span('faint','←→ / 1-9: switch tab · Esc: close')
+    +(st.toast? '\n'+span('note',esc(st.toast)) : '');
 }
 
 /* ---------------- chat scrollback (context density) ---------------- */
@@ -648,7 +532,7 @@ function tick(){
         const e=r.script.shift(); r.tail.push({k:e.k,s:e.s}); r.lastEv=0;
         if(e.k==='text'||e.k==='think') r.typing={pos:4,len:e.s.length};
         if(e.k==='tool'){ r.curTool=e.s; r.curToolAgo=-st.simNow; }
-        if(e.k==='toolend'){ r.curTool=null; r.tools++; r.ctx=Math.min(99,r.ctx+1); }
+        if(e.k==='toolend'){ r.curTool=null; r.tools++; r.ctxK=Math.min(990,r.ctxK+2); }
         if(r.tail.length>40) r.tail.shift();
       } else r.lastEv+=0.5;
     } else r.lastEv+=0.5;
@@ -658,60 +542,43 @@ function tick(){
 function render(){
   saveHash();
   document.getElementById('chat').innerHTML=CHAT;
-  const wl=[widgetB1,widgetB2,widgetB3][st.v]();
+  const wl=widget();
   document.getElementById('widget').innerHTML = wl.length?wl.join('\n'):span('faint','(widget hidden - nothing to show)');
   const ov=document.getElementById('overlay');
   ov.className = st.overlay?'open':'';
-  if(st.overlay) ov.innerHTML=[overlayB1,overlayB2,overlayB3][st.v]();
-  document.getElementById('vLabel').textContent=VARIANTS[st.v].key+' — '+VARIANTS[st.v].name;
+  if(st.overlay){
+    document.getElementById('ovBody').innerHTML=overlayBody();
+    document.getElementById('ovFoot').innerHTML=overlayFoot();
+  }
   document.getElementById('slRight').textContent='scenario '+st.sc+': '+SCENARIOS[st.sc].name;
   const scens=document.getElementById('scens');
   scens.innerHTML=Object.keys(SCENARIOS).map(k=>'<span class="sc'+(+k===st.sc?' on':'')+'" data-k="'+k+'">'+k+'</span>').join(' ');
   document.getElementById('stateJson').textContent = JSON.stringify(st.runs.map(r=>({
-    id:r.id,name:r.name,state:r.state,outcome:r.outcome,own:r.own,
+    id:r.id,name:r.name,parent:r.parent,state:r.state,outcome:r.outcome,own:r.own,
     delivered:r.delivered,dismissed:r.dismissed,flags:r.flags})),null,1);
 }
 
 /* ---------------- input ---------------- */
-function cycleVariant(d){ st.v=(st.v+d+VARIANTS.length)%VARIANTS.length; st.toast=''; st.jump=null; fixSel(); render(); }
 function setScenario(k){ st.sc=k; loadScenario(); render(); }
-document.getElementById('prevV').onclick=()=>cycleVariant(-1);
-document.getElementById('nextV').onclick=()=>cycleVariant(1);
 document.getElementById('scens').onclick=e=>{ if(e.target.dataset.k) setScenario(+e.target.dataset.k); };
 
 document.addEventListener('keydown',e=>{
   if(e.target.matches('input,textarea,[contenteditable]')) return;
   const k=e.key;
   if(st.confirm){ if(k==='y') confirmDelete(true); if(k==='n'||k==='Escape') confirmDelete(false); render(); return; }
-  if(k==='[') return cycleVariant(-1);
-  if(k===']') return cycleVariant(1);
-  if(k==='o'){ st.overlay=!st.overlay; st.toast=''; st.jump=null; return render(); }
+  if(k==='o'){ st.overlay=!st.overlay; st.toast=''; return render(); }
   if(!st.overlay){
     if(k>='1'&&k<='6') return setScenario(+k);
-    if(k==='ArrowLeft') return cycleVariant(-1);
-    if(k==='ArrowRight') return cycleVariant(1);
     if(k==='h'){ st.showDismissed=!st.showDismissed; fixSel(); return render(); }
     return;
   }
-  // overlay open
   const flat=flatList();
-  if(st.jump){
-    if(k==='ArrowUp') st.jump.idx=Math.max(0,st.jump.idx-1);
-    if(k==='ArrowDown') st.jump.idx=Math.min(flat.length-1,st.jump.idx+1);
-    if(k==='Enter'){ st.sel=st.jump.idx; st.jump=null; }
-    if(k==='Escape') st.jump=null;
-    return render();
-  }
   if(k==='Escape'){ st.overlay=false; return render(); }
   if(k==='ArrowLeft'){ st.sel=Math.max(0,st.sel-1); st.toast=''; }
   if(k==='ArrowRight'){ st.sel=Math.min(flat.length-1,st.sel+1); st.toast=''; }
-  if(VARIANTS[st.v].key==='B2' && k>='1' && k<='9' && +k<=flat.length){ st.sel=+k-1; st.toast=''; }
-  if(VARIANTS[st.v].key==='B3'){
-    if(k==='j') st.jump={idx:st.sel};
-    if(k==='!') st.flagDetail=!st.flagDetail;
-  }
+  if(k>='1' && k<='9' && +k<=flat.length){ st.sel=+k-1; st.toast=''; }
   if(k==='h'){ st.showDismissed=!st.showDismissed; fixSel(); }
-  if('iscwdx'.includes(k)) doAction(k);
+  if('iscwdxf'.includes(k)) doAction(k);
   render();
 });
 
