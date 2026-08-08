@@ -16,6 +16,9 @@ The instructions the parent gives a child for one run.
 **Session**:
 The saved conversation of one agent, stored by Pi. One session can receive many runs.
 
+**Launching**:
+The state of a run whose record exists but whose process is not yet confirmed.
+
 **Settled**:
 The state of a run whose final result exists in durable storage. Settled does not mean delivered.
 
@@ -44,7 +47,7 @@ A run whose owner let go on purpose, as in a normal parent exit under the `conti
 A run whose owner disappeared without releasing it, as after a crash. Reconciliation must resolve an orphaned run.
 
 **Lost**:
-A run whose process can no longer be found or confirmed.
+A run whose process and result cannot be confirmed. Lost is not final: later evidence can return a lost run to running or settled.
 
 **Claim**:
 Take ownership of a released or orphaned run. The claimer becomes the run's owner.
@@ -52,6 +55,9 @@ _Avoid_: adopt, take over
 
 **Reconciliation**:
 The check that compares run records against live processes and updates each run's state.
+
+**Spawn grace**:
+The short time a launching run may stay unconfirmed before reconciliation marks it lost.
 
 **Identity token**:
 Durable proof that a recorded process is still the run's own process. It guards against process-id reuse.
@@ -62,6 +68,21 @@ Durable proof that a recorded process is still the run's own process. It guards 
 The durable record of one run's identity, state, and ownership.
 _Avoid_: run metadata
 
+**Owner marker**:
+The durable record of one run's ownership: the owner's identity, or the released state.
+
+**Writer guard**:
+The durable record that permits at most one live run on one session.
+
+**Intent record**:
+The durable record of one control request: the actor, the action, and the time.
+
+**Outcome record**:
+The durable record of a settled run's outcome class.
+
+**Delivered marker**:
+The durable record that one run's result was delivered.
+
 **Observation log**:
 The durable log of one run's events.
 
@@ -69,7 +90,7 @@ The durable log of one run's events.
 The durable record of one run's process end: the exit code, the signal if one ended the process, and the end time.
 
 **Run artifacts**:
-All durable files of one run: the run record, the exit record, the observation log, and prompt and task files. Run artifacts never include the child's Pi session transcript.
+All durable files of one run: the run record, the owner marker, the intent records, the exit record, the outcome record, the delivered marker, the observation log, and prompt and task files. Run artifacts never include the child's Pi session transcript.
 
 **Peek**:
 A bounded, non-blocking read of a run's progress. A peek returns at once with whatever exists. A peek returns progress facts. It does not return the child's message content.
