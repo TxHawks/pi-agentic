@@ -5,20 +5,22 @@
   Question (wayfinder ticket #13): what widget and overlay experience makes
   background runs understandable and controllable?
 
-  Plan: three variants of the background-run widget + overlay, hosted in a mock
-  Pi terminal frame, switchable via #variant= (hash, because this file opens
-  over file://). Six scenarios cover the ticket cases.
+  Round 2. Round 1 picked the "Tree" bet: the widget IS the list of runs, and
+  the overlay is a single-run live view (no list inside the overlay).
+  This round shows three interpretations of that bet, switchable via #variant=.
+  Round 1 (Lanes / Tree / Inbox) is the previous commit on this branch.
 
   How to run: double-click this file (or: open src/PROTOTYPE-bg-run-ux.html).
 
   Keys:
-    [ / ]        previous / next variant  (arrow keys also work while the overlay is closed)
-    1 .. 6       switch scenario
+    [ / ]        previous / next interpretation (arrows too, while overlay is closed)
+    1 .. 6       switch scenario (only while the overlay is closed)
     o            open / close the overlay
-    up / down    select a run (A, C)   left / right: switch run (B) or move selection column
-    Tab          switch detail tab (C)
+    left / right page runs inside the overlay
+    1 .. 9       jump to run N inside the overlay (B2)
+    j            jump list (B3)   !: toggle flag details (B3)
     i s c w d x  interrupt / stop / claim / wake / dismiss / delete (contextual)
-    h            show or hide dismissed rows (B)
+    h            show or hide dismissed rows
     Esc          close the overlay / cancel
 
   Feasibility notes baked into the designs (verified against pi 0.84.1):
@@ -28,7 +30,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>PROTOTYPE - background-run UX</title>
+<title>PROTOTYPE - background-run UX (round 2: interpretations of B)</title>
 <style>
   :root{
     --bg:#0e1116; --panel:#151a21; --text:#c9d1d9; --dim:#8b949e; --faint:#484f58;
@@ -54,7 +56,7 @@
   .ok{color:var(--ok)} .warn{color:var(--warn)} .err{color:var(--err)}
   .dim{color:var(--dim)} .faint{color:var(--faint)} .acc{color:var(--accent)}
   .think{color:var(--think);font-style:italic} .cyan{color:var(--cyan)} .pur{color:var(--purple)}
-  .selrow{background:var(--sel);display:inline-block;width:100%}
+  .selrow{background:var(--sel);display:inline-block}
   .b{font-weight:700}
   #bar{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;background:#e6edf3;
        color:#0d1117;border-radius:999px;padding:7px 16px;display:flex;gap:14px;align-items:center;
@@ -81,7 +83,7 @@
 
 <div id="bar">
   <button id="prevV">&#9664;</button>
-  <span id="vLabel">A</span>
+  <span id="vLabel">B1</span>
   <button id="nextV">&#9654;</button>
   <span style="border-left:1px solid #aab;height:16px"></span>
   <span id="scens"></span>
@@ -114,7 +116,7 @@ function R(o){ return Object.assign({
   task:'', model:'sonnet-5', startAgo:120, settledAgo:0,
   tools:0, ctx:0, curTool:null, curToolAgo:0, lastEv:1,
   stream:false, script:[], typing:null,
-  flags:{}, tail:[], msg:'',
+  flags:{}, tail:[], msg:'', msgOverride:'',
 }, o); }
 
 const SCENARIOS = {
@@ -208,19 +210,19 @@ const SCENARIOS = {
 
 /* ---------------- state ---------------- */
 const VARIANTS = [
-  {key:'A', name:'Lanes - summary widget, command-center overlay'},
-  {key:'B', name:'Tree - the widget is the list, per-run live view'},
-  {key:'C', name:'Inbox - needs-you first, master-detail overlay'},
+  {key:'B1', name:'Ledger - flat one-line rows, bare live view'},
+  {key:'B2', name:'Cards - grouped cards, structured live view'},
+  {key:'B3', name:'Focus - one hero run + chips, full-bleed live view'},
 ];
 let st = {
-  v:0, sc:1, runs:[], sel:0, overlay:false, tab:0, showDismissed:false,
-  confirm:null, toast:'', simNow:0, spin:0,
+  v:0, sc:1, runs:[], sel:0, overlay:false, showDismissed:false,
+  confirm:null, jump:null, flagDetail:false, toast:'', simNow:0, spin:0,
 };
 const SPIN='◜◠◝◞◡◟';
 
 function loadHash(){
   const h = new URLSearchParams(location.hash.slice(1));
-  const v = VARIANTS.findIndex(x=>x.key===(h.get('variant')||'A'));
+  const v = VARIANTS.findIndex(x=>x.key===(h.get('variant')||'B1'));
   st.v = v<0?0:v;
   st.sc = Math.min(6, Math.max(1, +(h.get('scenario')||1)));
 }
@@ -229,7 +231,7 @@ function saveHash(){
 }
 function loadScenario(){
   st.runs = SCENARIOS[st.sc].make();
-  st.sel = 0; st.overlay = false; st.confirm = null; st.toast=''; st.simNow = 0; st.tab = 0;
+  st.sel = 0; st.overlay = false; st.confirm = null; st.jump=null; st.toast=''; st.simNow = 0;
 }
 
 /* ---------------- shared vocab + helpers ---------------- */
@@ -303,6 +305,7 @@ function counts(){
 function flagLines(r){
   const f=r.flags, out=[];
   if(f.reattached) out.push(['info','reattached after the parent restarted']);
+  if(f.resumeOf) out.push(['info','new run on a woken session']);
   if(f.truncated) out.push(['warn', f.truncated]);
   if(f.restarted) out.push(['warn', f.restarted]);
   if(f.unknown) out.push(['warn', f.unknown+' events not understood (newer Pi than this extension?)']);
@@ -312,6 +315,10 @@ function flagLines(r){
   if(f.wakeRefused) out.push(['err','wake refused: '+f.wakeRefused]);
   if(r.state==='settled' && !r.delivered) out.push(['info','undelivered result - waiting for its owner']);
   return out;
+}
+function lastText(r){
+  for(let i=r.tail.length-1;i>=0;i--) if(r.tail[i].k==='text') return r.tail[i].s;
+  return '';
 }
 
 /* ---------------- actions (prototype-local, mimic the contract) ------------- */
@@ -357,7 +364,7 @@ function doAction(key){
     const note = (r.outcome==='interrupted'||r.flags.turnTail);
     r.state='running'; r.outcome=null; r.own='owned'; r.delivered=false; r.dismissed=false;
     r.startAgo=0; r.lastEv=0; r.tools=0; r.ctx=0; r.stream=true; r.script=FILLER.slice();
-    r.flags={resumeOf:true, wakeNote:note}; r.msg='';
+    r.flags={resumeOf:true}; r.msg='';
     r.tail = note ? [{k:'info',s:'wake note: the previous turn was interrupted - its tail may be missing; do not assume the last actions completed'}] : [{k:'info',s:'woken - new run on the same session'}];
   }
   if(key==='d'){ r.dismissed=true; t('dismissed - the row is hidden; nothing is removed'); fixSel(); }
@@ -369,89 +376,139 @@ function confirmDelete(yes){
     st.toast='deleted - run artifacts removed; the Pi session transcript is kept'; fixSel(); }
 }
 
-/* ---------------- visible list per variant ---------------- */
-function listRuns(){ // ordered, per current variant's hierarchy bet
-  const live = st.runs.filter(r=>!r.dismissed);
-  const dismissed = st.runs.filter(r=>r.dismissed);
-  const running = live.filter(r=>(r.state==='running'||r.state==='launching') && !needsYou(r));
-  const needs = live.filter(needsYou);
-  const results = live.filter(r=>r.state==='settled'&&!r.delivered&&r.outcome==='success');
-  const done = live.filter(r=>r.state==='settled'&&r.delivered);
-  const hib = live.filter(r=>r.state==='hibernated');
-  if(VARIANTS[st.v].key==='C')
-    return {groups:[['needs you',needs],['running',running],['results',results],['hibernated',hib],['done',done],
-                    ['dismissed',st.showDismissed?dismissed:[]]]};
-  return {groups:[['needs you',needs],['running',running],['results',results],['hibernated',hib],['done',done],
-                  ['dismissed',st.showDismissed?dismissed:[]]]};
+/* ---------------- run ordering per interpretation ---------------- */
+function attention(r){
+  if(needsYou(r)) return 100;
+  if(r.flags.stall) return 90;
+  if(r.state==='running') return 60 - Math.min(50, r.lastEv*0.1);
+  if(r.state==='launching') return 55;
+  if(r.state==='settled'&&!r.delivered) return 40;
+  if(r.state==='hibernated') return 10;
+  return 5;
 }
-function flatList(){ return listRuns().groups.flatMap(([,rs])=>rs); }
+function orderRuns(){
+  const vis = st.runs.filter(r=>st.showDismissed ? true : !r.dismissed);
+  const key = VARIANTS[st.v].key;
+  if(key==='B1') return vis; // launch order, flat
+  if(key==='B2'){
+    const g = x=> needsYou(x)?0 : (x.state==='running'||x.state==='launching')?1
+      : (x.state==='settled'&&!x.delivered)?2 : x.state==='hibernated'?3 : 4;
+    return vis.slice().sort((a,b)=>g(a)-g(b));
+  }
+  return vis.slice().sort((a,b)=>attention(b)-attention(a));
+}
+function flatList(){ return orderRuns(); }
 function selRun(){ return flatList()[st.sel]; }
 function fixSel(){ st.sel = Math.min(st.sel, Math.max(0, flatList().length-1)); }
 
-/* ---------------- widget renderers ---------------- */
+/* ---------------- widget renderers (display-only, <=10 lines) -------------- */
 function span(cls, s){ return '<span class="'+cls+'">'+s+'</span>'; }
+function headerCounts(){
+  const c=counts(); const bits=[];
+  if(c.running) bits.push(span('acc',c.running+' running'));
+  if(c.needs) bits.push(span('err',c.needs+' need you'));
+  if(c.results) bits.push(span('ok',c.results+' result'+(c.results>1?'s':'')+' waiting'));
+  if(c.hib) bits.push(span('pur',c.hib+' hibernated'));
+  return span('b','● Agents')+(bits.length?span('faint',' · ')+bits.join(span('faint',' · ')):'');
+}
 
-function widgetA(){
-  const c = counts(); const out=[];
-  if(!st.runs.filter(r=>!r.dismissed).length) return [];
-  const bits=[];
-  if(c.running) bits.push(span('acc', c.running+' running'));
-  if(c.needs) bits.push(span('err', c.needs+' need you'));
-  if(c.results) bits.push(span('ok', c.results+' result'+(c.results>1?'s':'')+' waiting'));
-  if(c.hib) bits.push(span('pur', c.hib+' hibernated'));
-  out.push(span('b','● Agents')+'  '+bits.join(span('faint',' · '))+span('faint','   (o: open)'));
-  const needs = st.runs.filter(r=>!r.dismissed&&needsYou(r));
-  if(needs.length){
-    out.push('  '+span('err','⚠ ')+needs.map(r=>span('err',nextVerb(r)+' '+r.name)
-      +span('dim',' ('+statusWord(r)+(r.ownerNote?' · '+r.ownerNote:'')+')')).join(span('faint',' · ')));
+function rowLineB1(r, last){
+  const f=fresh(r); const ob=ownBadge(r);
+  let line=(last?'└─ ':'├─ ')+span(statusCls(r),glyph(r))+' '+span(r.dismissed?'faint':'b',r.name)
+    +span('acc',' ['+r.agent+']')+(r.mode==='pane'?span('pur',' pane '+r.pane):'');
+  if(r.dismissed) line+=span('faint',' · dismissed');
+  if(ob) line+=span('faint',' · ')+span(ob.cls,ob.txt.split(' · ')[0]);
+  if(r.state==='running'){
+    line+=span('faint',' · ')+span('dim',r.tools+'t '+r.ctx+'%');
+    if(r.msgOverride) line+=span('faint',' · ')+span('warn',r.msgOverride);
+    else if(r.curTool) line+=span('faint',' · ')+span('cyan','▸ '+r.curTool+' '+fmtDur(r.curToolAgo+st.simNow));
+    if(f) line+='  '+span(f.cls,'●'+f.txt.replace('live·',''));
+  } else if(r.state==='launching'){ line+=span('faint',' · ')+span('dim','launching'); }
+  else {
+    line+=span('faint',' · ')+span(statusCls(r),statusWord(r));
+    if(r.state==='settled') line+=span('dim',' '+agoSettled(r));
+    if(r.state==='settled'&&!r.delivered&&r.outcome==='success') line+=span('ok',' · result waiting');
+    if(needsYou(r)&&nextVerb(r)) line+=span('err',' · '+nextVerb(r));
+  }
+  return line;
+}
+function widgetB1(){
+  const rows = flatList();
+  if(!rows.length) return [];
+  const out=[headerCounts()];
+  const max=8;
+  rows.slice(0,max).forEach((r,i)=>out.push(rowLineB1(r, i===Math.min(rows.length,max)-1)));
+  if(rows.length>max) out.push(span('faint','   … +'+(rows.length-max)+' more - o to open'));
+  return out;
+}
+
+function widgetB2(){
+  const rows = flatList();
+  if(!rows.length) return [];
+  const cards = rows.filter(r=>needsYou(r)||r.state==='running'||r.state==='launching').slice(0,3);
+  const rest = rows.filter(r=>!cards.includes(r));
+  const out=[headerCounts()];
+  for(const r of cards){
+    const f=fresh(r); const ob=ownBadge(r);
+    let l1='┌ '+span(statusCls(r),glyph(r))+' '+span('b',r.name)+span('acc',' ['+r.agent+']')
+      +(r.mode==='pane'?span('pur',' pane '+r.pane):'')
+      +span('faint',' · ')+span(statusCls(r),statusWord(r));
+    if(ob) l1+=span('faint',' — ')+span(ob.cls,ob.txt);
+    else if(r.state==='running') l1+=span('faint',' · ')+span('dim',r.tools+' tools · '+r.ctx+'% ctx')
+      +(f?'  '+span(f.cls,f.txt):'');
+    out.push(l1);
+    out.push('│   '+span('dim',esc(r.task)));
+    const act = r.msgOverride?span('warn',r.msgOverride)
+      : r.curTool?span('cyan','▸ '+r.curTool+' — '+fmtDur(r.curToolAgo+st.simNow))
+      : needsYou(r)?span('err',nextVerb(r)+' it in the overlay (o)')
+      : lastText(r)?span('think','"'+esc(lastText(r).slice(0,70))+'"')
+      : r.msg?span('dim',r.msg):'';
+    if(act) out.push('│   '+act);
+  }
+  const restBits=[];
+  const res = rest.filter(r=>r.state==='settled'&&!r.delivered);
+  const hib = rest.filter(r=>r.state==='hibernated');
+  const done = rest.filter(r=>r.state==='settled'&&r.delivered);
+  if(res.length) restBits.push(span('ok','✓ '+res.length+' result'+(res.length>1?'s':'')+' waiting'));
+  if(hib.length) restBits.push(span('pur','~ '+hib.length+' hibernated'));
+  if(done.length) restBits.push(span('dim',done.length+' done'));
+  const moreCards = rows.filter(r=>(needsYou(r)||r.state==='running'||r.state==='launching')).length - cards.length;
+  if(moreCards>0) restBits.unshift(span('acc','+'+moreCards+' more running'));
+  if(restBits.length) out.push('  '+restBits.join(span('faint',' · '))+span('faint',' (o)'));
+  return out;
+}
+
+function widgetB3(){
+  const rows = flatList();
+  if(!rows.length) return [];
+  const hero = rows[0];
+  const others = rows.slice(1);
+  const f=fresh(hero); const ob=ownBadge(hero);
+  const out=[];
+  let l1=span('b','● Agents')+span('faint',' — focus ▸ ')+span('b',hero.name)+span('acc',' ['+hero.agent+']')
+    +span('faint',' · ')+span(statusCls(hero),statusWord(hero));
+  if(ob) l1+=span('faint',' · ')+span(ob.cls,ob.txt.split(' · ')[0]);
+  if(f) l1+=span('faint',' · ')+span(f.cls,f.txt);
+  if(hero.state==='running') l1+=span('faint',' · ')+span('dim',fmtDur(elapsed(hero))+' · '+hero.tools+' tools');
+  if(hero.state==='settled') l1+=span('dim',' · '+agoSettled(hero));
+  out.push(l1);
+  out.push('│  '+span('dim',esc(hero.task)));
+  const actLine = hero.msgOverride?span('warn',hero.msgOverride)
+    : hero.curTool?span('cyan','▸ '+hero.curTool+' — '+fmtDur(hero.curToolAgo+st.simNow))
+    : needsYou(hero)?span('err','next: '+nextVerb(hero)+' (o)')
+    : hero.msg?span('dim',hero.msg):'';
+  if(actLine) out.push('│  '+actLine);
+  const lt=lastText(hero);
+  if(lt) out.push('│  '+span('think','"'+esc(lt.slice(0,80))+'"'));
+  if(others.length){
+    const chips=others.slice(0,7).map(r=>span(statusCls(r),glyph(r)+' '+r.name)+(needsYou(r)?span('err','(!)'):''));
+    if(others.length>7) chips.push(span('faint','+'+(others.length-7)));
+    out.push('└ '+span('faint','also: ')+chips.join(span('faint',' · ')));
   }
   return out;
 }
 
-function widgetB(){
-  const {groups} = listRuns(); const out=[]; const c=counts();
-  const rows = groups.flatMap(([g,rs])=>g==='hibernated'||g==='done'||g==='dismissed'?[]:rs);
-  const hib = c.hib;
-  if(!rows.length && !hib) return [];
-  out.push(span('b','● Agents')+span('faint',' · ')+span('acc',c.running+' running')
-    +(c.results?span('faint',' · ')+span('ok',c.results+' waiting'):'')
-    +(c.needs?span('faint',' · ')+span('err',c.needs+' need you'):''));
-  const max=6;
-  rows.slice(0,max).forEach((r,i)=>{
-    const last = i===Math.min(rows.length,max)-1 && !hib;
-    const f=fresh(r); const ob=ownBadge(r);
-    let line=(last?'└─ ':'├─ ')+span(statusCls(r),glyph(r))+' '+span('b',r.name)+span('acc',' ['+r.agent+']');
-    if(r.mode==='pane') line+=span('pur',' pane '+r.pane);
-    if(ob) line+=span('faint',' · ')+span(ob.cls,ob.txt.split(' · ')[0]);
-    if(r.state==='running'){ line+=span('faint',' · ')+span('dim',r.tools+' tools · '+r.ctx+'% ctx');
-      if(r.curTool) line+=span('faint',' · ')+span('cyan','▸ '+r.curTool+' '+fmtDur(r.curToolAgo+st.simNow));
-    } else line+=span('faint',' · ')+span(statusCls(r),statusWord(r))
-      +(r.state==='settled'&&!r.delivered?span('ok',' · result waiting'):'')
-      +span('dim',r.state==='settled'?' · '+agoSettled(r):'');
-    if(f) line+='  '+span(f.cls,'●'+f.txt.replace('live·',''));
-    out.push(line);
-  });
-  if(rows.length>max) out.push(span('faint','   … +'+(rows.length-max)+' more - o to open'));
-  if(hib) out.push(span('faint',(rows.length? '   ':'')+'~ '+hib+' hibernated · o to open'));
-  return out;
-}
-
-function widgetC(){
-  const c = counts(); const out=[];
-  if(!st.runs.filter(r=>!r.dismissed).length) return [];
-  const needs = st.runs.filter(r=>!r.dismissed&&needsYou(r));
-  if(needs.length)
-    out.push(span('err','⚠ needs you: ')+needs.map(r=>span('b',nextVerb(r)+' '+r.name)
-      +span('dim',' ('+statusWord(r)+(r.state==='settled'?', '+agoSettled(r):'')+')')).join(span('faint',' · ')));
-  const quiet=[];
-  if(c.running) quiet.push(span('acc','▶ '+c.running+' running'));
-  if(c.results) quiet.push(span('ok','✉ '+c.results+' result'+(c.results>1?'s':'')+' waiting'));
-  if(c.hib) quiet.push(span('pur','~ '+c.hib+' hibernated'));
-  out.push((quiet.length?quiet.join(span('faint',' · ')):span('dim','all quiet'))+span('faint','   (o: open)'));
-  return out;
-}
-
-/* ---------------- overlay renderers ---------------- */
+/* ---------------- overlay renderers (single-run live view) ----------------- */
 function tailHtml(r, maxLines){
   if(r.flags.noData) return span('faint','  no events yet - the log is not readable from here.\n  This view retries by itself.');
   const kinds={think:'think', text:'', tool:'cyan', toolend:'dim', info:'acc', warn:'warn', err:'err'};
@@ -464,6 +521,7 @@ function tailHtml(r, maxLines){
   if(r.flags.torn) lines.push(span('faint','⋯ {"type":"message_upd')+span('warn','  (partial line - still being written)'));
   return lines.slice(-maxLines).join('\n');
 }
+function pager(){ const flat=flatList(); return span('faint','◀ ')+span('b',(st.sel+1)+'/'+flat.length)+span('faint',' ▶'); }
 function headerFacts(r){
   const f=fresh(r); const ob=ownBadge(r);
   const bits=[span(statusCls(r),statusWord(r))];
@@ -475,119 +533,94 @@ function headerFacts(r){
   if(r.ctx) bits.push(span('dim',r.ctx+'% ctx'));
   return bits.join(span('faint',' · '));
 }
-function footer(html){ return '\n'+span('faint','─'.repeat(96))+'\n'+html; }
 function confirmBar(){
   const r = st.runs.find(x=>x.id===st.confirm);
-  return footer(span('warn','delete the run artifacts of "'+r.name+'"? The Pi session transcript is kept.  ')
-    + span('b','[y] yes   [n] no'));
+  return '\n'+span('faint','─'.repeat(96))+'\n'
+    +span('warn','delete the run artifacts of "'+r.name+'"? The Pi session transcript is kept.  ')
+    +span('b','[y] yes   [n] no');
 }
-function actionBar(r){
-  const acts = visibleActions(r).map(([k,l])=>span('b','['+k+'] ')+span('dim',l)).join('   ');
-  const toast = st.toast? '\n'+span('note',esc(st.toast)) : '';
-  return footer((acts||span('faint','no actions for this row'))
-    + '   '+span('faint','Esc: close')) + toast;
-}
-
-function overlayA(){
-  const c=counts(); const {groups}=listRuns(); const flat=flatList(); const r=selRun();
-  let head = span('b','Background runs')+span('faint','  ·  ')+span('acc',c.running+' running')
-    +span('faint',' · ')+span('err',c.needs+' need you')+span('faint',' · ')
-    +span('ok',c.results+' waiting')+span('faint',' · ')+span('pur',c.hib+' hibernated')+'\n'
-    +span('faint','─'.repeat(96))+'\n';
-  const left=[]; let idx=0;
-  for(const [g,rs] of groups){ if(!rs.length) continue;
-    left.push(span('faint',g.toUpperCase()));
-    for(const x of rs){ const on = idx===st.sel;
-      const row = (on?'▸ ':'  ')+span(statusCls(x),glyph(x))+' '+x.name
-        + (x.mode==='pane'?span('pur',' ⌗'):'')
-        + span('dim',' '+(x.state==='settled'?agoSettled(x):x.state==='running'?fmtDur(elapsed(x)):''));
-      left.push(on?span('selrow',row):row); idx++; }
-  }
-  while(left.length<20) left.push('');
-  const right=[];
-  if(r){
-    right.push(span('b',r.name)+span('acc',' ['+r.agent+']')+span('dim',' · '+r.model)
-      + (r.mode==='pane'?span('pur','  interactive - pane '+r.pane):''));
-    right.push(headerFacts(r));
-    right.push(span('dim','task: ')+span('','' +esc(r.task)));
-    for(const [cls,msg] of flagLines(r)) right.push(span(cls==='info'?'acc':cls,'• '+msg));
-    if(r.msg) right.push(span('dim','• '+r.msg));
-    right.push(span('faint','── live view '+ (r.state==='running'?'(streaming)':'(final)')+' '+'─'.repeat(40)));
-    if(r.mode==='pane') right.push(span('dim','the pane is the live view - press f to focus it (not simulated)'));
-    else right.push(tailHtml(r, 11));
-  }
-  const L=22, W=34;
-  const body = left.slice(0,L).map((l,i)=>{
-    const plain=l.replace(/<[^>]+>/g,''); const pad=Math.max(0,W-plain.length);
-    return l+' '.repeat(pad)+span('faint','│ ')+(right[i]||'');
-  }).join('\n');
-  return head+body+(st.confirm?confirmBar():actionBar(r));
+function toastLine(){ return st.toast? '\n'+span('note',esc(st.toast)) : ''; }
+function paneNote(r){
+  return span('dim','interactive run - the pane is the live view; press f to focus it (not simulated)');
 }
 
-function overlayB(){
+function overlayB1(){
   const flat=flatList(); if(!flat.length) return span('dim','no runs');
   st.sel=Math.min(st.sel,flat.length-1);
   const r=flat[st.sel];
-  let out = span('faint','◀ ')+span('b',(st.sel+1)+'/'+flat.length)+span('faint',' ▶  ')
-    + span('b',r.name)+span('acc',' ['+r.agent+']')+span('dim',' · '+r.model)
-    + (r.mode==='pane'?span('pur','  pane '+r.pane):'')+'\n'
-    + headerFacts(r)+'\n'
-    + span('dim','task: '+esc(r.task))+'\n';
-  for(const [cls,msg] of flagLines(r)) out+=span(cls==='info'?'acc':cls,'• '+msg)+'\n';
-  if(r.msg) out+=span('dim','• '+r.msg)+'\n';
+  const acts = visibleActions(r).map(([k])=>span('b','['+k+']')).join('');
+  let out = pager()+'  '+span('b',r.name)+span('acc',' ['+r.agent+']')
+    +span('faint',' · ')+headerFacts(r)
+    +'   '+acts+span('faint','  Esc')+'\n';
   out += span('faint','─'.repeat(96))+'\n';
-  out += r.mode==='pane'
-    ? span('dim','interactive run - the pane is the live view; press f to focus it (not simulated)')
-    : tailHtml(r, 18);
-  return out+(st.confirm?confirmBar():actionBar(r));
+  for(const [cls,msg] of flagLines(r)) out+=span(cls==='info'?'acc':cls,'⚠ '+msg)+'\n';
+  if(r.msg) out+=span('dim','• '+r.msg)+'\n';
+  out += r.mode==='pane' ? paneNote(r) : tailHtml(r, 19);
+  return out+(st.confirm?confirmBar():toastLine());
 }
 
-function overlayC(){
-  const {groups}=listRuns(); const flat=flatList(); const r=selRun();
-  const tabs=['tail','facts','actions'];
-  let head = span('b','Runs')+'   '+tabs.map((t,i)=>i===st.tab?span('selrow b',' '+t+' '):span('dim',' '+t+' ')).join('')
-    + span('faint','   Tab: switch · h: dismissed rows')+'\n'+span('faint','─'.repeat(96))+'\n';
-  const left=[]; let idx=0;
-  for(const [g,rs] of groups){ if(!rs.length) continue;
-    left.push(span('faint',g.toUpperCase()));
-    for(const x of rs){ const on=idx===st.sel; const f=fresh(x);
-      const verb=nextVerb(x);
-      const row=(on?'▸ ':'  ')+span(statusCls(x),glyph(x))+' '+x.name.padEnd(16).slice(0,16)
-        +span('dim',(statusWord(x)+(x.own!=='owned'?'·'+x.own:'')).padEnd(20).slice(0,20))
-        +(f?span(f.cls,f.txt.padEnd(12).slice(0,12)):' '.repeat(12))
-        +(verb?span('b','→ '+verb):'');
-      left.push(on?span('selrow',row):row); idx++; }
+function overlayB2(){
+  const flat=flatList(); if(!flat.length) return span('dim','no runs');
+  st.sel=Math.min(st.sel,flat.length-1);
+  const r=flat[st.sel];
+  const tabs = flat.map((x,i)=>{
+    const t=' '+(i+1)+' '+glyph(x)+' '+x.name+' ';
+    return i===st.sel?span('selrow b',t):span('dim',t);
+  }).join(span('faint','|'));
+  let out = tabs+'\n'+span('faint','─'.repeat(96))+'\n';
+  const ob=ownBadge(r); const f=fresh(r);
+  const grid=[
+    ['state', span(statusCls(r),statusWord(r)), 'owner', span(ob?ob.cls:'dim',ob?ob.txt:'this session')],
+    ['fresh', f?span(f.cls,f.txt):span('faint','—'),
+     r.state==='settled'?'settled':'elapsed', r.state==='settled'?span('dim',agoSettled(r)):span('dim',fmtDur(elapsed(r)))],
+    ['tools', span('dim',String(r.tools)), 'context', span('dim',r.ctx+'%')],
+    ['model', span('dim',r.model), 'mode', r.mode==='pane'?span('pur','interactive · pane '+r.pane):span('dim','background')],
+    ['task', span('dim',esc(r.task)), '', ''],
+  ];
+  for(const [a,b,c,d] of grid){
+    out += span('faint',a.padEnd(9))+b+'<span style="display:inline-block;width:'+(38-((''+b).replace(/<[^>]+>/g,'').length))+'ch"></span>'
+        + (c?span('faint',c.padEnd(9))+d:'')+'\n';
   }
-  while(left.length<20) left.push('');
-  const right=[];
-  if(r){
-    if(st.tab===0){ right.push(span('faint','live view - full content (human only)'));
-      right.push(...(r.mode==='pane'
-        ? [span('dim','pane '+r.pane+' is the live view (f: focus)')]
-        : tailHtml(r, 15).split('\n'))); }
-    if(st.tab===1){
-      right.push(span('b',r.name)+span('acc',' ['+r.agent+']'));
-      right.push(headerFacts(r));
-      right.push(span('dim','task: '+esc(r.task)));
-      right.push(span('dim','session: kept (transcript survives delete)'));
-      right.push(span('dim','mode: '+(r.mode==='pane'?'interactive, pane '+r.pane:'background')));
-      for(const [cls,msg] of flagLines(r)) right.push(span(cls==='info'?'acc':cls,'• '+msg));
-      if(r.msg) right.push(span('dim','• '+r.msg));
-    }
-    if(st.tab===2){
-      right.push(span('faint','actions for this run'));
-      for(const [k,l] of visibleActions(r)) right.push(span('b','['+k+'] ')+l);
-      right.push('');
-      right.push(span('dim','dismiss hides the row and removes nothing.'));
-      right.push(span('dim','delete removes the run artifacts; the Pi session transcript is kept.'));
-    }
+  for(const [cls,msg] of flagLines(r)) out+=span(cls==='info'?'acc':cls,'• '+msg)+'\n';
+  if(r.msg) out+=span('dim','• '+r.msg)+'\n';
+  out += span('faint','── live view '+(r.state==='running'?'(streaming)':'(final)')+' '+'─'.repeat(70))+'\n';
+  out += r.mode==='pane' ? paneNote(r) : tailHtml(r, 10);
+  const actLine = visibleActions(r).map(([k,l])=>span('b','['+k+'] ')+span('dim',l)).join('   ');
+  out += '\n'+span('faint','─'.repeat(96))+'\n'
+    +(actLine||span('faint','no actions for this row'))+'   '
+    +span('faint','←→/1-9: run · Esc: close');
+  return out+(st.confirm?confirmBar():toastLine());
+}
+
+function overlayB3(){
+  const flat=flatList(); if(!flat.length) return span('dim','no runs');
+  st.sel=Math.min(st.sel,flat.length-1);
+  const r=flat[st.sel];
+  const fl=flagLines(r);
+  const chips=fl.map(([cls])=>span(cls==='info'?'acc':cls,'■')).join('');
+  let out = span('b',r.name)+span('faint',' ▸ ')+headerFacts(r)
+    +(chips?'  '+chips+span('faint',' (!)'):'')+'\n';
+  if(st.flagDetail&&fl.length){
+    for(const [cls,msg] of fl) out+=span(cls==='info'?'acc':cls,'  • '+msg)+'\n';
   }
-  const L=20, W=52;
-  const body=left.slice(0,L).map((l,i)=>{
-    const plain=l.replace(/<[^>]+>/g,''); const pad=Math.max(0,W-plain.length);
-    return l+' '.repeat(pad)+span('faint','│ ')+(right[i]||'');
-  }).join('\n');
-  return head+body+(st.confirm?confirmBar():actionBar(r));
+  if(r.msg) out+=span('dim','  • '+r.msg)+'\n';
+  out += span('faint','─'.repeat(96))+'\n';
+  if(st.jump){
+    out += span('b','jump to run')+'\n';
+    flat.forEach((x,i)=>{
+      const row=(i===st.jump.idx?'▸ ':'  ')+span(statusCls(x),glyph(x))+' '+x.name
+        +span('dim',' · '+statusWord(x))+(needsYou(x)?span('err',' · '+nextVerb(x)):'');
+      out += (i===st.jump.idx?span('selrow',row):row)+'\n';
+    });
+    out += span('faint','↑↓: move · Enter: open · Esc: cancel');
+    return out;
+  }
+  out += r.mode==='pane' ? paneNote(r) : tailHtml(r, 21);
+  out += '\n'+span('faint','─'.repeat(96))+'\n'
+    +span('faint','j: jump list · ←→: next run · actions: ')
+    +visibleActions(r).map(([k])=>span('b','['+k+']')).join('')
+    +span('faint',' · !: flags · Esc');
+  return out+(st.confirm?confirmBar():toastLine());
 }
 
 /* ---------------- chat scrollback (context density) ---------------- */
@@ -607,7 +640,6 @@ function tick(){
   st.simNow+=0.5; st.spin++;
   for(const r of st.runs){
     if(r.state!=='running') continue;
-    if(r.curTool) r.curToolAgo+=0; // shown via +simNow
     if(r.stream){
       if(r.typing){ r.typing.pos+=7; r.lastEv=0;
         if(r.typing.pos>=r.typing.len) r.typing=null; }
@@ -626,12 +658,11 @@ function tick(){
 function render(){
   saveHash();
   document.getElementById('chat').innerHTML=CHAT;
-  const wfn=[widgetA,widgetB,widgetC][st.v];
-  const wl=wfn();
+  const wl=[widgetB1,widgetB2,widgetB3][st.v]();
   document.getElementById('widget').innerHTML = wl.length?wl.join('\n'):span('faint','(widget hidden - nothing to show)');
   const ov=document.getElementById('overlay');
   ov.className = st.overlay?'open':'';
-  if(st.overlay) ov.innerHTML=[overlayA,overlayB,overlayC][st.v]();
+  if(st.overlay) ov.innerHTML=[overlayB1,overlayB2,overlayB3][st.v]();
   document.getElementById('vLabel').textContent=VARIANTS[st.v].key+' — '+VARIANTS[st.v].name;
   document.getElementById('slRight').textContent='scenario '+st.sc+': '+SCENARIOS[st.sc].name;
   const scens=document.getElementById('scens');
@@ -642,7 +673,7 @@ function render(){
 }
 
 /* ---------------- input ---------------- */
-function cycleVariant(d){ st.v=(st.v+d+VARIANTS.length)%VARIANTS.length; st.toast=''; render(); }
+function cycleVariant(d){ st.v=(st.v+d+VARIANTS.length)%VARIANTS.length; st.toast=''; st.jump=null; fixSel(); render(); }
 function setScenario(k){ st.sc=k; loadScenario(); render(); }
 document.getElementById('prevV').onclick=()=>cycleVariant(-1);
 document.getElementById('nextV').onclick=()=>cycleVariant(1);
@@ -654,22 +685,31 @@ document.addEventListener('keydown',e=>{
   if(st.confirm){ if(k==='y') confirmDelete(true); if(k==='n'||k==='Escape') confirmDelete(false); render(); return; }
   if(k==='[') return cycleVariant(-1);
   if(k===']') return cycleVariant(1);
-  if(k>='1'&&k<='6') return setScenario(+k);
-  if(k==='o'){ st.overlay=!st.overlay; st.toast=''; return render(); }
+  if(k==='o'){ st.overlay=!st.overlay; st.toast=''; st.jump=null; return render(); }
   if(!st.overlay){
+    if(k>='1'&&k<='6') return setScenario(+k);
     if(k==='ArrowLeft') return cycleVariant(-1);
     if(k==='ArrowRight') return cycleVariant(1);
+    if(k==='h'){ st.showDismissed=!st.showDismissed; fixSel(); return render(); }
     return;
   }
-  if(k==='Escape'){ st.overlay=false; return render(); }
+  // overlay open
   const flat=flatList();
-  if(k==='ArrowUp'){ st.sel=Math.max(0,st.sel-1); st.toast=''; }
-  if(k==='ArrowDown'){ st.sel=Math.min(flat.length-1,st.sel+1); st.toast=''; }
-  if(VARIANTS[st.v].key==='B'){
-    if(k==='ArrowLeft'){ st.sel=Math.max(0,st.sel-1); st.toast=''; }
-    if(k==='ArrowRight'){ st.sel=Math.min(flat.length-1,st.sel+1); st.toast=''; }
+  if(st.jump){
+    if(k==='ArrowUp') st.jump.idx=Math.max(0,st.jump.idx-1);
+    if(k==='ArrowDown') st.jump.idx=Math.min(flat.length-1,st.jump.idx+1);
+    if(k==='Enter'){ st.sel=st.jump.idx; st.jump=null; }
+    if(k==='Escape') st.jump=null;
+    return render();
   }
-  if(VARIANTS[st.v].key==='C'&&k==='Tab'){ e.preventDefault(); st.tab=(st.tab+1)%3; }
+  if(k==='Escape'){ st.overlay=false; return render(); }
+  if(k==='ArrowLeft'){ st.sel=Math.max(0,st.sel-1); st.toast=''; }
+  if(k==='ArrowRight'){ st.sel=Math.min(flat.length-1,st.sel+1); st.toast=''; }
+  if(VARIANTS[st.v].key==='B2' && k>='1' && k<='9' && +k<=flat.length){ st.sel=+k-1; st.toast=''; }
+  if(VARIANTS[st.v].key==='B3'){
+    if(k==='j') st.jump={idx:st.sel};
+    if(k==='!') st.flagDetail=!st.flagDetail;
+  }
   if(k==='h'){ st.showDismissed=!st.showDismissed; fixSel(); }
   if('iscwdx'.includes(k)) doAction(k);
   render();
