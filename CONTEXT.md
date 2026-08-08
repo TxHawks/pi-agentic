@@ -107,6 +107,9 @@ Inject a message into a session's current turn. Results steer the parent; mid-tu
 End a run's current turn. The run may continue after an interrupt.
 _Avoid_: abort
 
+**Redirect**:
+Interrupt a run, then wake its session with a new task. A redirect is one operation with one answer. The session keeps the work of its completed messages.
+
 **Stop**:
 End a run's process.
 _Avoid_: kill, terminate (terminate names a parent-close policy)
