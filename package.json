@@ -71,6 +71,7 @@
 	},
 	"trustedDependencies": [
 		"koffi",
-		"protobufjs"
+		"protobufjs",
+		"@google/genai"
 	]
 }
