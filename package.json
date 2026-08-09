@@ -1,15 +1,15 @@
 {
-	"name": "pi-subagents",
-	"version": "2.7.3",
-	"description": "Power-user multi-agent framework for Pi: named agents, interactive sessions via Herdr/cmux/tmux/zellij/WezTerm, background workers, async/sync coordination, fork/resume, child-to-parent messaging, orchestrator mode, and a live TUI",
+	"name": "pi-agentic",
+	"version": "1.0.0",
+	"description": "Pi mux-enabled interactive subagents with foreground and (promotable) background subagents, sync/async coordination, fresh/forked context, child-to-parent messaging, orchestrator mode. Supports tmux | cmux | ZelliJ | WezTerm | Herder",
 	"keywords": [
 		"pi-package"
 	],
 	"license": "MIT",
-	"author": "edxeth",
+	"author": "TxHawks",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/edxeth/pi-subagents"
+		"url": "https://github.com/TxHawks/pi-agentic"
 	},
 	"type": "module",
 	"scripts": {
@@ -30,12 +30,6 @@
 		"test:live-herdr-pi": "node scripts/test-live-herdr-pi.mjs",
 		"test:live-herdr-timeout-wrap-up": "node scripts/test-live-herdr-timeout-wrap-up.mjs"
 	},
-	"peerDependencies": {
-		"@earendil-works/pi-ai": ">=0.79.0",
-		"@earendil-works/pi-coding-agent": ">=0.79.10",
-		"@earendil-works/pi-tui": ">=0.79.0",
-		"typebox": "*"
-	},
 	"devDependencies": {
 		"@earendil-works/pi-ai": "^0.84.1",
 		"@earendil-works/pi-coding-agent": "^0.84.1",
@@ -45,10 +39,11 @@
 		"typebox": "*",
 		"typescript": "^7.0.2"
 	},
-	"pi": {
-		"extensions": [
-			"./src/index.ts"
-		]
+	"peerDependencies": {
+		"@earendil-works/pi-ai": ">=0.79.0",
+		"@earendil-works/pi-coding-agent": ">=0.79.10",
+		"@earendil-works/pi-tui": ">=0.79.0",
+		"typebox": "*"
 	},
 	"knip": {
 		"ignoreBinaries": [
@@ -62,6 +57,16 @@
 		],
 		"ignoreFiles": [
 			"scripts/check-file-sizes.mjs"
+		]
+	},
+	"pi": {
+		"extensions": [
+			"./src/index.ts"
+		]
+	},
+	"pi.self.disabled": {
+		"extensions": [
+			"./src/index.ts"
 		]
 	},
 	"trustedDependencies": [
