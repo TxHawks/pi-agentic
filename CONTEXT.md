@@ -32,8 +32,9 @@ _Avoid_: unclaimed result
 **Hibernated**:
 A child session whose latest run has settled and whose process has exited, kept ready for a later run.
 
-**Wake**:
-Start a new run on a hibernated session. Resume wakes a session.
+**Resume**:
+Start a new run on a hibernated session. The new run keeps the work of the session's completed messages.
+_Avoid_: wake
 
 ### Ownership and recovery
 
@@ -98,6 +99,12 @@ A bounded, non-blocking read of a run's progress. A peek returns at once with wh
 **Live view**:
 The human-facing, continuously updating view of one run's full content.
 
+**Runtime notice**:
+A marked message that the extension puts into the parent's conversation. A notice reports an event. A notice is not a delivery.
+
+**Stall warning**:
+A runtime notice that tells a run's owner the run shows no progress. It uses progress facts only.
+
 ### Control
 
 **Steer**:
@@ -108,7 +115,7 @@ End a run's current turn. The run may continue after an interrupt.
 _Avoid_: abort
 
 **Redirect**:
-Interrupt a run, then wake its session with a new task. A redirect is one operation with one answer. The session keeps the work of its completed messages.
+Interrupt a run, then resume its session with a new task. A redirect is one operation with one answer. The session keeps the work of its completed messages.
 
 **Stop**:
 End a run's process.
