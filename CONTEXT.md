@@ -134,3 +134,14 @@ A launch with no durable, resumable Pi session. Its run artifacts follow normal 
 
 **Retention**:
 The rules that limit how long and how much run data is kept.
+
+### Validation
+
+**Live probe**:
+A scripted check that launches a real child and asserts on run artifacts. A live probe never judges the quality of a model's output.
+
+**Pass receipt**:
+The durable, machine-readable record of one full live-probe run: the commit it proves, the Pi version, the model ref, and the result of every probe.
+
+**Release gate**:
+The set of checks that must pass before a version is published. The gate is mechanical: no check relies on a human's memory.
