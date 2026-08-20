@@ -1,20 +1,12 @@
 import { randomUUID } from "node:crypto";
-import type {
-	CompletedSubagentResult,
-	DeliveryState,
-	RunningSubagent,
-	SubagentResult,
-	WaitParams,
-} from "../types.ts";
+import type { CompletedSubagentResult, DeliveryState, RunningSubagent, SubagentResult, WaitParams } from "../types.ts";
+import { formatContextExitNotice, formatFinalContextUsage, formatSessionRef } from "./final-context-usage.ts";
 import { hasRealSubagentOutput } from "./state.ts";
-import { formatElapsed } from "./wiring.ts";
 import type { WaitRuntime } from "./wait.ts";
+import { formatTimeoutOutcome, formatTimeoutWrapUpOutcome, getTimeoutResultDetails } from "./timeout-budget.ts";
+import { formatElapsed } from "./wiring.ts";
 
-function getSubagentWaitPingResult(
-	running: RunningSubagent,
-	result: SubagentResult,
-	deliveryState: DeliveryState,
-) {
+function getSubagentWaitPingResult(running: RunningSubagent, result: SubagentResult, deliveryState: DeliveryState) {
 	return {
 		content: [
 			{
@@ -41,29 +33,42 @@ function getSubagentWaitPingResult(
 }
 
 function getSubagentWaitSuccessResult(cached: CompletedSubagentResult) {
-	const sessionRef = cached.sessionFile
-		? `\n\nSession: ${cached.sessionFile}\nResume: pi --session ${cached.sessionFile}`
-		: "";
+	const sessionRef = formatSessionRef(cached);
+	const contextRef =
+		cached.reportContextUsage === false ? formatContextExitNotice(cached) : formatFinalContextUsage(cached);
 	let text: string;
-	if (cached.errorMessage) {
+	if (cached.timedOut) {
+		// A budget kill is the dominant fact about this run: without it the parent
+		// reads an ordinary non-zero exit and retries the same runaway.
+		text = `${formatTimeoutOutcome(
+			{ ...cached, timedOut: cached.timedOut },
+			hasRealSubagentOutput(cached),
+			formatElapsed,
+		)}${sessionRef}${contextRef}`;
+	} else if (cached.errorMessage) {
 		const resultBody = hasRealSubagentOutput(cached)
 			? `Last output before the failure (may be incomplete — verify before trusting):\n\n${cached.summary}`
-			: `The subagent did not produce a result. You can retry by spawning a new ` +
-				`subagent or resume the session with subagent_resume.`;
+			: cached.contextExhausted
+				? `The subagent did not produce a result, and its context window is spent. ` +
+					`A fresh subagent is usually better than resuming this session.`
+				: `The subagent did not produce a result. You can retry by spawning a new ` +
+					`subagent or resume the session with subagent_resume.`;
 		text =
 			`Sub-agent "${cached.name}" failed after ${formatElapsed(cached.elapsed)} ` +
 			`(provider/agent error — auto-retry exhausted).\n\n` +
-			`Error: ${cached.errorMessage}\n\n${resultBody}${sessionRef}`;
+			`Error: ${cached.errorMessage}\n\n${resultBody}${sessionRef}${contextRef}`;
+	} else if (cached.exitCode === 0 && cached.timeoutWrapUp) {
+		text = `${formatTimeoutWrapUpOutcome(
+			{ ...cached, timeoutWrapUp: cached.timeoutWrapUp },
+			formatElapsed,
+		)}${sessionRef}${contextRef}`;
 	} else {
 		const verb =
+			cached.status === "completed" ? "completed" : cached.status === "cancelled" ? "was cancelled" : "failed";
+		text =
 			cached.status === "completed"
-				? "completed"
-				: cached.status === "cancelled"
-					? "was cancelled"
-					: "failed";
-		text = cached.status === "completed"
-				? `Sub-agent "${cached.name}" completed (${formatElapsed(cached.elapsed)}).\n\n${cached.summary}${sessionRef}`
-				: `Sub-agent "${cached.name}" ${verb} (exit ${cached.exitCode}).\n\n${cached.summary}${sessionRef}`;
+				? `Sub-agent "${cached.name}" completed (${formatElapsed(cached.elapsed)}).\n\n${cached.summary}${sessionRef}${contextRef}`
+				: `Sub-agent "${cached.name}" ${verb} (exit ${cached.exitCode}).\n\n${cached.summary}${sessionRef}${contextRef}`;
 	}
 	return {
 		content: [{ type: "text", text }],
@@ -80,31 +85,25 @@ function getSubagentWaitSuccessResult(cached: CompletedSubagentResult) {
 			exitCode: cached.exitCode,
 			elapsed: cached.elapsed,
 			outputTokens: cached.outputTokens,
+			contextTokens: cached.contextTokens,
+			contextWindow: cached.contextWindow,
 			summary: cached.summary,
 			sessionFile: cached.sessionFile,
-			...(cached.errorMessage
-				? { errorMessage: cached.errorMessage }
-				: {}),
+			...getTimeoutResultDetails(cached),
+			...(cached.timeoutWrapUp ? { timeoutWrapUp: cached.timeoutWrapUp } : {}),
+			...(cached.errorMessage ? { errorMessage: cached.errorMessage } : {}),
 		},
 	};
 }
 
-function getSubagentWaitErrorResult(
-	message: string,
-	error: string,
-	extra: Record<string, unknown> = {},
-) {
+function getSubagentWaitErrorResult(message: string, error: string, extra: Record<string, unknown> = {}) {
 	return {
 		content: [{ type: "text", text: message }],
 		details: { error, ...extra },
 	};
 }
 
-function releaseSubagentWaitOwnership(
-	runtime: WaitRuntime,
-	running: RunningSubagent,
-	ownerId: string,
-): void {
+function releaseSubagentWaitOwnership(runtime: WaitRuntime, running: RunningSubagent, ownerId: string): void {
 	if (runtime.runningSubagents.get(running.id) !== running) return;
 	if (running.resultOwner?.kind !== "wait") return;
 	if (running.resultOwner.ownerId !== ownerId) return;
@@ -114,18 +113,12 @@ function releaseSubagentWaitOwnership(
 	runtime.updateWidget();
 }
 
-export async function waitForSubagentResult(
-	params: WaitParams,
-	runtime: WaitRuntime,
-	signal?: AbortSignal,
-) {
+export async function waitForSubagentResult(params: WaitParams, runtime: WaitRuntime, signal?: AbortSignal) {
 	const match = runtime.findTrackedSubagent(params.id);
 	if (match.error || (!match.cached && !match.running)) {
-		return getSubagentWaitErrorResult(
-			match.error ?? `No subagent matches "${params.id}".`,
-			"not_found",
-			{ id: params.id },
-		);
+		return getSubagentWaitErrorResult(match.error ?? `No subagent matches "${params.id}".`, "not_found", {
+			id: params.id,
+		});
 	}
 
 	const cached = match.cached;
@@ -151,11 +144,9 @@ export async function waitForSubagentResult(
 		);
 	}
 	if (!running.completionPromise) {
-		return getSubagentWaitErrorResult(
-			`Sub-agent "${running.name}" is missing completion tracking.`,
-			"not_found",
-			{ id: running.id },
-		);
+		return getSubagentWaitErrorResult(`Sub-agent "${running.name}" is missing completion tracking.`, "not_found", {
+			id: running.id,
+		});
 	}
 
 	const ownerId = `wait:${randomUUID()}`;
@@ -172,20 +163,13 @@ export async function waitForSubagentResult(
 			result,
 		}));
 		const races: Array<
-			Promise<
-				| { kind: "completed"; result: SubagentResult }
-				| { kind: "timeout" }
-				| { kind: "interrupted" }
-			>
+			Promise<{ kind: "completed"; result: SubagentResult } | { kind: "timeout" } | { kind: "interrupted" }>
 		> = [completionPromise];
 
 		if (params.timeout && params.timeout > 0) {
 			races.push(
 				new Promise((resolve) => {
-					timeoutHandle = setTimeout(
-						() => resolve({ kind: "timeout" as const }),
-						params.timeout! * 1000,
-					);
+					timeoutHandle = setTimeout(() => resolve({ kind: "timeout" as const }), params.timeout! * 1000);
 				}),
 			);
 		}
@@ -195,11 +179,9 @@ export async function waitForSubagentResult(
 				await runtime.stopRunningSubagent(running);
 				runtime.runningSubagents.delete(running.id);
 				runtime.updateWidget();
-				return getSubagentWaitErrorResult(
-					`Waiting for sub-agent "${running.name}" was interrupted.`,
-					"interrupted",
-					{ id: running.id },
-				);
+				return getSubagentWaitErrorResult(`Waiting for sub-agent "${running.name}" was interrupted.`, "interrupted", {
+					id: running.id,
+				});
 			}
 			races.push(
 				new Promise((resolve) => {
@@ -218,11 +200,7 @@ export async function waitForSubagentResult(
 			const completed =
 				runtime.completedSubagentResults.get(running.id) ??
 				runtime.cacheCompletedSubagentResult(running, outcome.result);
-			if (
-				completed.deliveredTo &&
-				completed.deliveredTo !== "wait" &&
-				completed.deliveredTo !== "steer"
-			) {
+			if (completed.deliveredTo && completed.deliveredTo !== "wait" && completed.deliveredTo !== "steer") {
 				return getSubagentWaitErrorResult(
 					`Sub-agent result for "${running.id}" was already delivered via ${completed.deliveredTo}.`,
 					"already_delivered",
@@ -239,17 +217,11 @@ export async function waitForSubagentResult(
 			await runtime.stopRunningSubagent(running);
 			runtime.runningSubagents.delete(running.id);
 			runtime.updateWidget();
-			return getSubagentWaitErrorResult(
-				`Waiting for sub-agent "${running.name}" was interrupted.`,
-				"interrupted",
-				{ id: running.id },
-			);
+			return getSubagentWaitErrorResult(`Waiting for sub-agent "${running.name}" was interrupted.`, "interrupted", {
+				id: running.id,
+			});
 		}
-		if (
-			params.onTimeout === "return_pending" ||
-			params.onTimeout === "detach" ||
-			params.onTimeout === "return"
-		) {
+		if (params.onTimeout === "return_pending" || params.onTimeout === "detach" || params.onTimeout === "return") {
 			return {
 				content: [
 					{
@@ -265,11 +237,10 @@ export async function waitForSubagentResult(
 				},
 			};
 		}
-		return getSubagentWaitErrorResult(
-			`Timed out waiting for sub-agent "${running.name}".`,
-			"timeout",
-			{ id: running.id, timeout: params.timeout },
-		);
+		return getSubagentWaitErrorResult(`Timed out waiting for sub-agent "${running.name}".`, "timeout", {
+			id: running.id,
+			timeout: params.timeout,
+		});
 	} finally {
 		if (timeoutHandle) clearTimeout(timeoutHandle);
 		abortCleanup();

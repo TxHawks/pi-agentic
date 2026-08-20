@@ -1,33 +1,32 @@
 import {
-	assert,
-	existsSync,
-	writeFileSync,
-	join,
+	ASSISTANT_MSG,
 	afterEach,
+	assert,
+	createForkSessionFileForTest,
+	createTestDir,
 	describe,
-	it,
+	existsSync,
+	findLastAssistantMessage,
 	getCompletedSubagentResultForTest,
+	getEntries,
 	getLaunchedSubagentResultForTest,
-	markSubagentBatchBlockingForTest,
 	getStartedSubagentDetailsForTest,
 	getTerminalAssistantSummaryAfterLaunchForTest,
 	getTerminalAssistantSummaryForTest,
+	isMissingOptionalDependencyForTest,
+	it,
+	join,
+	MODEL_CHANGE,
+	markSubagentBatchBlockingForTest,
 	renderSubagentWidgetForTest,
 	resetSubagentStateForTest,
 	routeDetachedSubagentCompletionForTest,
+	SESSION_HEADER,
 	seedSubagentSessionFileForTest,
 	setRunningSubagentForTest,
-	waitForSubagentForTest,
-	findLastAssistantMessage,
-	getEntries,
-	isMissingOptionalDependencyForTest,
-	createTestDir,
-
-	createForkSessionFileForTest,
-	SESSION_HEADER,
-	MODEL_CHANGE,
 	USER_MSG,
-	ASSISTANT_MSG,
+	waitForSubagentForTest,
+	writeFileSync,
 } from "../support/index.ts";
 
 describe("fork session launch behavior", () => {
@@ -39,7 +38,11 @@ describe("fork session launch behavior", () => {
 		const dir = createTestDir();
 		const parent = join(dir, "parent.jsonl");
 		const child = join(dir, "child.jsonl");
-		const header = { ...SESSION_HEADER, cwd: dir, timestamp: "2026-05-08T00:00:00.000Z" };
+		const header = {
+			...SESSION_HEADER,
+			cwd: dir,
+			timestamp: "2026-05-08T00:00:00.000Z",
+		};
 		const root = {
 			type: "message",
 			id: "root-user",
@@ -59,12 +62,12 @@ describe("fork session launch behavior", () => {
 			id: "abandoned-assistant",
 			parentId: "root-user",
 			timestamp: "2026-05-08T00:00:03.000Z",
-			message: { role: "assistant", content: [{ type: "text", text: "abandoned" }] },
+			message: {
+				role: "assistant",
+				content: [{ type: "text", text: "abandoned" }],
+			},
 		};
-		writeFileSync(
-			parent,
-			`${[header, root, main, abandoned].map((entry) => JSON.stringify(entry)).join("\n")}\n`,
-		);
+		writeFileSync(parent, `${[header, root, main, abandoned].map((entry) => JSON.stringify(entry)).join("\n")}\n`);
 
 		seedSubagentSessionFileForTest("fork", parent, child, dir, {
 			activeLeafId: "main-assistant",
@@ -109,21 +112,139 @@ describe("fork session launch behavior", () => {
 			},
 		] as any[];
 
-		assert.equal(
-			getTerminalAssistantSummaryAfterLaunchForTest(seededEntries, 2),
-			newSummary,
-		);
+		assert.equal(getTerminalAssistantSummaryAfterLaunchForTest(seededEntries, 2), newSummary);
 		assert.equal(findLastAssistantMessage(seededEntries.slice(2)), newSummary);
-		assert.equal(
-			getTerminalAssistantSummaryAfterLaunchForTest(
-				seededEntries,
-				seededEntries.length,
-			),
-			null,
+		assert.equal(getTerminalAssistantSummaryAfterLaunchForTest(seededEntries, seededEntries.length), null);
+		assert.equal(getTerminalAssistantSummaryForTest(seededEntries.slice(0, 2)), oldSummary);
+	});
+
+	it("keeps the inherited fork branch fully walkable when entries are dropped", () => {
+		const dir = createTestDir();
+		const parent = join(dir, "parent.jsonl");
+		const child = join(dir, "child.jsonl");
+		const header = {
+			...SESSION_HEADER,
+			cwd: dir,
+			timestamp: "2026-08-07T20:00:00.000Z",
+		};
+		const entries = [
+			header,
+			{
+				type: "message",
+				id: "user-001",
+				parentId: null,
+				timestamp: "2026-08-07T20:00:01.000Z",
+				message: { role: "user", content: [{ type: "text", text: "root" }] },
+			},
+			{
+				type: "message",
+				id: "asst-001",
+				parentId: "user-001",
+				timestamp: "2026-08-07T20:00:02.000Z",
+				message: {
+					role: "assistant",
+					content: [{ type: "toolCall", id: "subagent_131", name: "subagent", arguments: { agent: "x" } }],
+				},
+			},
+			{
+				type: "message",
+				id: "asst-002",
+				parentId: "asst-001",
+				timestamp: "2026-08-07T20:00:03.000Z",
+				message: {
+					role: "assistant",
+					content: [{ type: "toolCall", id: "subagent_kill_70", name: "subagent_kill", arguments: { id: "x" } }],
+				},
+			},
+			{
+				type: "message",
+				id: "tool-001",
+				parentId: "asst-002",
+				timestamp: "2026-08-07T20:00:04.000Z",
+				message: { role: "toolResult", toolCallId: "subagent_kill_70", content: [{ type: "text", text: "ok" }] },
+			},
+			{
+				type: "message",
+				id: "asst-003",
+				parentId: "tool-001",
+				timestamp: "2026-08-07T20:00:05.000Z",
+				message: {
+					role: "assistant",
+					content: [{ type: "text", text: "spawning the reviewer now" }],
+				},
+			},
+			{
+				type: "message",
+				id: "asst-004",
+				parentId: "asst-003",
+				timestamp: "2026-08-07T20:00:06.000Z",
+				message: {
+					role: "assistant",
+					content: [
+						{ type: "text", text: "final answer" },
+						{ type: "toolCall", id: "subagent_137", name: "subagent", arguments: { agent: "reviewer" } },
+					],
+				},
+			},
+			{
+				type: "message",
+				id: "asst-005",
+				parentId: "asst-004",
+				timestamp: "2026-08-07T20:00:07.000Z",
+				message: {
+					role: "user",
+					content: [{ type: "text", text: "delegated child task" }],
+				},
+			},
+			{
+				type: "custom_message",
+				id: "roster-001",
+				parentId: "asst-005",
+				timestamp: "2026-08-07T20:00:08.000Z",
+				customType: "subagent_roster",
+				content: "Sub-agents: bob, alice",
+			},
+			{
+				type: "message",
+				id: "asst-006",
+				parentId: "roster-001",
+				timestamp: "2026-08-07T20:00:09.000Z",
+				message: { role: "assistant", content: [{ type: "text", text: "spawning opus" }] },
+			},
+		];
+		writeFileSync(parent, `${entries.map((entry) => JSON.stringify(entry)).join("\n")}\n`);
+
+		seedSubagentSessionFileForTest("fork", parent, child, dir, {
+			activeLeafId: "asst-006",
+		});
+
+		const seeded = getEntries(child) as any[];
+		const messages = seeded.filter((entry) => entry.type === "message");
+		assert.deepEqual(
+			messages.map((entry) => entry.id),
+			["user-001", "asst-001", "asst-002", "tool-001", "asst-003", "asst-004", "asst-005", "asst-006"],
 		);
-		assert.equal(
-			getTerminalAssistantSummaryForTest(seededEntries.slice(0, 2)),
-			oldSummary,
+		// Roster entries are dropped from the inherited context, and orphaned
+		// tool calls are preserved verbatim: pi-ai's transformMessages synthesizes
+		// a "No result provided" toolResult for them at the provider boundary.
+		assert.equal(JSON.stringify(seeded).includes("subagent_131"), true);
+		assert.equal(JSON.stringify(seeded).includes("subagent_137"), true);
+		assert.equal(JSON.stringify(seeded).includes("subagent_kill_70"), true);
+		assert.equal(JSON.stringify(seeded).includes("roster-001"), false);
+
+		// The full parentId chain must be walkable from the last seeded entry:
+		// dropping an entry must re-link its successor, or the child's inherited
+		// context silently truncates at the stale link.
+		const byId = new Map(messages.map((entry: any) => [entry.id, entry]));
+		const visited: string[] = [];
+		let cursor: any = messages[messages.length - 1];
+		while (cursor) {
+			visited.push(cursor.id);
+			cursor = cursor.parentId ? byId.get(cursor.parentId) : undefined;
+		}
+		assert.deepEqual(
+			visited,
+			["asst-006", "asst-005", "asst-004", "asst-003", "tool-001", "asst-002", "asst-001", "user-001"],
 		);
 	});
 
@@ -153,9 +274,7 @@ describe("fork session launch behavior", () => {
 		assert.equal(entries[0].type, "session");
 		assert.equal(entries[0].parentSession, parent);
 		assert.equal(entries.at(-1)?.id, "asst-001");
-		assert.ok(
-			!JSON.stringify(entries).includes("Use subagent to fork this session"),
-		);
+		assert.ok(!JSON.stringify(entries).includes("Use subagent to fork this session"));
 	});
 
 	it("returns detached launch metadata and defers same-batch completion once", async () => {
@@ -211,23 +330,15 @@ describe("fork session launch behavior", () => {
 		assert.equal(cached.deliveryState, "detached");
 		assert.equal(cached.parentClosePolicy, "terminate");
 		assert.equal(cached.status, "completed");
-		assert.equal(
-			getCompletedSubagentResultForTest(running.id)?.deliveredTo,
-			"steer",
-		);
+		assert.equal(getCompletedSubagentResultForTest(running.id)?.deliveredTo, "steer");
 	});
 
 	it("recognizes optional dependency resolution failures from node and bun-style errors", () => {
 		assert.equal(
 			isMissingOptionalDependencyForTest(
-				Object.assign(
-					new Error(
-						"Cannot find module '@earendil-works/pi-tui' from '/tmp/ext.ts'",
-					),
-					{
-						code: "MODULE_NOT_FOUND",
-					},
-				),
+				Object.assign(new Error("Cannot find module '@earendil-works/pi-tui' from '/tmp/ext.ts'"), {
+					code: "MODULE_NOT_FOUND",
+				}),
 				"@earendil-works/pi-tui",
 			),
 			true,
@@ -235,8 +346,7 @@ describe("fork session launch behavior", () => {
 		assert.equal(
 			isMissingOptionalDependencyForTest(
 				{
-					message:
-						"Cannot find module '@earendil-works/pi-tui' from '/tmp/ext.ts'",
+					message: "Cannot find module '@earendil-works/pi-tui' from '/tmp/ext.ts'",
 				},
 				"@earendil-works/pi-tui",
 			),
@@ -300,10 +410,7 @@ describe("fork session launch behavior", () => {
 		assert.equal((launched.details as any).summary, "Blocking completion summary");
 		assert.match(launched.content[0].text, /Blocking completion summary/);
 		assert.equal(sent.length, 0);
-		assert.equal(
-			getCompletedSubagentResultForTest(running.id)?.deliveredTo,
-			"wait",
-		);
+		assert.equal(getCompletedSubagentResultForTest(running.id)?.deliveredTo, "wait");
 	});
 
 	it("awaits async siblings when a blocking child gates the batch", async () => {
@@ -367,9 +474,7 @@ describe("fork session launch behavior", () => {
 		for (const running of [asyncA, asyncB, blocking]) {
 			setRunningSubagentForTest(running);
 		}
-		const launchedPromises = [asyncA, blocking, asyncB].map((running) =>
-			getLaunchedSubagentResultForTest(running),
-		);
+		const launchedPromises = [asyncA, blocking, asyncB].map((running) => getLaunchedSubagentResultForTest(running));
 
 		resolveAsyncA({
 			name: asyncA.name,
@@ -409,10 +514,7 @@ describe("fork session launch behavior", () => {
 		assert.equal((launched[0].details as any).async, true);
 		assert.equal((launched[2].details as any).async, true);
 		for (const running of [asyncA, asyncB, blocking]) {
-			assert.equal(
-				getCompletedSubagentResultForTest(running.id)?.deliveredTo,
-				"wait",
-			);
+			assert.equal(getCompletedSubagentResultForTest(running.id)?.deliveredTo, "wait");
 		}
 	});
 
@@ -498,14 +600,8 @@ describe("fork session launch behavior", () => {
 		assert.equal((waited.details as any).deliveryState, "awaited");
 		assert.equal((waited.details as any).exitCode, 0);
 		assert.equal(sent.length, 0);
-		assert.equal(
-			getCompletedSubagentResultForTest(running.id)?.deliveredTo,
-			"wait",
-		);
-		assert.equal(
-			getCompletedSubagentResultForTest(running.id)?.deliveryState,
-			"awaited",
-		);
+		assert.equal(getCompletedSubagentResultForTest(running.id)?.deliveredTo, "wait");
+		assert.equal(getCompletedSubagentResultForTest(running.id)?.deliveryState, "awaited");
 	});
 
 	it("returns a ping result instead of completion when an awaited child asks for help", async () => {
@@ -568,5 +664,4 @@ describe("fork session launch behavior", () => {
 		assert.equal((second.details as any).status, "completed");
 		assert.equal((second.details as any).id, running.id);
 	});
-
 });

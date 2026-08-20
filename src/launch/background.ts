@@ -1,10 +1,22 @@
 import { spawn } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { getSubagentDisplayTitle } from "../agents/titles.ts";
+import { clearSubagentExitSidecar } from "../session/exit-sidecar.ts";
+import { buildPiPromptArgs } from "../session/session-files.ts";
+import { getSubagentToolLaunchArgs } from "../tools/policy.ts";
+import type { RunningSubagent, SubagentParamsInput } from "../types.ts";
+import { buildAppendSystemInheritancePlan } from "./append-system.ts";
+import { getPiInvocation, getSubagentChildProcessEnv } from "./child-command.ts";
+import { CHILD_CONTEXT_BOUNDARY_SYSTEM_PROMPT } from "./context-boundary.ts";
+import { coordinateSubagentLaunch } from "./launch-coordinator.ts";
+import { PI_SUBAGENT_TIMEOUT_STARTED_AT } from "../tools/timeout-reminders.ts";
 import {
-	getPiInvocation,
-	getSubagentChildProcessEnv,
-} from "./child-command.ts";
+	resolveSubagentNoContextFiles,
+	resolveSubagentParentClosePolicy,
+	resolveSubagentReportContextUsage,
+	resolveSubagentTimeoutState,
+} from "./policy.ts";
 import {
 	getApprovalLaunchArgs,
 	getFlagsLaunchArgs,
@@ -15,24 +27,11 @@ import {
 	getPreparedSkillInjection,
 	getPreparedSkillLaunchArgs,
 	getPreparedSkillList,
+	isPreparedChildSpawningAllowed,
 	type SubagentLaunchContext,
 } from "./prep.ts";
-import {
-	resolveSubagentNoContextFiles,
-	resolveSubagentParentClosePolicy,
-} from "./policy.ts";
-import type { RunningSubagent, SubagentParamsInput } from "../types.ts";
-import {
-	buildPiPromptArgs,
-} from "../session/session-files.ts";
-import { coordinateSubagentLaunch } from "./launch-coordinator.ts";
 import { writeTaskArtifact } from "./prompt-artifacts.ts";
 import { expandSubagentTask } from "./task-expansion.ts";
-import { getSubagentDisplayTitle } from "../agents/titles.ts";
-import { getSubagentToolLaunchArgs } from "../tools/policy.ts";
-import { clearSubagentExitSidecar } from "../session/exit-sidecar.ts";
-import { CHILD_CONTEXT_BOUNDARY_SYSTEM_PROMPT } from "./context-boundary.ts";
-import { buildAppendSystemInheritancePlan } from "./append-system.ts";
 
 export interface BackgroundLaunchRuntime {
 	getContextWindow(modelRef: string | undefined): number | undefined;
@@ -43,15 +42,12 @@ export async function launchBackgroundSubagent(
 	ctx: SubagentLaunchContext,
 	runtime: BackgroundLaunchRuntime,
 ): Promise<RunningSubagent> {
-	const startTime = Date.now();
 	const id = Math.random().toString(16).slice(2, 10);
-	const launch = await coordinateSubagentLaunch(params, ctx, { mode: "background" });
+	const launch = await coordinateSubagentLaunch(params, ctx, {
+		mode: "background",
+	});
 	const { prepared, noSession, directTask } = launch;
-	const subagentDonePath = join(
-		dirname(dirname(fileURLToPath(import.meta.url))),
-		"tools",
-		"subagent-done.ts",
-	);
+	const subagentDonePath = join(dirname(dirname(fileURLToPath(import.meta.url))), "tools", "subagent-done.ts");
 	const roleBlock = getPreparedRoleBlock(prepared);
 	const modeHint = prepared.agentDefs?.autoExit
 		? "Complete your task autonomously."
@@ -63,9 +59,7 @@ export async function launchBackgroundSubagent(
 		enabled: prepared.agentDefs?.taskExpansion === "shell",
 		cwd: prepared.runtimePaths.effectiveCwd ?? ctx.cwd,
 	});
-	let fullTask = directTask
-		? expandedTask
-		: `${roleBlock}\n\n${modeHint}\n\n${expandedTask}\n\n${summaryInstruction}`;
+	let fullTask = directTask ? expandedTask : `${roleBlock}\n\n${modeHint}\n\n${expandedTask}\n\n${summaryInstruction}`;
 	const skillInjection = getPreparedSkillInjection(prepared);
 	if (skillInjection) fullTask = `${skillInjection}\n\n${fullTask}`;
 
@@ -82,35 +76,38 @@ export async function launchBackgroundSubagent(
 		inheritAppendSystem: launch.launchMetadata.inheritAppendSystem === true,
 		systemPromptMode: launch.launchMetadata.systemPromptMode,
 		systemPrompt: launch.launchMetadata.systemPrompt,
-		boundarySystemPrompt: launch.boundarySystemPrompt
-			? CHILD_CONTEXT_BOUNDARY_SYSTEM_PROMPT
-			: undefined,
+		boundarySystemPrompt: launch.boundarySystemPrompt ? CHILD_CONTEXT_BOUNDARY_SYSTEM_PROMPT : undefined,
 	});
 	args.push(...appendSystemPlan.promptArgs);
 	args.push(...getApprovalLaunchArgs(prepared.agentDefs, "background"));
-	args.push(...getSubagentToolLaunchArgs(prepared.effectiveTools, prepared.denySet));
+	args.push(
+		...getSubagentToolLaunchArgs(prepared.effectiveTools, prepared.denySet, isPreparedChildSpawningAllowed(prepared)),
+	);
 	args.push(...getPreparedSkillLaunchArgs(prepared));
 	args.push(...getFlagsLaunchArgs(prepared.agentDefs?.flags));
 
 	const taskArg = `@${writeTaskArtifact(params.name, fullTask, ctx)}`;
-	for (const promptArg of buildPiPromptArgs(
-		getPreparedSkillList(prepared),
-		taskArg,
-		directTask,
-	)) {
+	for (const promptArg of buildPiPromptArgs(getPreparedSkillList(prepared), taskArg, directTask)) {
 		args.push(promptArg);
 	}
 
+	const startTime = Date.now();
 	const { envVars, launchEntryCount } = launch;
+	// The child receives the parent's clock so its launch contract and any
+	// report-only continuation match the deadline the watcher enforces.
+	if (prepared.agentDefs?.timeout || prepared.agentDefs?.idleTimeout) {
+		envVars[PI_SUBAGENT_TIMEOUT_STARTED_AT] = String(startTime);
+	}
 	clearSubagentExitSidecar(prepared.subagentSessionFile);
 
 	const invocation = getPiInvocation(args);
 	const child = spawn(invocation.command, invocation.args, {
 		cwd: prepared.runtimePaths.effectiveCwd ?? ctx.cwd,
 		detached: true,
-		stdio: resolveSubagentParentClosePolicy(prepared.agentDefs) === "continue"
-			? ["ignore", "ignore", "ignore"]
-			: ["ignore", "pipe", "pipe"],
+		stdio:
+			resolveSubagentParentClosePolicy(prepared.agentDefs) === "continue"
+				? ["ignore", "ignore", "ignore"]
+				: ["ignore", "pipe", "pipe"],
 		env: getSubagentChildProcessEnv(invocation, envVars),
 	});
 	child.unref();
@@ -128,12 +125,15 @@ export async function launchBackgroundSubagent(
 		async: params.async ?? !(params.blocking ?? false),
 		autoExit: prepared.agentDefs?.autoExit ?? false,
 		noSession,
+		reportContextUsage: resolveSubagentReportContextUsage(prepared.agentDefs),
+		...resolveSubagentTimeoutState(prepared.agentDefs),
 		childProcess: child,
 		startTime,
 		sessionFile: prepared.subagentSessionFile,
 		launchEntryCount,
 		modelContextWindow: runtime.getContextWindow(prepared.effectiveModelRef),
 		modelRef: prepared.effectiveModelRef,
+		launchMetadata: launch.launchMetadata,
 	};
 	const rememberTail = (current: string | undefined, chunk: Buffer | string) =>
 		`${current ?? ""}${chunk.toString()}`.slice(-4000);

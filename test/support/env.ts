@@ -24,6 +24,12 @@ export const TRACKED_ENV_KEYS = [
 	"PI_ORCHESTRATOR_MODE",
 	"PI_PACKAGE_DIR",
 	"PI_SUBAGENT_MUX",
+	"PI_SUBAGENT_AGENT",
+	"PI_SUBAGENT_SPAWN_BUDGET",
+	"PI_SUBAGENT_SPAWN_DEPTH",
+	"PI_SUBAGENT_SPAWN_WIDTH",
+	"PI_SUBAGENT_SPAWN_WIDTH_EFFECTIVE",
+	"PI_SUBAGENT_SPAWNABLE",
 	"PI_SUBAGENT_HERDR_MIN_COLUMNS",
 	"PI_SUBAGENT_HERDR_MIN_ROWS",
 	"PI_SUBAGENT_HERDR_PLACEMENT",
@@ -44,9 +50,10 @@ export const TRACKED_ENV_KEYS = [
 	"ZELLIJ_SESSION_NAME",
 ] as const;
 
-export const ORIGINAL_ENV = Object.fromEntries(
-	TRACKED_ENV_KEYS.map((key) => [key, process.env[key]]),
-) as Record<(typeof TRACKED_ENV_KEYS)[number], string | undefined>;
+export const ORIGINAL_ENV = Object.fromEntries(TRACKED_ENV_KEYS.map((key) => [key, process.env[key]])) as Record<
+	(typeof TRACKED_ENV_KEYS)[number],
+	string | undefined
+>;
 
 export const ISOLATED_SUBAGENT_ENV_KEYS = [
 	"PI_DENY_TOOLS",

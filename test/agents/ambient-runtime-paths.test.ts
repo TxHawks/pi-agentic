@@ -1,34 +1,35 @@
 import {
-	assert,
-	existsSync,
-	mkdirSync,
-	readFileSync,
-	writeFileSync,
-	join,
 	afterEach,
-	describe,
-	it,
-	getSessionArtifactDir,
-	subagentsExtension,
+	assert,
 	buildSubagentSessionTitleForTest,
+	createTestDir,
+	describe,
+	existsSync,
+	getSessionArtifactDir,
 	getSubagentAgentOverrideErrorForTest,
 	getSubagentAgentRequirementErrorForTest,
 	getSubagentDisplayTitleForTest,
 	getSubagentNameErrorForTest,
 	getTerminalAssistantSummaryForTest,
+	it,
+	join,
+	MODEL_CHANGE,
+	mkdirSync,
+	readFileSync,
 	resetSubagentStateForTest,
 	resolveEffectiveSessionModeForTest,
 	resolveSubagentBlockingForTest,
 	resolveSubagentConfigDir,
+	resolveSubagentCwdForTest,
 	resolveSubagentRuntimePathsForTest,
+	SESSION_HEADER,
 	seedSubagentSessionFileForTest,
 	shouldReapStableTerminalSummaryForTest,
+	subagentsExtension,
+	writeFileSync,
 	writeSystemPromptArtifactForTest,
-	createTestDir,
-	resolveSubagentCwdForTest,
-	SESSION_HEADER,
-	MODEL_CHANGE,
 } from "../support/index.ts";
+import { withoutAmbientSpawnGrant } from "../support/ambient-spawn-grant.ts";
 
 describe("ambient agents and runtime paths", () => {
 	afterEach(() => {
@@ -112,10 +113,7 @@ describe("ambient agents and runtime paths", () => {
 	});
 
 	it("rejects missing or unknown named agents", () => {
-		const missing = getSubagentAgentRequirementErrorForTest(
-			{ name: "No agent", task: "Work" },
-			null,
-		);
+		const missing = getSubagentAgentRequirementErrorForTest({ name: "No agent", task: "Work" }, null);
 		assert.equal(missing?.details.error, "agent_required");
 
 		const unknown = getSubagentAgentRequirementErrorForTest(
@@ -130,7 +128,7 @@ describe("ambient agents and runtime paths", () => {
 		const defs = {
 			path: "/tmp/reviewer.md",
 			mode: "interactive" as const,
-			blocking: false,
+			async: true,
 			cwd: "./agents/reviewer",
 		};
 
@@ -155,71 +153,47 @@ describe("ambient agents and runtime paths", () => {
 		const defs = {
 			path: "/tmp/reviewer.md",
 			mode: "background" as const,
-			blocking: false,
+			async: true,
 		};
 
 		assert.equal(
-			getSubagentAgentOverrideErrorForTest(
-				{ agent: "reviewer", background: true, blocking: false },
-				defs,
-			),
+			getSubagentAgentOverrideErrorForTest({ agent: "reviewer", background: true, blocking: false }, defs),
 			null,
 		);
 	});
 
-	it("ignores launch-time fork overrides; only agent frontmatter controls session mode", () => {
+	it("derives session mode from agent frontmatter alone", () => {
 		const defs = {
 			path: "/tmp/reviewer.md",
 			mode: "interactive" as const,
-			blocking: false,
+			async: true,
 			sessionMode: "lineage-only" as const,
 		};
 
+		assert.equal(resolveEffectiveSessionModeForTest({ agent: "reviewer" }, defs), "lineage-only");
 		assert.equal(
-			getSubagentAgentOverrideErrorForTest(
-				{ agent: "reviewer", fork: true },
-				defs,
-			),
-			null,
-		);
-		assert.equal(
-			resolveEffectiveSessionModeForTest({ agent: "reviewer" }, defs),
-			"lineage-only",
+			resolveEffectiveSessionModeForTest({ agent: "reviewer" }, { ...defs, sessionMode: "fork" as const }),
+			"fork",
 		);
 		assert.equal(
 			resolveEffectiveSessionModeForTest(
-				{ agent: "reviewer", fork: true },
-				defs,
+				{ agent: "reviewer" },
+				{ path: "/tmp/reviewer.md", mode: "interactive" as const },
 			),
 			"lineage-only",
 		);
 	});
 
-	it("ignores launch-time async/blocking; only agent frontmatter controls sync policy", () => {
-		assert.equal(
-			resolveSubagentBlockingForTest({ async: false }, { async: true }),
-			false,
-		);
-		assert.equal(
-			resolveSubagentBlockingForTest({ async: true }, { async: false }),
-			true,
-		);
+	it("ignores launch-time async/blocking; only agent frontmatter async controls sync policy", () => {
+		assert.equal(resolveSubagentBlockingForTest({ async: false }, { async: true }), false);
+		assert.equal(resolveSubagentBlockingForTest({ async: true }, { async: false }), true);
 		assert.equal(resolveSubagentBlockingForTest({ async: false }, null), false);
 		assert.equal(resolveSubagentBlockingForTest({}, { async: false }), true);
 		assert.equal(resolveSubagentBlockingForTest({}, { async: true }), false);
 		assert.equal(resolveSubagentBlockingForTest({}, null), false);
-		assert.equal(
-			resolveSubagentBlockingForTest({ blocking: true }, { blocking: false }),
-			false,
-		);
-		assert.equal(
-			resolveSubagentBlockingForTest({ blocking: false }, { blocking: true }),
-			true,
-		);
-		assert.equal(
-			resolveSubagentBlockingForTest({ async: true }, { blocking: true }),
-			true,
-		);
+		assert.equal(resolveSubagentBlockingForTest({ blocking: true }, { async: true }), false);
+		assert.equal(resolveSubagentBlockingForTest({ blocking: false }, { async: false }), true);
+		assert.equal(resolveSubagentBlockingForTest({ blocking: true }, {}), false);
 
 		const blockingOverride = getSubagentAgentOverrideErrorForTest(
 			{ agent: "reviewer", async: false },
@@ -242,7 +216,7 @@ describe("ambient agents and runtime paths", () => {
 		process.env.PI_CODING_AGENT_DIR = configDir;
 		writeFileSync(
 			join(agentsDir, "reviewer.md"),
-			`---\nname: reviewer\nmode: interactive\nblocking: false\n---\n\nReviewer body.`,
+			`---\nname: reviewer\nmode: interactive\nasync: true\n---\n\nReviewer body.`,
 		);
 
 		const tools = new Map<string, any>();
@@ -263,9 +237,11 @@ describe("ambient agents and runtime paths", () => {
 
 			const tool = tools.get("subagent");
 			assert.ok(tool);
+			const executeWithoutAmbientSpawnGrant = (...args: any[]) =>
+				withoutAmbientSpawnGrant(() => tool.execute(...args));
 			await assert.rejects(
 				() =>
-					tool.execute(
+					executeWithoutAmbientSpawnGrant(
 						"call-1",
 						{
 							name: "worker-reviewer",
@@ -301,10 +277,7 @@ describe("ambient agents and runtime paths", () => {
 			resolveSubagentCwdForTest("roles/tester", "/tmp/custom-agent-root"),
 			"/tmp/custom-agent-root/roles/tester",
 		);
-		assert.equal(
-			resolveSubagentCwdForTest("/tmp/already-absolute", "/tmp/base"),
-			"/tmp/already-absolute",
-		);
+		assert.equal(resolveSubagentCwdForTest("/tmp/already-absolute", "/tmp/base"), "/tmp/already-absolute");
 	});
 
 	it("prefers a target project's .pi/agent dir for subagent config isolation", () => {
@@ -325,23 +298,14 @@ describe("ambient agents and runtime paths", () => {
 		mkdirSync(localAgentDir, { recursive: true });
 
 		const parentSessionDir = join(dir, "parent-sessions");
-		const paths = resolveSubagentRuntimePathsForTest(
-			{ cwd: "packages/worker" },
-			null,
-			dir,
-			parentSessionDir,
-		);
+		const paths = resolveSubagentRuntimePathsForTest({ cwd: "packages/worker" }, null, dir, parentSessionDir);
 		assert.equal(paths.effectiveCwd, target);
 		assert.equal(paths.localAgentConfigDir, localAgentDir);
 		assert.equal(paths.effectiveAgentConfigDir, localAgentDir);
 		assert.equal(paths.targetCwdForSession, target);
 		assert.equal(
 			paths.sessionDir,
-			join(
-				localAgentDir,
-				"sessions",
-				`--${target.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`,
-			),
+			join(localAgentDir, "sessions", `--${target.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`),
 		);
 	});
 
@@ -354,12 +318,7 @@ describe("ambient agents and runtime paths", () => {
 
 		try {
 			const parentSessionDir = join(dir, "parent-sessions");
-			const paths = resolveSubagentRuntimePathsForTest(
-				{ cwd: "missing-child" },
-				null,
-				dir,
-				parentSessionDir,
-			);
+			const paths = resolveSubagentRuntimePathsForTest({ cwd: "missing-child" }, null, dir, parentSessionDir);
 			assert.equal(paths.localAgentConfigDir, null);
 			assert.equal(paths.effectiveAgentConfigDir, globalAgentDir);
 			assert.equal(paths.targetCwdForSession, join(dir, "missing-child"));
@@ -374,25 +333,13 @@ describe("ambient agents and runtime paths", () => {
 		const dir = createTestDir();
 		const sessionId = "session-123";
 		const systemPrompt = `You are a specialist.\n\nQuotes: ' " $HOME`;
-		const artifactPath = writeSystemPromptArtifactForTest(
-			"Spec Agent",
-			systemPrompt,
-			{
-				cwd: dir,
-				sessionManager: { getSessionId: () => sessionId },
-			},
-		);
+		const artifactPath = writeSystemPromptArtifactForTest("Spec Agent", systemPrompt, {
+			cwd: dir,
+			sessionManager: { getSessionId: () => sessionId },
+		});
 
 		assert.equal(readFileSync(artifactPath, "utf8"), systemPrompt);
-		assert.ok(
-			artifactPath.startsWith(
-				join(
-					getSessionArtifactDir(dir, sessionId),
-					"context",
-					"spec-agent-sysprompt-",
-				),
-			),
-		);
+		assert.ok(artifactPath.startsWith(join(getSessionArtifactDir(dir, sessionId), "context", "spec-agent-sysprompt-")));
 		assert.match(artifactPath, /\.md$/);
 	});
 
@@ -448,14 +395,8 @@ describe("ambient agents and runtime paths", () => {
 	});
 
 	it("only reaps stable terminal summaries for auto-exit background agents", () => {
-		assert.equal(
-			shouldReapStableTerminalSummaryForTest({ autoExit: true }),
-			true,
-		);
-		assert.equal(
-			shouldReapStableTerminalSummaryForTest({ autoExit: false }),
-			false,
-		);
+		assert.equal(shouldReapStableTerminalSummaryForTest({ autoExit: true }), true);
+		assert.equal(shouldReapStableTerminalSummaryForTest({ autoExit: false }), false);
 		assert.equal(shouldReapStableTerminalSummaryForTest({}), false);
 	});
 
@@ -538,10 +479,7 @@ describe("ambient agents and runtime paths", () => {
 		const dir = createTestDir();
 		const parent = join(dir, "parent.jsonl");
 		const child = join(dir, "child.jsonl");
-		writeFileSync(
-			parent,
-			`${[SESSION_HEADER, MODEL_CHANGE].map((entry) => JSON.stringify(entry)).join("\n")}\n`,
-		);
+		writeFileSync(parent, `${[SESSION_HEADER, MODEL_CHANGE].map((entry) => JSON.stringify(entry)).join("\n")}\n`);
 
 		seedSubagentSessionFileForTest("fork", parent, child, dir, {
 			sessionName: "[reviewer] Gilfoyle-level review of all changes",
@@ -556,15 +494,11 @@ describe("ambient agents and runtime paths", () => {
 		const dir = createTestDir();
 		const parent = join(dir, "parent.jsonl");
 		const child = join(dir, "child.jsonl");
-		writeFileSync(
-			parent,
-			`${[SESSION_HEADER, MODEL_CHANGE].map((entry) => JSON.stringify(entry)).join("\n")}\n`,
-		);
+		writeFileSync(parent, `${[SESSION_HEADER, MODEL_CHANGE].map((entry) => JSON.stringify(entry)).join("\n")}\n`);
 
 		// No context window provided — should succeed and produce a valid child session.
 		seedSubagentSessionFileForTest("fork", parent, child, dir);
 		const header = JSON.parse(readFileSync(child, "utf8").split("\n")[0]);
 		assert.equal(header.parentSession, parent);
 	});
-
 });

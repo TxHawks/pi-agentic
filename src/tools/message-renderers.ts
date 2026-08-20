@@ -1,13 +1,11 @@
 import type { AgentToolResult, ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { keyHint } from "@earendil-works/pi-coding-agent";
 import { Box, Text } from "@earendil-works/pi-tui";
-import type {
-	SubagentPingMessageDetails,
-	SubagentResultMessageDetails,
-} from "../types.ts";
+import { formatFinalContextUsage } from "../runtime/final-context-usage.ts";
+import type { SubagentPingMessageDetails, SubagentResultMessageDetails } from "../types.ts";
 
 type ThemeLike = Parameters<Parameters<ExtensionAPI["registerMessageRenderer"]>[1]>[2];
-type RenderOptions = { expanded: boolean };
+type RenderOptions = { expanded: boolean; outputPad?: number };
 
 type BatchChildArgs = {
 	name?: string;
@@ -54,7 +52,26 @@ function expandHint(): string {
 }
 
 function stripSessionRef(text: string): string {
-	return text.replace(/\n\nSession: .+\nResume: .+$/, "");
+	return text.replace(/\n\nSub-agent context: .+ used at finish\.$/, "").replace(/\n\nSession: .+\nResume: .+$/, "");
+}
+
+/**
+ * Render the final context-usage line for the TUI from structured details.
+ *
+ * The delivered message content already carries this line for the model, but
+ * `stripSessionRef` intentionally removes it from the rendered summary (the
+ * human-facing box shows a compact view). Re-add it from the structured
+ * `contextTokens`/`contextWindow` details so the operator can see how much of
+ * the child's context window was consumed, matching what the parent model was
+ * told.
+ */
+function formatContextUsageLine(details: SubagentCompletionDetails | undefined): string | undefined {
+	if (!details) return undefined;
+	const formatted = formatFinalContextUsage({
+		contextTokens: details.contextTokens,
+		contextWindow: details.contextWindow,
+	});
+	return formatted ? formatted.trim() : undefined;
 }
 
 function firstTextContent(result: AgentToolResult<unknown>): string {
@@ -66,7 +83,11 @@ function getChildArg(args: SubagentBatchArgs | undefined, index: number): BatchC
 	return Array.isArray(args?.children) ? args.children[index] : undefined;
 }
 
-function getChildAgent(child: SubagentCompletionDetails, args: SubagentBatchArgs | undefined, index: number): string | undefined {
+function getChildAgent(
+	child: SubagentCompletionDetails,
+	args: SubagentBatchArgs | undefined,
+	index: number,
+): string | undefined {
 	return child.agent ?? getChildArg(args, index)?.agent;
 }
 
@@ -88,10 +109,7 @@ function extractSummary(
 		.replace(`Sub-agent "${name}" failed (exit code ${exitCode}).\n\n`, "")
 		.replace(`Sub-agent "${name}" failed (status failed).\n\n`, "")
 		.replace(`Sub-agent "${name}" was cancelled (status cancelled).\n\n`, "")
-		.replace(
-			`Sub-agent "${name}" failed after ${elapsed} (provider/agent error — auto-retry exhausted).\n\n`,
-			"",
-		);
+		.replace(`Sub-agent "${name}" failed after ${elapsed} (provider/agent error — auto-retry exhausted).\n\n`, "");
 }
 function appendExpandableLines(
 	lines: string[],
@@ -103,27 +121,17 @@ function appendExpandableLines(
 ): void {
 	if (!body) return;
 	const bodyLines = body.split("\n");
-	const visibleLines = options.expanded
-		? bodyLines
-		: bodyLines.slice(0, maxCollapsedLines);
+	const visibleLines = options.expanded ? bodyLines : bodyLines.slice(0, maxCollapsedLines);
 	for (const line of visibleLines) {
 		lines.push(theme.fg(color, line));
 	}
 	const remaining = bodyLines.length - visibleLines.length;
 	if (!options.expanded && remaining > 0) {
-		lines.push(
-			theme.fg("muted", `... (${remaining} more lines,`) +
-				` ${expandHint()}` +
-				theme.fg("muted", ")"),
-		);
+		lines.push(theme.fg("muted", `... (${remaining} more lines,`) + ` ${expandHint()}` + theme.fg("muted", ")"));
 	}
 }
 
-export function formatTaskPreview(
-	task: string | undefined,
-	options: RenderOptions,
-	theme: ThemeLike,
-): string {
+export function formatTaskPreview(task: string | undefined, options: RenderOptions, theme: ThemeLike): string {
 	if (!task) return "";
 	const lines: string[] = [];
 	appendExpandableLines(lines, task, options, theme, 10, "toolOutput");
@@ -168,6 +176,10 @@ export function formatSubagentCompletionLines(
 	const lines = [formatSubagentCompletionHeader(details, theme, formatElapsed)];
 	const summary = extractSummary(rawContent, details, elapsed);
 	appendExpandableLines(lines, summary, options, theme);
+	const contextUsage = formatContextUsageLine(details);
+	if (contextUsage) {
+		lines.push(theme.fg("dim", contextUsage));
+	}
 	if (options.expanded && details?.sessionFile) {
 		lines.push("");
 		lines.push(theme.fg("dim", `Session: ${details.sessionFile}`));
@@ -196,6 +208,11 @@ export function formatSubagentBatchLines(
 		const summary = child.summary ?? "";
 		appendExpandableLines(lines, summary, options, theme);
 
+		const contextUsage = formatContextUsageLine(child);
+		if (contextUsage) {
+			lines.push(theme.fg("dim", contextUsage));
+		}
+
 		if (options.expanded && child.sessionFile) {
 			lines.push("");
 			lines.push(theme.fg("dim", `Session: ${child.sessionFile}`));
@@ -219,10 +236,7 @@ export function renderSubagentCompletionText(
 	return text;
 }
 
-export function registerSubagentMessageRenderers(
-	pi: ExtensionAPI,
-	formatElapsed: (elapsed: number) => string,
-): void {
+export function registerSubagentMessageRenderers(pi: ExtensionAPI, formatElapsed: (elapsed: number) => string): void {
 	pi.registerMessageRenderer("subagent_result", (message, options, theme) => {
 		const details = message.details as SubagentResultMessageDetails | undefined;
 		if (!details) return undefined;
@@ -244,19 +258,8 @@ export function registerSubagentMessageRenderers(
 					],
 					details,
 				};
-				const box = new Box(1, 1, bgFn);
-				box.addChild(
-					new Text(
-						formatSubagentCompletionLines(
-							result,
-							options,
-							theme,
-							formatElapsed,
-						).join("\n"),
-						0,
-						0,
-					),
-				);
+				const box = new Box(options.outputPad ?? 1, 1, bgFn);
+				box.addChild(new Text(formatSubagentCompletionLines(result, options, theme, formatElapsed).join("\n"), 0, 0));
 				return ["", ...box.render(width)];
 			},
 		};
@@ -270,15 +273,10 @@ export function registerSubagentMessageRenderers(
 			invalidate() {},
 			render(width: number): string[] {
 				const name = details.name ?? "subagent";
-				const elapsed =
-					details.elapsed != null ? formatElapsed(details.elapsed) : "?";
-				const agentTag = details.agent
-					? theme.fg("dim", ` (${details.agent})`)
-					: "";
+				const elapsed = details.elapsed != null ? formatElapsed(details.elapsed) : "?";
+				const agentTag = details.agent ? theme.fg("dim", ` (${details.agent})`) : "";
 				const header = `${theme.fg("accent", "?")} ${theme.fg("toolTitle", theme.bold(name))}${agentTag} ${theme.fg("dim", "—")} needs help ${theme.fg("dim", `(${elapsed})`)}`;
-				const rawMessage =
-					details.message ??
-					(typeof message.content === "string" ? message.content : "");
+				const rawMessage = details.message ?? (typeof message.content === "string" ? message.content : "");
 				const body = stripSessionRef(rawMessage);
 				const contentLines = [header];
 
@@ -286,14 +284,10 @@ export function registerSubagentMessageRenderers(
 				if (options.expanded && details.sessionFile) {
 					contentLines.push("");
 					contentLines.push(theme.fg("dim", `Session: ${details.sessionFile}`));
-					contentLines.push(
-						theme.fg("dim", `Resume:  pi --session ${details.sessionFile}`),
-					);
+					contentLines.push(theme.fg("dim", `Resume:  pi --session ${details.sessionFile}`));
 				}
 
-				const box = new Box(1, 1, (text: string) =>
-					theme.bg("toolPendingBg", text),
-				);
+				const box = new Box(options.outputPad ?? 1, 1, (text: string) => theme.bg("toolPendingBg", text));
 				box.addChild(new Text(contentLines.join("\n"), 0, 0));
 				return ["", ...box.render(width)];
 			},

@@ -1,14 +1,14 @@
 import {
-	assert,
 	afterEach,
+	assert,
 	describe,
-	it,
 	getCompletedSubagentResultForTest,
+	it,
 	resetSubagentStateForTest,
 	routeDetachedSubagentCompletionForTest,
 	setRunningSubagentForTest,
-	waitForSubagentForTest,
 	sleep,
+	waitForSubagentForTest,
 } from "../support/index.ts";
 
 describe("subagent wait behavior", () => {
@@ -25,6 +25,7 @@ describe("subagent wait behavior", () => {
 			executionState: "running" as const,
 			deliveryState: "detached" as const,
 			parentClosePolicy: "terminate" as const,
+			reportContextUsage: result.reportContextUsage,
 			startTime: Date.now(),
 			sessionFile: result.sessionFile,
 			completionPromise: Promise.resolve(result),
@@ -48,6 +49,68 @@ describe("subagent wait behavior", () => {
 		assert.match(text, /Last output before the failure \(may be incomplete/);
 		assert.match(text, /Implemented the requested fix\./);
 		assert.doesNotMatch(text, /did not produce a result/);
+	});
+
+	it("appends final child context usage to awaited results", async () => {
+		const waited = await waitForResult({
+			name: "Context child",
+			task: "Finish work",
+			summary: "Implemented the requested fix.",
+			summarySource: "subagent",
+			sessionFile: "/tmp/context-child.jsonl",
+			exitCode: 0,
+			elapsed: 2,
+			contextTokens: 145_000,
+			contextWindow: 200_000,
+		});
+		const text = (waited.content[0] as { text: string }).text;
+		assert.match(
+			text,
+			/Resume: pi --session \/tmp\/context-child\.jsonl\n\nSub-agent context: 145K\/200K tokens \(72%\) used at finish\.$/,
+		);
+		assert.equal((waited.details as any).contextTokens, 145_000);
+		assert.equal((waited.details as any).contextWindow, 200_000);
+	});
+
+	it("keeps awaited context telemetry structured when the agent definition hides it from the parent result", async () => {
+		const waited = await waitForResult({
+			name: "Quiet context child",
+			task: "Finish work",
+			summary: "Implemented the requested fix.",
+			summarySource: "subagent",
+			sessionFile: "/tmp/quiet-context-child.jsonl",
+			exitCode: 0,
+			elapsed: 2,
+			contextTokens: 145_000,
+			contextWindow: 200_000,
+			reportContextUsage: false,
+		});
+		const text = (waited.content[0] as { text: string }).text;
+		assert.doesNotMatch(text, /Sub-agent context:/);
+		assert.equal((waited.details as any).contextTokens, 145_000);
+		assert.equal((waited.details as any).contextWindow, 200_000);
+	});
+
+	it("classifies an awaited enforced timeout wrap-up", async () => {
+		const waited = await waitForResult({
+			name: "Wrap-up child",
+			task: "Finish work",
+			summary: "Reported the committed portion.",
+			summarySource: "subagent",
+			sessionFile: "/tmp/wrap-up-child.jsonl",
+			exitCode: 0,
+			elapsed: 36,
+			timeoutWrapUp: { kind: "timeout", seconds: 60, threshold: 50 },
+		});
+		const text = (waited.content[0] as { text: string }).text;
+		assert.match(text, /completed its time-limit wrap-up/);
+		assert.match(text, /interrupted its active operation at 50% of its whole-run limit/);
+		assert.match(text, /Reported the committed portion/);
+		assert.deepEqual((waited.details as any).timeoutWrapUp, {
+			kind: "timeout",
+			seconds: 60,
+			threshold: 50,
+		});
 	});
 
 	it("reports no result when a provider error has only watcher fallback output", async () => {
@@ -175,10 +238,7 @@ describe("subagent wait behavior", () => {
 		assert.equal(sent.length, 1);
 		assert.equal((sent[0].message.details as any).id, running.id);
 		assert.equal((sent[0].message.details as any).deliveryState, "detached");
-		assert.equal(
-			getCompletedSubagentResultForTest(running.id)?.deliveredTo,
-			"steer",
-		);
+		assert.equal(getCompletedSubagentResultForTest(running.id)?.deliveredTo, "steer");
 	});
 
 	it("returns timeout errors for wait and restores detached delivery", async () => {
@@ -233,10 +293,7 @@ describe("subagent wait behavior", () => {
 
 		assert.equal(sent.length, 1);
 		assert.equal((sent[0].message.details as any).id, running.id);
-		assert.equal(
-			getCompletedSubagentResultForTest(running.id)?.deliveredTo,
-			"steer",
-		);
+		assert.equal(getCompletedSubagentResultForTest(running.id)?.deliveredTo, "steer");
 	});
 
 	it("releases awaited children back to steer when wait is interrupted", async () => {
@@ -272,10 +329,7 @@ describe("subagent wait behavior", () => {
 		});
 
 		const abort = new AbortController();
-		const waitPromise = waitForSubagentForTest(
-			{ id: running.id },
-			abort.signal,
-		);
+		const waitPromise = waitForSubagentForTest({ id: running.id }, abort.signal);
 		assert.equal(running.deliveryState, "awaited");
 
 		abort.abort();
@@ -296,9 +350,63 @@ describe("subagent wait behavior", () => {
 
 		assert.equal(sent.length, 1);
 		assert.equal(sent[0].options.deliverAs, "steer");
-		assert.equal(
-			getCompletedSubagentResultForTest(running.id)?.deliveredTo,
-			"steer",
-		);
+		assert.equal(getCompletedSubagentResultForTest(running.id)?.deliveredTo, "steer");
+	});
+
+	it("explains a context-driven stop and withholds the resume command", async () => {
+		const waited = await waitForResult({
+			name: "Warned child",
+			task: "Finish work",
+			summary: "Partial findings.",
+			summarySource: "subagent",
+			sessionFile: "/tmp/warned-child.jsonl",
+			exitCode: 0,
+			elapsed: 2,
+			contextTokens: 182_000,
+			contextWindow: 200_000,
+			contextWarned: true,
+		});
+		const text = (waited.content[0] as { text: string }).text;
+		assert.match(text, /stopped early as instructed by its context-warning policy/);
+		// Neither the command nor the path: both let a model route around the
+		// guard with bash. The operator still gets the path from details.
+		assert.doesNotMatch(text, /Session: \/tmp\/warned-child\.jsonl/);
+		assert.doesNotMatch(text, /Resume: pi --session/);
+	});
+
+	it("does not call a provider failure an expected wrap-up", async () => {
+		const waited = await waitForResult({
+			name: "Warned failed child",
+			task: "Finish work",
+			summary: "Background agent exited with code 1",
+			summarySource: "runtime",
+			sessionFile: "/tmp/warned-failed-child.jsonl",
+			exitCode: 1,
+			elapsed: 2,
+			errorMessage: "Provider unavailable",
+			contextExhausted: true,
+		});
+		const text = (waited.content[0] as { text: string }).text;
+		assert.doesNotMatch(text, /not a failure/);
+		// The context is spent, but a provider error is often transient, so the
+		// parent keeps the cheap retry and is told which option is usually better.
+		assert.match(text, /context window is spent/);
+		assert.match(text, /fresh subagent is usually better/);
+		assert.match(text, /Resume: pi --session/);
+	});
+
+	it("still offers resume for an unwarned child that failed without output", async () => {
+		const waited = await waitForResult({
+			name: "Failed child",
+			task: "Finish work",
+			summary: "Background agent exited with code 1",
+			summarySource: "runtime",
+			sessionFile: "/tmp/plain-failed-child.jsonl",
+			exitCode: 1,
+			elapsed: 2,
+			errorMessage: "Provider unavailable",
+		});
+		const text = (waited.content[0] as { text: string }).text;
+		assert.match(text, /resume the session with subagent_resume/);
 	});
 });

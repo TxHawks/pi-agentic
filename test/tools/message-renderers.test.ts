@@ -1,9 +1,10 @@
-import { assert, describe, it } from "../support/index.ts";
 import {
 	formatSubagentBatchLines,
 	formatSubagentCompletionLines,
 	formatTaskPreview,
+	registerSubagentMessageRenderers,
 } from "../../src/tools/message-renderers.ts";
+import { assert, describe, it } from "../support/index.ts";
 
 const theme = {
 	fg(_tone: string, text: string) {
@@ -18,6 +19,45 @@ const theme = {
 } as any;
 
 describe("subagent message renderers", () => {
+	it("honors Pi output padding for custom result and ping messages", () => {
+		const renderers = new Map<string, (...args: any[]) => any>();
+		registerSubagentMessageRenderers(
+			{
+				registerMessageRenderer(name: string, renderer: (...args: any[]) => any) {
+					renderers.set(name, renderer);
+				},
+			} as any,
+			(seconds) => `${seconds}s`,
+		);
+
+		const messages = [
+			{
+				type: "subagent_result",
+				message: {
+					content: "done",
+					details: { name: "child", status: "completed", exitCode: 0, elapsed: 1 },
+				},
+			},
+			{
+				type: "subagent_ping",
+				message: { content: "help", details: { name: "child", message: "help", elapsed: 1 } },
+			},
+		];
+
+		for (const { type, message } of messages) {
+			const renderer = renderers.get(type)!;
+			const unpadded = renderer(message, { expanded: true, outputPad: 0 }, theme).render(40);
+			const padded = renderer(message, { expanded: true, outputPad: 1 }, theme).render(40);
+			const unpaddedContent = unpadded.find((line: string) => line.trim().startsWith(type === "subagent_ping" ? "?" : "✓"));
+			const paddedContent = padded.find((line: string) => line.trim().startsWith(type === "subagent_ping" ? "?" : "✓"));
+
+			assert.ok(unpaddedContent);
+			assert.ok(paddedContent);
+			assert.equal(unpaddedContent.startsWith(" "), false);
+			assert.equal(paddedContent.startsWith(" "), true);
+		}
+	});
+
 	it("renders expandable task previews with the native tool expand hint", () => {
 		const preview = formatTaskPreview(
 			Array.from({ length: 12 }, (_, index) => `line ${index + 1}`).join("\n"),
@@ -70,7 +110,18 @@ describe("subagent message renderers", () => {
 		);
 
 		assert.equal(lines[0], "✓ magician-anarcho-communism (magician) — completed (12s)");
-		assert.deepEqual(lines.slice(1, 11), ["result 1", "result 2", "result 3", "result 4", "result 5", "result 6", "result 7", "result 8", "result 9", "result 10"]);
+		assert.deepEqual(lines.slice(1, 11), [
+			"result 1",
+			"result 2",
+			"result 3",
+			"result 4",
+			"result 5",
+			"result 6",
+			"result 7",
+			"result 8",
+			"result 9",
+			"result 10",
+		]);
 		assert.match(lines[11], /\.\.\. \(2 more lines,.*to expand\)/);
 		assert.doesNotMatch(lines.join("\n"), /Task:|Response:|task 1/);
 	});
@@ -81,7 +132,7 @@ describe("subagent message renderers", () => {
 				content: [
 					{
 						type: "text",
-						text: "Sub-agent \"astronaut\" completed (exit code 0).\n\nignored fallback",
+						text: 'Sub-agent "astronaut" completed (exit code 0).\n\nignored fallback',
 					},
 				],
 				details: {
@@ -90,19 +141,7 @@ describe("subagent message renderers", () => {
 					status: "completed",
 					exitCode: 0,
 					elapsed: 7,
-					summary: [
-						"result",
-						"a",
-						"b",
-						"c",
-						"d",
-						"e",
-						"f",
-						"g",
-						"h",
-						"i",
-						"j",
-					].join("\n"),
+					summary: ["result", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j"].join("\n"),
 				},
 			},
 			{ expanded: false },
@@ -112,5 +151,30 @@ describe("subagent message renderers", () => {
 		assert.equal(lines[0], "✓ astronaut (astronaut) — completed (7s)");
 		assert.deepEqual(lines.slice(1, 11), ["result", "a", "b", "c", "d", "e", "f", "g", "h", "i"]);
 		assert.match(lines[11], /\.\.\. \(1 more lines,.*to expand\)/);
+	});
+
+	it("does not render no-session context metadata as child summary text", () => {
+		const lines = formatSubagentCompletionLines(
+			{
+				content: [
+					{
+						type: "text",
+						text:
+							'Sub-agent "astronaut" completed (7s).\n\nresult\n\n' +
+							"Sub-agent context: 145K/200K tokens (72%) used at finish.",
+					},
+				],
+				details: {
+					name: "astronaut",
+					status: "completed",
+					exitCode: 0,
+					elapsed: 7,
+				},
+			},
+			{ expanded: true },
+			theme,
+		);
+
+		assert.deepEqual(lines, ["✓ astronaut — completed (7s)", "result"]);
 	});
 });

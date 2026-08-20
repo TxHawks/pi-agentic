@@ -156,7 +156,7 @@ For a fuller example of the intended style, see the [scout agent gist by edxeth]
 | `deny-tools` | unset | Final comma-separated tool names to remove from the child after built-in tools, extensions, and protocol tools are selected |
 | `skills` | `all` | Child skill availability: `all`, `none`, or a comma-separated allowlist resolved by skill name |
 | `inject-skills` | unset | Comma-separated skills to load into the child prompt before the task |
-| `no-context-files` | `false` | Skip trusted project context-file discovery in the child. With the default `trust-project: false`, Pi already ignores project-local context files. |
+| `no-context-files` | `false` | Skip project context-file discovery in the child, including `AGENTS.override.md`, `AGENTS.md`, and `CLAUDE.md`. Pi loads these files independently of project approval. |
 | `inherit-append-system` | `false` | Let Pi load the child's applicable global or trusted-project `APPEND_SYSTEM.md` file |
 | `no-session` | `false` | Use an ephemeral child session file and delete it after completion |
 | `trust-project` | `false` | Whether interactive child launches pass Pi's `--approve` flag and trust project-local files/settings. Background children always generate `--no-approve` for safety; use `flags` only as an explicit advanced override. |
@@ -166,7 +166,17 @@ For a fuller example of the intended style, see the [scout agent gist by edxeth]
 | `flags` | unset | Extra CLI flags passed to the child pi process (e.g. `--verbose` or `--some-custom-flag`). Appended after all generated args — last-wins semantics against conflicting generated args, including `--approve` / `--no-approve`. Use only as an advanced escape hatch for extension-registered flags or pi built-in flags not covered by other frontmatter fields. |
 | `env` | unset | Line-based `KEY=VALUE` pairs passed as environment variables to the child process. Use YAML block syntax for values with commas or `=`. `PI_CODING_AGENT_DIR` is special: when set here, it is resolved before launch and becomes the child's Pi config/session root. `~/` is expanded. Internal PI vars such as PI\_SUBAGENT\_\* still take precedence if names conflict. |
 | `task-expansion` | unset | Set `shell` when the task may include shell placeholders that Pi resolves before launch. Pi runs each placeholder from the child's target `cwd`, gives it 30 seconds, replaces it with captured output, and gives that prepared task to the child. The command receives `PI_WORKSPACE`; long output is cut with `[output truncated]`. Leave unset unless you trust the task text to execute shell commands. |
-| `spawning` | `false` | Allow the child to launch subagents |
+| `context-warn-threshold` | `off` | Send the sub-agent a wrap-up warning when its context window reaches this percentage (`1%`–`99%`). Two more warnings follow at each `context-warn-step` above it. Example: `80%` warns at 80%, 85%, and 90%. |
+| `context-warn-step` | `5%` | The percentage gap between each warning (minimum `1%`). A warning above 99% moves down to 99% so it still arrives before compaction. Decimals round down. |
+| `report-context-usage` | `true` | Add the child's final context use to the result that the parent receives. |
+| `timeout` | unset | Whole seconds for the whole run. Pi stops the child at this limit. Omit for no limit. |
+| `idle-timeout` | unset | Whole seconds without output from the child. Pi stops the child at this limit. Omit for no limit. |
+| `timeout-warn-threshold` | `false` | Reserve the remainder of the first threatened limit for reporting. At this percentage (`1%`–`99%`), the parent interrupts the active child and restarts the same session in report-only mode. `true` means `80%`. Decimals round down. Any other value turns the policy off. |
+| `on-timeout` | `report` | What the parent can do after a limit stops the child. `report` keeps `subagent_resume` available, and the new run gets the same limits. `block-resume` refuses the resume. Any other value fails to load. |
+| `spawning` | `false` | Let this child launch subagents of its own. `true` lets it launch any agent. A comma-separated list of agent names (for example `spawning: researcher, reviewer`) lets it launch only those agents. |
+| `spawn-depth` | `1` | How many levels of subagents may run below this child. Each subagent it launches gets one less. A subagent left with `0` has no launching tools, so the chain stops. Omit to use the default. |
+| `spawn-width` | omitted | The most subagents this child may run at the same time. Must be a positive whole number. Omit for no limit (a hard ceiling of 16 always applies). |
+| `visible-to` | `all` | Who may launch this agent: `all` (anyone), `root` (only the top-level session), or a comma-separated list of agent names. |
 | `async` | `true` | `false` makes the launch sync |
 | `mode` | `interactive` | `interactive` pane or `background` process |
 | `parent-close-policy` | `terminate` | What happens to the child when the parent session exits: `terminate` (kill) or `continue` (leave running) |
@@ -182,7 +192,7 @@ env: |
 
 Pi splits `env` by line. It does not split values by comma. When you set `PI_CODING_AGENT_DIR`, the child uses that directory for its Pi config and sessions. For per-agent Herdr or Zellij placement, set `PI_SUBAGENT_HERDR_PLACEMENT` or `PI_SUBAGENT_ZELLIJ_PLACEMENT` here. The parent reads placement before the child pane exists. See [Herdr placement](#herdr-placement) and [Zellij placement](#zellij-placement).
 
-`trust-project` controls Pi's project-local trust boundary. The default `false` passes `--no-approve`, so child sessions ignore project-local settings and project-local context files such as `AGENTS.md`/`CLAUDE.md` even when the parent project was previously approved. Set `trust-project: true` only for interactive children that should inherit those project-local resources. Background children still generate `--no-approve`; `flags` is the explicit advanced escape hatch if you need to override that safety default.
+`trust-project` controls Pi's project-local trust boundary for resources such as settings, extensions, skills, prompts, themes, `SYSTEM.md`, and `APPEND_SYSTEM.md`. The default `false` passes `--no-approve`, even when the parent project was previously approved. Project context files are separate: Pi still loads applicable `AGENTS.override.md`, `AGENTS.md`, or `CLAUDE.md` files unless `no-context-files: true` passes `--no-context-files`. Background children always generate `--no-approve`; `flags` is the explicit advanced escape hatch if you need to override that safety default.
 
 `task-expansion: shell` prepares task context before launch for small models that should not have to plan tool calls. It is opt-in because the parent task text becomes shell input and runs in the parent Pi process before the child starts. Commands execute in source order from the child's effective `cwd`; each placeholder gets 30 seconds before Pi inserts a timeout diagnostic. Use `$PI_WORKSPACE` or `${PI_WORKSPACE}` inside the shell command to read the workspace path from the environment. This explicit opt-in works in every parent mode, including orchestrator mode. Use explicit shell placeholders:
 
@@ -201,6 +211,206 @@ Follow these conventions:
 ````
 
 Pi expands those placeholders into command output before writing the child task artifact. Ordinary Markdown code fences are treated as literal examples, so inline placeholders inside language-tagged code fences such as `sh` or `text` do not execute. Plain standalone lines like `!git status` are not expanded; use inline ``!`git status` `` or a fenced shell command block. Because project-local agent files can opt into this behavior, only use `task-expansion: shell` in agents whose launch tasks you trust to become shell input.
+
+`context-warn-threshold` turns on context warnings for a child agent. The child process checks how full its context window is after each completed model turn, once the full tool-result batch is visible, and again when the agent finishes. If the total crosses a threshold, the child sends itself a warning for the next model turn.
+
+Warnings are advisory: the model needs another successful turn to act on one. A single unbounded tool batch can jump from below the first threshold directly into Pi's native compaction or context-overflow recovery before the child can wrap up. Keep tool output bounded; the warning policy does not replace output truncation or Pi's compaction safeguards.
+
+Each warning shows the token count and the percentage, for example `160K/200K tokens (80.0%)`. The three warnings get more urgent, so the child stops new work and returns its best result before the context compacts.
+
+Both fields take whole percentages. Decimal values round down. Omit the field, or set `context-warn-threshold: off`, to turn the warnings off.
+
+```yaml
+---
+name: researcher
+context-warn-threshold: 80%
+---
+```
+
+With the default `5%` step, `80%` warns at 80%, 85%, and 90%. Set `context-warn-step: 10%` to space them at 80%, 90%, and 99%. (The third lands at 100%, so it moves down to 99% to arrive before compaction.) If usage crosses two or more thresholds in one turn, Pi sends only the most urgent one. The child holds each warning only while its usage stays at or above that percentage. A reload at the same usage does not repeat a warning, but a drop below the threshold — after compaction, for example — releases it, so a child that keeps working is never left without warnings.
+
+A child that wraps up on the **last** warning did what it was told, so the parent must not read the short result as a premature exit. Pi marks that case in the result it sends to the parent:
+
+```text
+Sub-agent context: 182K/200K tokens (91%) used at finish. It stopped early as
+instructed by its context-warning policy: check what is unfinished and launch a
+fresh sub-agent for it if needed. A short or partial report here is expected and
+not a failure. Do not resume this session; resuming re-does already-summarized
+work and wastes a turn.
+```
+
+Only the last warning counts. A child that sees an earlier warning and then finishes its work normally is reported as an ordinary completion, and stays resumable. A child that fails with a provider error is reported as a failure, never as an instructed wrap-up.
+
+A child that fails after the last warning is a failure, not a wrap-up, so the parent keeps the cheap retry. Its result says the context window is spent and that a fresh sub-agent is usually better, and `subagent_resume` still works on it. Only a warning-driven wrap-up is blocked.
+
+Warnings only ever come in three stages, and the last stage is the one that says to stop. A setting that cannot reach three stages, such as `context-warn-threshold: 99%`, still warns the child but never blocks it, because the child was never told to stop.
+
+Warned results also omit the `Resume: pi --session …` line, so the parent is not handed a command that would bypass the block below. The session path is still shown.
+
+`report-context-usage: false` hides the token counts but still reports the early stop, because a parent that does not know the reason resumes a child that cannot work.
+
+`subagent_resume` also refuses such a session, because resuming it gives the child no room to work. You can still resume it yourself from the `/subagents` overlay.
+
+### Stop a runaway child with time limits
+
+Every child runs with no time limit. `timeout` and `idle-timeout` are two separate limits. You can set one, both, or neither.
+
+```yaml
+---
+name: scout
+timeout: 900
+idle-timeout: 180
+timeout-warn-threshold: 80%
+---
+```
+
+`timeout` is a clock on the whole run. It starts when the child process or pane launch begins. Inherited fork history consumes zero seconds of this clock. Use it for a child that can work forever without finishing.
+
+`idle-timeout` measures time without output. Use it for a child that stops working and never reports, for example one that waits inside a tool that never returns.
+
+Only the child's own work counts as output. Its messages and completed tool results count. A message that Pi writes into the child's session does not count. Time inside one long tool call counts as silence, because the call has not produced a result.
+
+That last rule is the purpose of the field. A child stuck inside a tool call is what `idle-timeout` catches. But a slow build looks the same to Pi. Set `idle-timeout` higher than the slowest tool call the child makes.
+
+The idle clock starts at launch, not at the child's first word. A child that hangs before it says anything must also be caught. Set the value high enough for the process start and the first model reply. A few tens of seconds is the smallest useful value.
+
+Both fields take whole seconds. If the value is not a positive whole number, the agent file fails to load. A typo must not become "no limit", because that is the problem the field prevents.
+
+Both limits work for a background child and for a child in a pane. For a background child, Pi sends `SIGTERM` to the process group. Five seconds later Pi sends `SIGKILL`, but only while the process group is still alive. For a child in a pane, Pi closes the pane, because there is no separate process to signal. If the close fails, Pi tries again. If every try fails, the result says so.
+
+When both limits are set, neither resets the other. The first hard limit reached stops the child. If `timeout-warn-threshold` is enabled, the first soft threshold reached starts one wrap-up phase; the other soft threshold no longer starts a second one.
+
+#### Reserve time for a final report
+
+`timeout-warn-threshold` is off until you set it. It is an enforced soft deadline, not a queued advisory steer.
+
+The child receives its clock contract before its first model call. It includes the launch timestamp and says explicitly that inherited or forked conversation consumed zero seconds. The child must use the supplied timestamps instead of estimating elapsed work from transcript length.
+
+At the threshold, the parent acts from its own process:
+
+1. For a background child, it terminates the child process group.
+2. For an interactive child, it closes the child pane.
+3. It reopens the same session with forced auto-exit and a report-only prompt.
+4. The child extension blocks every new tool call in that continuation.
+5. The original hard deadline stays fixed. Restart time comes out of the reserved remainder.
+
+This is why a long-running tool or custom TUI cannot suppress the wrap-up. Pi normally delivers a steer only after active tool calls finish, and synchronous child code can block the child's event loop. The parent does not wait for either path.
+
+The wrap-up child reads a standalone message shaped like this:
+
+```text
+This clock belongs to the current logical sub-agent run. A process restart for
+wrap-up does not reset it. Conversation inherited or forked when the original
+child was spawned consumed zero seconds of it. The elapsed and remaining values
+below are authoritative; do not infer time from the transcript.
+
+Time limit: you have been running for 720s, and your limit is 900s for this
+whole run. About 180s remain. At the limit the system stops you, and work you
+did not report is lost. Stop taking on new work. Report your result now, even
+if it is incomplete.
+
+The parent runtime interrupted your previous active operation at the warning
+threshold so the remaining time is reserved for this report. Do not retry the
+interrupted tool, call any tool, or begin new work. Summarize
+only the committed work visible in this session and report what remains
+unfinished.
+```
+
+For `idle-timeout`, the hard deadline that triggered the wrap-up is pinned. Output from the report-only continuation does not buy a fresh full idle interval.
+
+`no-session: true` remains ephemeral. When this policy is enabled, Pi temporarily persists that child to its private session path so it can restart after the interrupt, then deletes the file after the final result. The parent still does not expose a resumable session.
+
+If the wrap-up completes, the parent receives a result such as:
+
+```text
+Sub-agent "scout" completed its time-limit wrap-up (12m 3s). The parent
+interrupted its active operation at 80% of its whole-run limit so the remaining
+time was reserved for this report. A short or partial report is expected; check
+what remains unfinished.
+
+Mapped the auth flow. The session layer still needs verification.
+```
+
+The wrap-up is a normal completion, not a hard timeout. Its session stays resumable unless another policy blocks it.
+
+The trade-off is deliberate: a legitimate slow tool is cancelled at the threshold. If losing that tool run is worse than losing the final report, leave `timeout-warn-threshold` off and use only the hard limits.
+
+#### What the parent receives
+
+A stopped child cannot report its own result, so the parent reports it:
+
+```text
+Sub-agent "scout" ran out of time, so the system stopped it after 15m. Its
+agent file sets a limit of 15m for the whole run.
+
+Partial work from before it stopped. It is incomplete, so check it before you
+trust it:
+
+Mapped the auth flow. The session layer is untouched.
+
+A sub-agent that used its whole limit once usually does it again. A resume gets
+the same limit, so it can stop at the same point. It is usually better to
+finish the work yourself, or to start a new sub-agent with a smaller task.
+
+Session: /path/to/child.jsonl
+To continue this work, use the subagent_resume tool. It applies the same limit
+again. Do not open this file with a plain pi --session command, because that
+run has no limit.
+```
+
+#### Resume after a stop
+
+A resume is allowed by default. A time limit means that the child ran out of clock. It does not mean that the session is broken.
+
+A resumed run gets the same limits as the first run. A child that loops stops again at the same point instead of running forever. This is why a resume is safe to allow.
+
+Use the `subagent_resume` tool to continue the work. A plain `pi --session` run is not a tracked child, so that run has no limit.
+
+Set `on-timeout: block-resume` when a second partial run is not safe. An example is an agent that writes to something outside the repository. Then `subagent_resume` refuses the session, and the result hides the session line from the model. You can still resume the session yourself from the `/subagents` overlay.
+
+`parent-close-policy: continue` remains intentionally detached. If the parent exits, it no longer owns either timeout clock, so strict enforcement is no longer guaranteed for that surviving child.
+
+
+### Report final context use to the parent
+
+`report-context-usage` controls one line in the child result. The default value is `true`.
+
+With the default value, the parent receives a result such as this:
+
+```text
+Sub-agent "scout" completed (3s).
+
+Reviewed the authentication flow and found the files that require changes.
+
+Session: /path/to/child.jsonl
+Resume: pi --session /path/to/child.jsonl
+
+Sub-agent context: 145K/200K tokens (72%) used at finish.
+```
+
+The last line shows the context use when the child finished. The parent can use this number before it resumes the child.
+
+Set the field to `false` to remove the last line:
+
+```yaml
+---
+name: scout
+report-context-usage: false
+---
+```
+
+The parent then receives this result:
+
+```text
+Sub-agent "scout" completed (3s).
+
+Reviewed the authentication flow and found the files that require changes.
+
+Session: /path/to/child.jsonl
+Resume: pi --session /path/to/child.jsonl
+```
+
+This field changes only the text that the parent receives. The TUI still shows the context use to the user.
 
 Named-agent frontmatter wins over duplicate launch-time fields such as `tools`, `cwd`, and `mode`. `model` and `thinking` are different: while you are in a parent Pi session, you can ask Pi to run a subagent with a specific model or thinking level for that one launch or resume. That works by default. If an agent file sets `allow-model-override: false`, Pi ignores those per-launch model choices and uses the model from the agent file, or the inherited Pi model if the file does not name one. Use that opt-out for agents whose quality, cost, or safety depends on a specific model.
 
@@ -328,6 +538,8 @@ A child can finish in three ways.
 ### `auto-exit`
 
 Use `auto-exit: true` for autonomous agents. The child exits after a normal assistant completion.
+
+Once the operator interrupts (Escape) or sends input to the child, auto-exit is permanently disabled for that session — the child warns the operator and stays open. Run `/auto-exit` inside the child to re-arm it: the next normal assistant completion closes the child again. Background children never receive operator input and are unaffected.
 
 ### `subagent_done`
 
@@ -511,6 +723,8 @@ The `tools` field narrows the child to a Pi tool allowlist. Use built-in names s
 
 Pi silently ignores `--tools` names that are not registered by a built-in or a loaded extension. That means a typo (for example `tools: read,edti`) leaves the child silently without `edit`. pi-subagents surfaces a non-blocking warning in the subagent result when a name is within one edit of a built-in (`edti`→`edit`, `raed`→`read`); the launch still proceeds, because a near-miss name can be a legitimate custom tool (for example `hash` is one edit from `bash`). pi-subagents cannot validate arbitrary extension/custom tool names before the child loads its extensions, so ensure every custom/extension name in `tools:` is registered by an extension listed in `extensions:`.
 
+> **Allowlisted `skills:` need a tool named `read`.** Pi core renders the `<available_skills>` block in the child's system prompt only when the active tool set includes `read` (it checks `selectedTools.includes("read")`). If you narrow `tools:` to swap Pi's native file tools for an extension's replacements and drop `read`, every allowlisted (non-injected) skill becomes invisible to the child even though its files exist on disk. Keep the built-in `read` in `tools:` when a child relies on allowlisted skills. `inject-skills` is unaffected — injected skills are pasted into the task text directly. Note that some tool extensions re-inject skills through their own path and may not need `read`; check how yours handles skills.
+
 `deny-tools` is a final named tool denylist. It can remove built-in Pi tools, extension/custom tools, or pi-subagents protocol tools after they have otherwise been selected.
 
 ```md
@@ -522,8 +736,15 @@ deny-tools: bash,edit,write,ask_user
 ---
 ```
 
-`spawning` defaults to `false`. That removes `subagent` and `subagent_resume` from children. Set `spawning: true` only for coordinator agents.
+By default a child cannot launch subagents: `spawning` is `false`, which removes its `subagent`, `subagent_resume`, and `subagent_kill` tools. Set `spawning` only on agents that coordinate others. The four fields above define what such a child may do; this section adds the rules the table cannot show.
 
+`tools:` narrows the child's work tools; it does not revoke a spawn grant. When `spawning` is enabled, `subagent`, `subagent_resume`, and `subagent_kill` stay available alongside a narrowed `tools:` list, exactly like `caller_ping` and `subagent_done`. Use `deny-tools` (or leave `spawning` off) to take them away.
+
+`spawn-depth` is what stops two agents that launch each other from looping forever: the allowance drops by one at each level and never rises. `spawn-depth` and `spawn-width` bound a single burst of launches; they do not cap total token use over a long conversation. These fields are guardrails, not a security sandbox — a child that has `bash` or arbitrary extensions can still run `pi` itself.
+
+Two environment variables set global ceilings when you start Pi: `PI_SUBAGENT_SPAWN_DEPTH` and `PI_SUBAGENT_SPAWN_WIDTH`. An agent file can tighten these for its own subtree but never raise them.
+
+A child's launch allowances are saved in its launch metadata and narrowed again on resume — resuming never restores a larger allowance, and the first metadata entry is authoritative, so a child cannot grant itself more by writing to its own session file.
 ## Parent shutdown policy
 
 Set `parent-close-policy` in the agent frontmatter:
@@ -702,6 +923,7 @@ Herdr live smoke tests are guarded and bounded:
 ```bash
 npm run test:live-herdr-mux
 npm run test:live-herdr-pi
+npm run test:live-herdr-timeout-wrap-up
 ```
 
 Without opt-in variables, each Herdr smoke prints a `SKIP` line and exits before creating Herdr surfaces. Use the skip output as guard evidence only. It is not a real live smoke run.
@@ -720,7 +942,15 @@ PI_SUBAGENT_LIVE_MODEL=provider/model[:thinking] \
 npm run test:live-herdr-pi
 ```
 
-Both Herdr smoke scripts check the `herdr` command, server running status, and protocol compatibility before mutating panes. They label created tabs and panes with a unique marker, then close marked surfaces during cleanup.
+Run the enforced timeout wrap-up smoke with the same opt-ins. It blocks an interactive child inside a synchronous custom tool, verifies that Herdr closes that pane at the threshold, observes a replacement report-only pane on the same session, and requires the replacement to finish before the original hard deadline.
+
+```bash
+PI_SUBAGENT_ALLOW_LIVE_WINDOWS=1 \
+PI_SUBAGENT_LIVE_MODEL=provider/model[:thinking] \
+npm run test:live-herdr-timeout-wrap-up
+```
+
+All Herdr smoke scripts check the `herdr` command, server running status, and protocol compatibility before mutating panes. They label created tabs and panes with a unique marker, then close marked surfaces during cleanup.
 
 Herdr validation record for this release:
 

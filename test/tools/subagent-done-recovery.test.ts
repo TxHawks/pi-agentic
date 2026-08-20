@@ -1,15 +1,18 @@
 import { mock } from "node:test";
 import {
 	assert,
-	readFileSync,
-	rmSync,
-	writeFileSync,
-	join,
+	clearPublishedRunningSubagentCountForTest,
+	createTestDir,
 	describe,
 	it,
-	subagentDoneExtension,
-	createTestDir,
+	join,
+	readFileSync,
+	resetSubagentStateForTest,
+	rmSync,
+	publishRunningSubagentCountForTest,
 	sleep,
+	subagentDoneExtension,
+	writeFileSync,
 } from "../support/index.ts";
 
 describe("subagent-done.ts", () => {
@@ -20,6 +23,7 @@ describe("subagent-done.ts", () => {
 		// so controller-only tests could not catch it. These can.
 		function loadRecoveryChild(options: { interactive?: boolean } = {}) {
 			const handlers = new Map<string, any>();
+			const commands = new Map<string, any>();
 			const sentMessages: string[] = [];
 			const sentMessageOptions: unknown[] = [];
 			const statusUpdates: Array<{ key: string; text: string | undefined }> = [];
@@ -42,6 +46,9 @@ describe("subagent-done.ts", () => {
 				registerTool(definition: { name: string }) {
 					return definition;
 				},
+				registerCommand(name: string, definition: unknown) {
+					commands.set(name, definition);
+				},
 				on(event: string, handler: any) {
 					handlers.set(event, handler);
 				},
@@ -62,6 +69,7 @@ describe("subagent-done.ts", () => {
 						if (stale) throw new Error("stale context");
 						statusUpdates.push({ key, text });
 					},
+					notify() {},
 				},
 				shutdown() {
 					shutdowns += 1;
@@ -72,6 +80,7 @@ describe("subagent-done.ts", () => {
 				sentMessages,
 				sentMessageOptions,
 				statusUpdates,
+				commands,
 				sessionFile,
 				ctx,
 				dir,
@@ -85,6 +94,8 @@ describe("subagent-done.ts", () => {
 		}
 
 		function cleanup(dir: string) {
+			clearPublishedRunningSubagentCountForTest();
+			resetSubagentStateForTest();
 			delete process.env.PI_SUBAGENT_SESSION;
 			delete process.env.PI_SUBAGENT_AUTO_EXIT;
 			delete process.env.PI_SUBAGENT_SURFACE;
@@ -110,7 +121,12 @@ describe("subagent-done.ts", () => {
 			);
 		}
 		function beginOverflowCompaction(h: ReturnType<typeof loadRecoveryChild>, signal = new AbortController().signal) {
-			h.handlers.get("session_before_compact")?.({ type: "session_before_compact", reason: "overflow", willRetry: true, signal });
+			h.handlers.get("session_before_compact")?.({
+				type: "session_before_compact",
+				reason: "overflow",
+				willRetry: true,
+				signal,
+			});
 		}
 		function readExit(h: ReturnType<typeof loadRecoveryChild>) {
 			return JSON.parse(readFileSync(`${h.sessionFile}.exit`, "utf8"));
@@ -125,10 +141,22 @@ describe("subagent-done.ts", () => {
 			try {
 				// Failed run 1: a successful tool call, THEN the connection error.
 				h.handlers.get("message_end")?.({
-					message: { role: "assistant", stopReason: "toolUse", usage: { output: 3 } },
+					message: {
+						role: "assistant",
+						stopReason: "toolUse",
+						usage: { output: 3 },
+					},
 				});
 				h.handlers.get("agent_end")?.(
-					{ messages: [{ role: "assistant", stopReason: "error", errorMessage: "Connection error." }] },
+					{
+						messages: [
+							{
+								role: "assistant",
+								stopReason: "error",
+								errorMessage: "Connection error.",
+							},
+						],
+					},
 					h.ctx,
 				);
 				mock.timers.tick(10_000);
@@ -137,10 +165,22 @@ describe("subagent-done.ts", () => {
 				// Failed run 2: again a successful tool call, then error. Pre-fix this
 				// reset the chain and looped forever; it must now escalate.
 				h.handlers.get("message_end")?.({
-					message: { role: "assistant", stopReason: "toolUse", usage: { output: 3 } },
+					message: {
+						role: "assistant",
+						stopReason: "toolUse",
+						usage: { output: 3 },
+					},
 				});
 				h.handlers.get("agent_end")?.(
-					{ messages: [{ role: "assistant", stopReason: "error", errorMessage: "Connection error." }] },
+					{
+						messages: [
+							{
+								role: "assistant",
+								stopReason: "error",
+								errorMessage: "Connection error.",
+							},
+						],
+					},
 					h.ctx,
 				);
 				mock.timers.tick(10_000);
@@ -148,7 +188,15 @@ describe("subagent-done.ts", () => {
 
 				// Failed run 3 -> kill (no third nudge, error sidecar written).
 				h.handlers.get("agent_end")?.(
-					{ messages: [{ role: "assistant", stopReason: "error", errorMessage: "Connection error." }] },
+					{
+						messages: [
+							{
+								role: "assistant",
+								stopReason: "error",
+								errorMessage: "Connection error.",
+							},
+						],
+					},
 					h.ctx,
 				);
 				mock.timers.tick(10_000);
@@ -169,7 +217,15 @@ describe("subagent-done.ts", () => {
 			try {
 				// Failed run -> nudge.
 				h.handlers.get("agent_end")?.(
-					{ messages: [{ role: "assistant", stopReason: "error", errorMessage: "Connection error." }] },
+					{
+						messages: [
+							{
+								role: "assistant",
+								stopReason: "error",
+								errorMessage: "Connection error.",
+							},
+						],
+					},
 					h.ctx,
 				);
 				mock.timers.tick(10_000);
@@ -177,7 +233,15 @@ describe("subagent-done.ts", () => {
 
 				// Recovered run completes normally -> reset + done sidecar, no further nudge.
 				h.handlers.get("agent_end")?.(
-					{ messages: [{ role: "assistant", stopReason: "stop", content: [{ type: "text", text: "done" }] }] },
+					{
+						messages: [
+							{
+								role: "assistant",
+								stopReason: "stop",
+								content: [{ type: "text", text: "done" }],
+							},
+						],
+					},
 					h.ctx,
 				);
 				const exit = JSON.parse(readFileSync(`${h.sessionFile}.exit`, "utf8"));
@@ -222,10 +286,7 @@ describe("subagent-done.ts", () => {
 			mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
 			const h = loadRecoveryChild();
 			try {
-				h.handlers.get("agent_end")?.(
-					{ messages: [{ role: "assistant", stopReason: "tooluse" }] },
-					h.ctx,
-				);
+				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "tooluse" }] }, h.ctx);
 
 				assert.deepEqual(h.sentMessages, ["continue"]);
 				assert.deepEqual(h.sentMessageOptions, [{ deliverAs: "steer" }]);
@@ -233,7 +294,15 @@ describe("subagent-done.ts", () => {
 				assertNoExit(h);
 
 				h.handlers.get("agent_end")?.(
-					{ messages: [{ role: "assistant", stopReason: "stop", content: [{ type: "text", text: "done" }] }] },
+					{
+						messages: [
+							{
+								role: "assistant",
+								stopReason: "stop",
+								content: [{ type: "text", text: "done" }],
+							},
+						],
+					},
 					h.ctx,
 				);
 
@@ -254,13 +323,13 @@ describe("subagent-done.ts", () => {
 					type: "tool_execution_end",
 					toolCallId: "intentional-stop",
 					toolName: "detached_launch",
-					result: { content: [{ type: "text", text: "started" }], terminate: true },
+					result: {
+						content: [{ type: "text", text: "started" }],
+						terminate: true,
+					},
 					isError: false,
 				});
-				h.handlers.get("agent_end")?.(
-					{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
-					h.ctx,
-				);
+				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
 				mock.timers.tick(0);
 
 				assert.deepEqual(h.sentMessages, []);
@@ -272,15 +341,214 @@ describe("subagent-done.ts", () => {
 			}
 		});
 
+		it("keeps an auto-exit coordinator alive after an async nested launch stops its turn", () => {
+			mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+			const h = loadRecoveryChild();
+			try {
+				h.handlers.get("turn_start")?.({ type: "turn_start", turnIndex: 0 });
+				h.handlers.get("tool_execution_end")?.({
+					type: "tool_execution_end",
+					toolCallId: "nested-launch",
+					toolName: "subagent",
+					result: {
+						content: [{ type: "text", text: "started" }],
+						terminate: true,
+					},
+					isError: false,
+				});
+				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+				mock.timers.tick(0);
+
+				assert.deepEqual(h.sentMessages, []);
+				assert.equal(h.shutdowns, 0);
+				assertNoExit(h);
+			} finally {
+				cleanup(h.dir);
+				mock.timers.reset();
+			}
+		});
+
+		it("keeps an auto-exit coordinator alive after an async nested resume stops its turn", () => {
+			mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+			const h = loadRecoveryChild();
+			try {
+				h.handlers.get("turn_start")?.({ type: "turn_start", turnIndex: 0 });
+				h.handlers.get("tool_execution_end")?.({
+					type: "tool_execution_end",
+					toolCallId: "nested-resume",
+					toolName: "subagent_resume",
+					result: { content: [{ type: "text", text: "resumed" }], terminate: true },
+					isError: false,
+				});
+				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+				mock.timers.tick(0);
+
+				assert.equal(h.shutdowns, 0);
+				assertNoExit(h);
+			} finally {
+				cleanup(h.dir);
+				mock.timers.reset();
+			}
+		});
+
+		it("auto-exits normally after the nested child result produces a final response", () => {
+			mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+			const h = loadRecoveryChild();
+			try {
+				h.handlers.get("turn_start")?.({ type: "turn_start", turnIndex: 0 });
+				h.handlers.get("tool_execution_end")?.({
+					type: "tool_execution_end",
+					toolCallId: "nested-launch",
+					toolName: "subagent",
+					result: { content: [{ type: "text", text: "started" }], terminate: true },
+					isError: false,
+				});
+				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+
+				h.handlers.get("turn_start")?.({ type: "turn_start", turnIndex: 1 });
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "stop", content: [{ type: "text", text: "final" }] }] },
+					h.ctx,
+				);
+				mock.timers.tick(0);
+
+				assert.equal(h.shutdowns, 1);
+				assert.equal(readExit(h).type, "done");
+			} finally {
+				cleanup(h.dir);
+				mock.timers.reset();
+			}
+		});
+
+		it("does not carry a nested launch stop into the next turn", () => {
+			mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+			const h = loadRecoveryChild();
+			try {
+				h.handlers.get("turn_start")?.({ type: "turn_start", turnIndex: 0 });
+				h.handlers.get("tool_execution_end")?.({
+					type: "tool_execution_end",
+					toolCallId: "nested-launch",
+					toolName: "subagent",
+					result: { content: [{ type: "text", text: "started" }], terminate: true },
+					isError: false,
+				});
+				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+
+				h.handlers.get("turn_start")?.({ type: "turn_start", turnIndex: 1 });
+				h.handlers.get("tool_execution_end")?.({
+					type: "tool_execution_end",
+					toolCallId: "ordinary-stop",
+					toolName: "detached_launch",
+					result: { content: [{ type: "text", text: "done" }], terminate: true },
+					isError: false,
+				});
+				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+				mock.timers.tick(0);
+
+				assert.equal(h.shutdowns, 1);
+				assert.equal(readExit(h).type, "done");
+			} finally {
+				cleanup(h.dir);
+				mock.timers.reset();
+			}
+		});
+
+		it("uses tool-boundary recovery when a nested launch did not stop the whole batch", () => {
+			mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+			const h = loadRecoveryChild();
+			try {
+				h.handlers.get("turn_start")?.({ type: "turn_start", turnIndex: 0 });
+				h.handlers.get("tool_execution_end")?.({
+					type: "tool_execution_end",
+					toolCallId: "nested-launch",
+					toolName: "subagent",
+					result: { content: [{ type: "text", text: "started" }], terminate: true },
+					isError: false,
+				});
+				h.handlers.get("tool_execution_end")?.({
+					type: "tool_execution_end",
+					toolCallId: "sibling-work",
+					toolName: "exec_command",
+					result: { content: [{ type: "text", text: "done" }] },
+					isError: false,
+				});
+				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+
+				assert.deepEqual(h.sentMessages, ["continue"]);
+				assert.equal(h.shutdowns, 0);
+				assertNoExit(h);
+			} finally {
+				cleanup(h.dir);
+				mock.timers.reset();
+			}
+		});
+
+		it("stays alive after an intermediate child result while a sibling is still running", () => {
+			mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+			const h = loadRecoveryChild();
+			try {
+				publishRunningSubagentCountForTest(() => 1);
+
+				h.handlers.get("turn_start")?.({ type: "turn_start", turnIndex: 1 });
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "stop", content: [{ type: "text", text: "first result" }] }] },
+					h.ctx,
+				);
+				mock.timers.tick(0);
+
+				assert.equal(h.shutdowns, 0);
+				assertNoExit(h);
+			} finally {
+				cleanup(h.dir);
+				mock.timers.reset();
+			}
+		});
+
+		it("honors /auto-exit re-arm across multiple extension-delivered child results", async () => {
+			mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+			const h = loadRecoveryChild();
+			try {
+				publishRunningSubagentCountForTest(() => 1);
+
+				h.handlers.get("agent_start")?.({ type: "agent_start" });
+				h.handlers.get("input")?.({ source: "interactive", streamingBehavior: "steer" }, h.ctx);
+				await h.commands.get("auto-exit")?.handler({}, h.ctx);
+
+				h.handlers.get("input")?.({ source: "extension", streamingBehavior: "steer" }, h.ctx);
+				h.handlers.get("agent_start")?.({ type: "agent_start" });
+				h.handlers.get("turn_start")?.({ type: "turn_start", turnIndex: 1 });
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "stop", content: [{ type: "text", text: "first child" }] }] },
+					h.ctx,
+				);
+				mock.timers.tick(0);
+				assert.equal(h.shutdowns, 0);
+				assertNoExit(h);
+
+				publishRunningSubagentCountForTest(() => 0);
+				h.handlers.get("input")?.({ source: "extension", streamingBehavior: "steer" }, h.ctx);
+				h.handlers.get("agent_start")?.({ type: "agent_start" });
+				h.handlers.get("turn_start")?.({ type: "turn_start", turnIndex: 2 });
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "stop", content: [{ type: "text", text: "last child" }] }] },
+					h.ctx,
+				);
+				mock.timers.tick(0);
+
+				assert.equal(h.shutdowns, 1);
+				assert.equal(readExit(h).type, "done");
+			} finally {
+				cleanup(h.dir);
+				mock.timers.reset();
+			}
+		});
+
 		it("fails instead of looping after repeated tool-use boundary endings", () => {
 			mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
 			const h = loadRecoveryChild();
 			try {
 				for (let attempt = 0; attempt < 3; attempt++) {
-					h.handlers.get("agent_end")?.(
-						{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
-						h.ctx,
-					);
+					h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
 				}
 				mock.timers.tick(0);
 
@@ -301,21 +569,23 @@ describe("subagent-done.ts", () => {
 			const h = loadRecoveryChild();
 			try {
 				for (let attempt = 0; attempt < 2; attempt++) {
+					h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
 					h.handlers.get("agent_end")?.(
-						{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
-						h.ctx,
-					);
-					h.handlers.get("agent_end")?.(
-						{ messages: [{ role: "assistant", stopReason: "error", errorMessage: "Connection error." }] },
+						{
+							messages: [
+								{
+									role: "assistant",
+									stopReason: "error",
+									errorMessage: "Connection error.",
+								},
+							],
+						},
 						h.ctx,
 					);
 					mock.timers.tick(10_000);
 				}
 
-				h.handlers.get("agent_end")?.(
-					{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
-					h.ctx,
-				);
+				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
 				mock.timers.tick(0);
 
 				assert.equal(h.shutdowns, 1);
@@ -330,7 +600,15 @@ describe("subagent-done.ts", () => {
 			const h = loadRecoveryChild();
 			try {
 				h.handlers.get("agent_end")?.(
-					{ messages: [{ role: "assistant", stopReason: "error", errorMessage: "insufficient_quota" }] },
+					{
+						messages: [
+							{
+								role: "assistant",
+								stopReason: "error",
+								errorMessage: "insufficient_quota",
+							},
+						],
+					},
 					h.ctx,
 				);
 				await sleep(20);
@@ -351,11 +629,27 @@ describe("subagent-done.ts", () => {
 			const h = loadRecoveryChild();
 			try {
 				h.handlers.get("agent_end")?.(
-					{ messages: [{ role: "assistant", stopReason: "error", errorMessage: "Connection error." }] },
+					{
+						messages: [
+							{
+								role: "assistant",
+								stopReason: "error",
+								errorMessage: "Connection error.",
+							},
+						],
+					},
 					h.ctx,
 				);
 				h.handlers.get("agent_end")?.(
-					{ messages: [{ role: "assistant", stopReason: "error", errorMessage: "insufficient_quota" }] },
+					{
+						messages: [
+							{
+								role: "assistant",
+								stopReason: "error",
+								errorMessage: "insufficient_quota",
+							},
+						],
+					},
 					h.ctx,
 				);
 
@@ -386,9 +680,21 @@ describe("subagent-done.ts", () => {
 				assert.equal(h.shutdowns, 0);
 				assertNoExit(h);
 
-				h.handlers.get("session_compact")?.({ type: "session_compact", reason: "overflow", willRetry: true });
+				h.handlers.get("session_compact")?.({
+					type: "session_compact",
+					reason: "overflow",
+					willRetry: true,
+				});
 				h.handlers.get("agent_end")?.(
-					{ messages: [{ role: "assistant", stopReason: "stop", content: [{ type: "text", text: "done" }] }] },
+					{
+						messages: [
+							{
+								role: "assistant",
+								stopReason: "stop",
+								content: [{ type: "text", text: "done" }],
+							},
+						],
+					},
 					h.ctx,
 				);
 				assert.equal(readExit(h).type, "done");
@@ -451,7 +757,11 @@ describe("subagent-done.ts", () => {
 			try {
 				emitContextOverflow(h);
 				beginOverflowCompaction(h, oldAbort.signal);
-				h.handlers.get("session_compact")?.({ type: "session_compact", reason: "overflow", willRetry: true });
+				h.handlers.get("session_compact")?.({
+					type: "session_compact",
+					reason: "overflow",
+					willRetry: true,
+				});
 
 				emitContextOverflow(h);
 				beginOverflowCompaction(h);
@@ -472,10 +782,21 @@ describe("subagent-done.ts", () => {
 			const h = loadRecoveryChild({ interactive: false });
 			try {
 				h.handlers.get("agent_end")?.(
-					{ messages: [{ role: "assistant", stopReason: "error", errorMessage: "Connection error." }] },
+					{
+						messages: [
+							{
+								role: "assistant",
+								stopReason: "error",
+								errorMessage: "Connection error.",
+							},
+						],
+					},
 					h.ctx,
 				);
-				h.handlers.get("session_shutdown")?.({ type: "session_shutdown", reason: "quit" });
+				h.handlers.get("session_shutdown")?.({
+					type: "session_shutdown",
+					reason: "quit",
+				});
 				h.makeContextStale();
 				mock.timers.tick(10_000);
 
@@ -493,5 +814,4 @@ describe("subagent-done.ts", () => {
 			}
 		});
 	});
-
 });

@@ -1,4 +1,5 @@
 import type { ChildProcess } from "node:child_process";
+import type { PersistedSubagentLaunchMetadata } from "./session/session-files.ts";
 
 export type DeliveryState = "detached" | "awaited";
 export type ParentClosePolicy = "terminate" | "continue";
@@ -6,6 +7,19 @@ type CompletedDelivery = "steer" | "wait";
 export type SubagentCompletionStatus = "completed" | "failed" | "cancelled";
 export type SubagentSummarySource = "subagent" | "runtime";
 export type ParentShutdownAction = "terminate" | "continue";
+/** Which runtime budget a killed child exceeded. */
+export type SubagentTimeoutKind = "timeout" | "idle-timeout";
+
+/**
+ * Wall-clock and idle budgets for one child. An omitted budget is unbounded,
+ * which is the default for every agent.
+ */
+export interface SubagentTimeoutBudget {
+	/** Seconds of total runtime since launch. */
+	timeoutSeconds?: number;
+	/** Seconds without the child's session file growing. */
+	idleTimeoutSeconds?: number;
+}
 
 export interface SubagentParamsInput {
 	name: string;
@@ -19,7 +33,6 @@ export interface SubagentParamsInput {
 	injectSkills?: string;
 	tools?: string;
 	cwd?: string;
-	fork?: boolean;
 	background?: boolean;
 	async?: boolean;
 	blocking?: boolean;
@@ -46,6 +59,24 @@ export interface SubagentResult {
 	exitCode: number;
 	elapsed: number;
 	outputTokens?: number;
+	/** Context tokens used by the child when it finished. */
+	contextTokens?: number;
+	/** Context-window size for the child's final usage snapshot. */
+	contextWindow?: number;
+	/** True when the child's exit was owned by its context-warning policy. */
+	contextWarned?: boolean;
+	/** True when the child failed while its context was already spent. */
+	contextExhausted?: boolean;
+	/** Set when the runtime killed the child for exceeding a timeout budget. */
+	timedOut?: SubagentTimeoutKind;
+	/** The budget, in seconds, that expired. */
+	timedOutAfter?: number;
+	/** True when the agent's `on-timeout` policy refuses a resume of this session. */
+	timeoutBlocksResume?: boolean;
+	/** True when the runtime could not confirm the child was terminated. */
+	timeoutKillFailed?: boolean;
+	/** The soft deadline that interrupted work and started a report-only continuation. */
+	timeoutWrapUp?: { kind: SubagentTimeoutKind; seconds: number; threshold: number };
 	error?: string;
 	errorMessage?: string;
 	ping?: SubagentPing;
@@ -62,6 +93,7 @@ export interface CompletedSubagentResult extends SubagentResult {
 	blocking?: boolean;
 	async: boolean;
 	autoExit?: boolean;
+	reportContextUsage?: boolean;
 	deliveredTo: CompletedDelivery | null;
 }
 
@@ -79,8 +111,30 @@ export interface RunningSubagent {
 	async?: boolean;
 	autoExit?: boolean;
 	noSession?: boolean;
+	reportContextUsage?: boolean;
+	/** Budgets the watcher enforces for this child. Absent means unbounded. */
+	timeoutBudget?: SubagentTimeoutBudget;
+	/** Mirrors the agent's `on-timeout` policy for the result the parent reads. */
+	timeoutBlocksResume?: boolean;
+	/** Percentage of a configured budget reserved for the report-only continuation. */
+	timeoutWarnThreshold?: number;
+	/** Set once the watcher has interrupted this run for its report-only continuation. */
+	timeoutWrapUp?: { kind: SubagentTimeoutKind; seconds: number; threshold: number };
+	/** True after the interrupted generation has been replaced by the continuation. */
+	timeoutWrapUpMode?: boolean;
+	/** Fixed hard deadline for the budget that triggered the wrap-up. */
+	timeoutWrapUpDeadlineAt?: number;
+	/** Last time the child's session file grew, for the idle budget. */
+	lastProgressAt?: number;
+	/** Set once the watcher has decided to kill this child on a budget. */
+	timeoutExpiry?: { kind: SubagentTimeoutKind; seconds: number };
+	/** Pending SIGKILL escalation for a timeout kill. */
+	timeoutKillTimer?: ReturnType<typeof setTimeout>;
+	/** Set when closing a pane child's surface failed, so the kill may not have taken. */
+	timeoutKillFailed?: boolean;
 	resultOwner?: { kind: CompletedDelivery; ownerId: string };
 	completionPromise?: Promise<SubagentResult>;
+	spawnWidthSlotAcquired?: boolean;
 	surface?: string;
 	childProcess?: ChildProcess;
 	stderrTail?: string;
@@ -98,6 +152,8 @@ export interface RunningSubagent {
 	modelContextWindow?: number;
 	/** Resolved provider/model:thinking ref for this child, for display in the widget/overlay. */
 	modelRef?: string;
+	/** Exact launch contract reused by an internal timeout wrap-up restart. */
+	launchMetadata?: PersistedSubagentLaunchMetadata;
 	contextLabel?: string;
 	activity?: string;
 	taskPreview?: string;
@@ -122,10 +178,6 @@ export interface StartedSubagentToolDetails {
 	parentClosePolicy?: string;
 	async?: boolean;
 	autoExit?: boolean;
-}
-
-interface ResumeToolDetails extends StartedSubagentToolDetails {
-	sessionFile?: string;
 }
 
 export interface SessionUsage {
@@ -166,6 +218,16 @@ export interface SubagentResultMessageDetails {
 	elapsed?: number;
 	sessionFile?: string;
 	outputTokens?: number;
+	contextTokens?: number;
+	contextWindow?: number;
+	/** Which budget the runtime killed this child on, when it did. */
+	timedOut?: SubagentTimeoutKind;
+	/** The budget, in seconds, that expired. */
+	timedOutAfter?: number;
+	/** True when the agent's `on-timeout` policy refuses a resume. */
+	timeoutBlocksResume?: boolean;
+	/** The soft deadline that interrupted work and started a report-only continuation. */
+	timeoutWrapUp?: { kind: SubagentTimeoutKind; seconds: number; threshold: number };
 	error?: string;
 	errorMessage?: string;
 }

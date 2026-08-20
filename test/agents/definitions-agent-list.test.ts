@@ -1,24 +1,25 @@
 import {
-	assert,
-	mkdirSync,
-	writeFileSync,
-	join,
 	afterEach,
+	assert,
+	createTestDir,
 	describe,
-	it,
-	subagentsExtension,
 	getAgentListEntriesForTest,
+	getAgentListSignatureForTest,
 	getEffectiveAgentDefinitionsForTest,
 	getExtensionLaunchArgsForTest,
-	getAgentListSignatureForTest,
-	renderAgentListReminderForTest,
+	it,
+	join,
 	loadAgentDefaults,
+	mkdirSync,
+	renderAgentListReminderForTest,
 	resetSubagentStateForTest,
 	resolveDenyToolsForTest,
 	resolveEffectiveSessionModeForTest,
+	resolveSubagentBlockingForTest,
 	resolveSubagentExtensionsForTest,
 	resolveTaskSessionModeForTest,
-	createTestDir,
+	subagentsExtension,
+	writeFileSync,
 } from "../support/index.ts";
 
 describe("agent definitions and catalog", () => {
@@ -38,32 +39,23 @@ describe("agent definitions and catalog", () => {
 		process.env.PI_CODING_AGENT_DIR = configDir;
 
 		const defs = loadAgentDefaults("tester");
-		assert.equal(
-			defs?.extensions,
-			"./extensions/caveman.ts, npm:@foo/bar, https://example.com/ext.ts",
-		);
+		assert.equal(defs?.extensions, "./extensions/caveman.ts, npm:@foo/bar, https://example.com/ext.ts");
 		assert.deepEqual(resolveSubagentExtensionsForTest(defs), [
 			join(configDir, "extensions", "caveman.ts"),
 			"npm:@foo/bar",
 			"https://example.com/ext.ts",
 		]);
-		assert.deepEqual(
-			getExtensionLaunchArgsForTest(
-				resolveSubagentExtensionsForTest(defs),
-				"/tmp/subagent-done.ts",
-			),
-			[
-				"--no-extensions",
-				"-e",
-				"/tmp/subagent-done.ts",
-				"-e",
-				join(configDir, "extensions", "caveman.ts"),
-				"-e",
-				"npm:@foo/bar",
-				"-e",
-				"https://example.com/ext.ts",
-			],
-		);
+		assert.deepEqual(getExtensionLaunchArgsForTest(resolveSubagentExtensionsForTest(defs), "/tmp/subagent-done.ts"), [
+			"--no-extensions",
+			"-e",
+			"/tmp/subagent-done.ts",
+			"-e",
+			join(configDir, "extensions", "caveman.ts"),
+			"-e",
+			"npm:@foo/bar",
+			"-e",
+			"https://example.com/ext.ts",
+		]);
 	});
 
 	it("allows extensions none to launch child with only mandatory internal extension", () => {
@@ -80,13 +72,11 @@ describe("agent definitions and catalog", () => {
 		const defs = loadAgentDefaults("tester");
 		assert.equal(defs?.extensions, "none");
 		assert.deepEqual(resolveSubagentExtensionsForTest(defs), []);
-		assert.deepEqual(
-			getExtensionLaunchArgsForTest(
-				resolveSubagentExtensionsForTest(defs),
-				"/tmp/subagent-done.ts",
-			),
-			["--no-extensions", "-e", "/tmp/subagent-done.ts"],
-		);
+		assert.deepEqual(getExtensionLaunchArgsForTest(resolveSubagentExtensionsForTest(defs), "/tmp/subagent-done.ts"), [
+			"--no-extensions",
+			"-e",
+			"/tmp/subagent-done.ts",
+		]);
 	});
 
 	it("treats extensions all as the default extension set", () => {
@@ -94,22 +84,16 @@ describe("agent definitions and catalog", () => {
 		const configDir = join(dir, "agent-root");
 		const agentsDir = join(configDir, "agents");
 		mkdirSync(agentsDir, { recursive: true });
-		writeFileSync(
-			join(agentsDir, "tester.md"),
-			`---\nname: tester\nextensions: all\n---\n\nYou are the tester.`,
-		);
+		writeFileSync(join(agentsDir, "tester.md"), `---\nname: tester\nextensions: all\n---\n\nYou are the tester.`);
 		process.env.PI_CODING_AGENT_DIR = configDir;
 
 		const defs = loadAgentDefaults("tester");
 		assert.equal(defs?.extensions, "all");
 		assert.equal(resolveSubagentExtensionsForTest(defs), undefined);
-		assert.deepEqual(
-			getExtensionLaunchArgsForTest(
-				resolveSubagentExtensionsForTest(defs),
-				"/tmp/subagent-done.ts",
-			),
-			["-e", "/tmp/subagent-done.ts"],
-		);
+		assert.deepEqual(getExtensionLaunchArgsForTest(resolveSubagentExtensionsForTest(defs), "/tmp/subagent-done.ts"), [
+			"-e",
+			"/tmp/subagent-done.ts",
+		]);
 	});
 
 	it("rejects legacy extensions disable aliases", () => {
@@ -140,7 +124,7 @@ describe("agent definitions and catalog", () => {
 		assert.equal(defs?.injectSkills, "pua, torpathy");
 	});
 
-	it("parses session-mode frontmatter and lets fork override it per launch", () => {
+	it("parses session-mode frontmatter", () => {
 		const dir = createTestDir();
 		const configDir = join(dir, "agent-root");
 		const agentsDir = join(configDir, "agents");
@@ -154,26 +138,10 @@ describe("agent definitions and catalog", () => {
 
 		const defs = loadAgentDefaults("tester");
 		assert.equal(defs?.sessionMode, "lineage-only");
-		assert.equal(
-			resolveEffectiveSessionModeForTest({ agent: "tester" }, defs),
-			"lineage-only",
-		);
-		assert.equal(
-			resolveEffectiveSessionModeForTest({ agent: "tester", fork: true }, defs),
-			"lineage-only",
-		);
+		assert.equal(resolveEffectiveSessionModeForTest({ agent: "tester" }, defs), "lineage-only");
 		assert.equal(resolveTaskSessionModeForTest(defs), "lineage-only");
 
-		writeFileSync(
-			join(agentsDir, "compat.md"),
-			`---\nname: compat\nfork: true\n---\n\nCompatibility body.`,
-		);
-		const compat = loadAgentDefaults("compat");
-		assert.equal(compat?.sessionMode, "fork");
-		assert.equal(
-			resolveEffectiveSessionModeForTest({ agent: "default" }, null),
-			"lineage-only",
-		);
+		assert.equal(resolveEffectiveSessionModeForTest({ agent: "default" }, null), "lineage-only");
 		assert.equal(resolveTaskSessionModeForTest(null), "lineage-only");
 		assert.equal(
 			resolveTaskSessionModeForTest({
@@ -182,6 +150,31 @@ describe("agent definitions and catalog", () => {
 			}),
 			"fork",
 		);
+	});
+
+	it("ignores the removed fork and blocking frontmatter keys while reading timeout", () => {
+		const dir = createTestDir();
+		const configDir = join(dir, "agent-root");
+		const agentsDir = join(configDir, "agents");
+		mkdirSync(agentsDir, { recursive: true });
+		process.env.PI_CODING_AGENT_DIR = configDir;
+
+		writeFileSync(
+			join(agentsDir, "legacy.md"),
+			`---\nname: legacy\nfork: true\nblocking: true\ntimeout: 30\n---\n\nLegacy body.`,
+		);
+
+		const defs = loadAgentDefaults("legacy");
+		assert.ok(defs);
+		assert.equal(defs?.sessionMode, undefined);
+		assert.equal(resolveEffectiveSessionModeForTest({ agent: "legacy" }, defs), "lineage-only");
+		assert.equal(resolveSubagentBlockingForTest({}, defs), false);
+		assert.equal(
+			Object.keys(defs as Record<string, unknown>).some((key) => ["fork", "blocking"].includes(key)),
+			false,
+		);
+		// `timeout` came back as a real budget; the other two stayed removed.
+		assert.equal(defs?.timeout, 30);
 	});
 
 	it("skips disabled agents and falls back to the next available definition", () => {
@@ -307,14 +300,8 @@ describe("agent definitions and catalog", () => {
 		);
 
 		const defs = getEffectiveAgentDefinitionsForTest(dir);
-		assert.equal(
-			defs.find((entry) => entry.name === "project-agent")?.description,
-			"Project description",
-		);
-		assert.equal(
-			defs.find((entry) => entry.name === "global-agent")?.description,
-			"Use the global route",
-		);
+		assert.equal(defs.find((entry) => entry.name === "project-agent")?.description, "Project description");
+		assert.equal(defs.find((entry) => entry.name === "global-agent")?.description, "Use the global route");
 		assert.equal(
 			defs.some((entry) => entry.name === "disabled"),
 			false,
@@ -329,26 +316,11 @@ describe("agent definitions and catalog", () => {
 			ambient.map((entry) => entry.name),
 			["description-only", "global-agent", "lenient-enabled", "project-agent"],
 		);
-		assert.equal(
-			ambient.find((entry) => entry.name === "project-agent")?.description,
-			"Project description",
-		);
-		assert.equal(
-			ambient.find((entry) => entry.name === "description-only")?.description,
-			"Fallback description",
-		);
-		assert.equal(
-			ambient.find((entry) => entry.name === "description-only")?.sessionMode,
-			"lineage-only",
-		);
-		assert.equal(
-			ambient.find((entry) => entry.name === "global-agent")?.sessionMode,
-			"fork",
-		);
-		assert.equal(
-			ambient.find((entry) => entry.name === "project-agent")?.sessionMode,
-			"lineage-only",
-		);
+		assert.equal(ambient.find((entry) => entry.name === "project-agent")?.description, "Project description");
+		assert.equal(ambient.find((entry) => entry.name === "description-only")?.description, "Fallback description");
+		assert.equal(ambient.find((entry) => entry.name === "description-only")?.sessionMode, "lineage-only");
+		assert.equal(ambient.find((entry) => entry.name === "global-agent")?.sessionMode, "fork");
+		assert.equal(ambient.find((entry) => entry.name === "project-agent")?.sessionMode, "lineage-only");
 		assert.equal(
 			ambient.some((entry) => entry.name === "hidden-agent"),
 			false,
@@ -378,7 +350,7 @@ describe("agent definitions and catalog", () => {
 		const reminder = renderAgentListReminderForTest(entries);
 		assert.match(reminder, /default_model: zai-messages\/glm-5\.1:high/);
 		assert.match(reminder, /models: zai-messages\/glm-5\.1:high \| openai-ws\/gpt-5\.5:low \| nahcrof\/glm-5\.1:off/);
-		assert.match(reminder, /- `scout`: Inspect files\n(?:  .+\n){4,5}  models: any model ref/);
+		assert.match(reminder, /- `scout`: Inspect files\n(?: {2}.+\n){4,5} {2}models: any model ref/);
 		assert.match(reminder, /`models:` lists accepted overrides/);
 
 		const firstSignature = getAgentListSignatureForTest(entries);
@@ -420,8 +392,55 @@ describe("agent definitions and catalog", () => {
 		);
 
 		const reminder = renderAgentListReminderForTest(getAgentListEntriesForTest(dir));
-		assert.doesNotMatch(reminder, /\n  models:/);
+		assert.doesNotMatch(reminder, /\n {2}models:/);
 		assert.match(reminder, /no `models:` line ignores model and thinking overrides/);
+	});
+
+	it("renders the completion contract to match each child's actual exit path", () => {
+		const dir = createTestDir();
+		const configDir = join(dir, "agent-root");
+		const agentsDir = join(configDir, "agents");
+		mkdirSync(agentsDir, { recursive: true });
+		process.env.PI_CODING_AGENT_DIR = configDir;
+
+		writeFileSync(
+			join(agentsDir, "pairing.md"),
+			`---\nname: pairing\ndescription: Interactive agent without auto-exit\nmode: interactive\n---\n\nBody.`,
+		);
+		writeFileSync(
+			join(agentsDir, "fire-and-forget.md"),
+			`---\nname: fire-and-forget\ndescription: Interactive agent with auto-exit\nmode: interactive\nauto-exit: true\n---\n\nBody.`,
+		);
+		writeFileSync(
+			join(agentsDir, "runner.md"),
+			`---\nname: runner\ndescription: Background agent without auto-exit\nmode: background\n---\n\nBody.`,
+		);
+		writeFileSync(
+			join(agentsDir, "pinned-open.md"),
+			`---\nname: pinned-open\ndescription: Background agent with explicit auto-exit false\nmode: background\nauto-exit: false\n---\n\nBody.`,
+		);
+		writeFileSync(
+			join(agentsDir, "no-mode.md"),
+			`---\nname: no-mode\ndescription: Agent with no mode field\n---\n\nBody.`,
+		);
+
+		const reminder = renderAgentListReminderForTest(getAgentListEntriesForTest(dir));
+		// Bound each assertion to one agent block. Unbounded `[\s\S]*?` regexes
+		// matched across the blank-line block boundary into the next agent's
+		// completion line, so they passed even against the old renderer.
+		const blockFor = (name: string) =>
+			reminder.match(new RegExp(`^- \`${name}\`:[\\s\\S]*?(?=\\n\\n|\\n</subagent-roster>)`, "m"))?.[0] ?? "";
+		// Interactive children without `auto-exit` are told to stay open for the
+		// operator and never receive `subagent_done`, so their results only
+		// arrive after the pane is closed. The roster must not promise otherwise.
+		// An omitted `mode` takes the interactive launch path as well.
+		assert.match(blockFor("pairing"), /completion: human_or_agent_must_finish/);
+		assert.match(blockFor("no-mode"), /completion: human_or_agent_must_finish/);
+		assert.match(blockFor("fire-and-forget"), /completion: exits_automatically/);
+		// Background children must call `subagent_done` themselves, so the
+		// default contract stays exits_automatically for them.
+		assert.match(blockFor("runner"), /completion: exits_automatically/);
+		assert.match(blockFor("pinned-open"), /completion: human_or_agent_must_finish/);
 	});
 
 	it("defaults spawning to false for named agent definitions", () => {
@@ -431,10 +450,7 @@ describe("agent definitions and catalog", () => {
 		mkdirSync(agentsDir, { recursive: true });
 		process.env.PI_CODING_AGENT_DIR = configDir;
 
-		writeFileSync(
-			join(agentsDir, "worker.md"),
-			`---\nname: worker\ndescription: Do focused work\n---\n\nWorker body.`,
-		);
+		writeFileSync(join(agentsDir, "worker.md"), `---\nname: worker\ndescription: Do focused work\n---\n\nWorker body.`);
 		writeFileSync(
 			join(agentsDir, "coordinator.md"),
 			`---\nname: coordinator\ndescription: Coordinate work\nspawning: true\n---\n\nCoordinator body.`,
@@ -447,6 +463,7 @@ describe("agent definitions and catalog", () => {
 		assert.equal(coordinator?.spawning, true);
 		assert.deepEqual([...resolveDenyToolsForTest(worker ?? null)].sort(), [
 			"subagent",
+			"subagent_kill",
 			"subagent_resume",
 		]);
 		assert.deepEqual([...resolveDenyToolsForTest(coordinator ?? null)], []);
@@ -466,10 +483,7 @@ describe("agent definitions and catalog", () => {
 
 		const first = getAgentListEntriesForTest(dir);
 		const second = getAgentListEntriesForTest(dir);
-		assert.equal(
-			getAgentListSignatureForTest(first),
-			getAgentListSignatureForTest(second),
-		);
+		assert.equal(getAgentListSignatureForTest(first), getAgentListSignatureForTest(second));
 
 		writeFileSync(
 			join(agentsDir, "reviewer.md"),
@@ -477,10 +491,7 @@ describe("agent definitions and catalog", () => {
 		);
 
 		const changed = getAgentListEntriesForTest(dir);
-		assert.notEqual(
-			getAgentListSignatureForTest(first),
-			getAgentListSignatureForTest(changed),
-		);
+		assert.notEqual(getAgentListSignatureForTest(first), getAgentListSignatureForTest(changed));
 	});
 
 	it("registers conservative delegation guidance on the subagent tool", () => {
@@ -500,31 +511,16 @@ describe("agent definitions and catalog", () => {
 		const tool = tools.get("subagent");
 		assert.ok(tool);
 		assert.match(tool.description, /named helper agents from the subagent roster/);
-		assert.match(
-			tool.promptSnippet,
-			/separate helper processes you can launch to do work outside this chat turn/,
-		);
+		assert.match(tool.promptSnippet, /separate helper processes you can launch to do work outside this chat turn/);
 		assert.match(
 			tool.promptSnippet,
 			/Use exact agent names and behavior fields from the subagent roster when present; field meanings are defined in <subagent-rules>/,
 		);
 		assert.match(tool.promptSnippet, /make one subagent call with children/);
-		assert.match(
-			tool.promptSnippet,
-			/include each named agent exactly once/,
-		);
-		assert.match(
-			tool.promptSnippet,
-			/Do not substitute one agent for another/,
-		);
-		assert.match(
-			tool.promptSnippet,
-			/Translate the user.s request into each helper.s task/,
-		);
-		assert.match(
-			tool.promptSnippet,
-			/do not change the work just because of the agent name/,
-		);
+		assert.match(tool.promptSnippet, /include each named agent exactly once/);
+		assert.match(tool.promptSnippet, /Do not substitute one agent for another/);
+		assert.match(tool.promptSnippet, /Translate the user.s request into each helper.s task/);
+		assert.match(tool.promptSnippet, /do not change the work just because of the agent name/);
 		assert.match(
 			tool.promptSnippet,
 			/write readable Markdown with objective, scope, relevant files\/facts, constraints, and requested output/,
@@ -533,26 +529,14 @@ describe("agent definitions and catalog", () => {
 			tool.promptSnippet,
 			/Do small direct work yourself: quick answers, simple file reads, and tiny one-shot edits/,
 		);
-		assert.match(
-			tool.promptSnippet,
-			/Do not redo delegated work/,
-		);
-		assert.match(
-			tool.promptSnippet,
-			/do not claim the helper's findings before its later message appears/,
-		);
+		assert.match(tool.promptSnippet, /Do not redo delegated work/);
+		assert.match(tool.promptSnippet, /do not claim the helper's findings before its later message appears/);
 		assert.match(
 			tool.promptSnippet,
 			/For helpers with tool_return=later_message, the runtime may stop after this tool batch/,
 		);
-		assert.match(
-			tool.promptSnippet,
-			/Do not redo delegated work or claim results before the later report appears/,
-		);
-		assert.doesNotMatch(
-			tool.promptSnippet,
-			/PI_SUBAGENT_DISABLE_COORDINATOR_ONLY_TURN/,
-		);
+		assert.match(tool.promptSnippet, /Do not redo delegated work or claim results before the later report appears/);
+		assert.doesNotMatch(tool.promptSnippet, /PI_SUBAGENT_DISABLE_COORDINATOR_ONLY_TURN/);
 	});
 
 	it("registers opt-out delegation guidance when coordinator-only turn stop is disabled", () => {
@@ -577,10 +561,6 @@ describe("agent definitions and catalog", () => {
 			/You may continue with non-overlapping work after launching a tool_return=later_message helper/,
 		);
 		assert.match(tool.promptSnippet, /Do not redo delegated work/);
-		assert.doesNotMatch(
-			tool.promptSnippet,
-			/For helpers with tool_return=later_message, the runtime may stop/,
-		);
+		assert.doesNotMatch(tool.promptSnippet, /For helpers with tool_return=later_message, the runtime may stop/);
 	});
-
 });

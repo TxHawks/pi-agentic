@@ -1,20 +1,60 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { launchBackgroundSubagent as launchBackgroundSubagentWithRuntime, type BackgroundLaunchRuntime } from "../launch/background.ts";
-import { cleanupNoSessionSessionFile } from "../launch/prep.ts";
-import { watchBackgroundSubagent as watchBackgroundSubagentWithRuntime, type BackgroundWatchRuntime } from "./background-watch.ts";
+import {
+	type BackgroundLaunchRuntime,
+	launchBackgroundSubagent as launchBackgroundSubagentWithRuntime,
+} from "../launch/background.ts";
 import { getPiInvocation, getPiShellParts, getSubagentChildProcessEnv } from "../launch/child-command.ts";
-import { closeSurface } from "../mux.ts";
-import { closeSurfaceAsync } from "../mux/io.ts";
-import { launchInteractiveSubagent, type InteractiveLaunchRuntime } from "../launch/interactive.ts";
-import { watchSubagent as watchSubagentWithRuntime, type InteractiveWatchRuntime } from "./interactive-watch.ts";
-import { shutdownSubagentsForParentExit as shutdownSubagentsForParentExitWithRuntime, terminateBackgroundChildProcess, type ShutdownRuntime, type ShutdownSubagentsOptions } from "./shutdown.ts";
-import type { CompletedSubagentResult, RunningSubagent, SubagentParamsInput, SubagentResult, WaitParams } from "../types.ts";
+import { type InteractiveLaunchRuntime, launchInteractiveSubagent } from "../launch/interactive.ts";
 import type { SubagentLaunchContext } from "../launch/prep.ts";
-import { getStartedSubagentDetails, getLaunchedSubagentResult as getLaunchedSubagentResultWithRuntime, routeDetachedSubagentCompletion as routeDetachedSubagentCompletionWithDeps, stopRunningSubagent as stopRunningSubagentWithDeps, wireSubagentSteerBack as wireSubagentSteerBackWithDeps, deliverCompletedSubagentResultViaSteer as deliverCompletedSubagentResultViaSteerWithDeps, findTrackedSubagent } from "./running-registry.ts";
-import { waitForSubagentResult as waitForSubagentResultWithRuntime, type WaitRuntime } from "./wait.ts";
-import { asSubagentToolResult, cacheCompletedSubagentResult, completedSubagentResults, moduleAbortController, resetRuntimeStateForTest, runningSubagents, widgetManager, withSubagentBatchStop } from "./state.ts";
+import { cleanupNoSessionSessionFile } from "../launch/prep.ts";
+import { closeSurfaceAsync } from "../mux/io.ts";
+import { closeSurface } from "../mux.ts";
+import type {
+	CompletedSubagentResult,
+	RunningSubagent,
+	SubagentParamsInput,
+	SubagentResult,
+	WaitParams,
+} from "../types.ts";
+import {
+	type BackgroundWatchRuntime,
+	watchBackgroundSubagent as watchBackgroundSubagentWithRuntime,
+} from "./background-watch.ts";
+import { type InteractiveWatchRuntime, watchSubagent as watchSubagentWithRuntime } from "./interactive-watch.ts";
+import {
+	deliverCompletedSubagentResultViaSteer as deliverCompletedSubagentResultViaSteerWithDeps,
+	findTrackedSubagent,
+	getLaunchedSubagentResult as getLaunchedSubagentResultWithRuntime,
+	getStartedSubagentDetails,
+	routeDetachedSubagentCompletion as routeDetachedSubagentCompletionWithDeps,
+	stopRunningSubagent as stopRunningSubagentWithDeps,
+	wireSubagentSteerBack as wireSubagentSteerBackWithDeps,
+} from "./running-registry.ts";
+import {
+	type ShutdownRuntime,
+	type ShutdownSubagentsOptions,
+	shutdownSubagentsForParentExit as shutdownSubagentsForParentExitWithRuntime,
+	terminateBackgroundChildProcess,
+} from "./shutdown.ts";
+import {
+	asSubagentToolResult,
+	cacheCompletedSubagentResult,
+	completedSubagentResults,
+	moduleAbortController,
+	resetRuntimeStateForTest,
+	runningSubagents,
+	widgetManager,
+	withSubagentBatchStop,
+} from "./state.ts";
+import { type WaitRuntime, waitForSubagentResult as waitForSubagentResultWithRuntime } from "./wait.ts";
+import { restartSubagentForTimeoutWrapUp } from "./timeout-wrap-up.ts";
 
-export { getWatcherSignal, moduleAbortController, runningSubagents, widgetManager } from "./state.ts";
+export {
+	getWatcherSignal,
+	moduleAbortController,
+	runningSubagents,
+	widgetManager,
+} from "./state.ts";
 
 export function formatElapsed(seconds: number): string {
 	const s = Math.round(seconds);
@@ -71,9 +111,14 @@ async function closeRunningSurface(running: RunningSubagent): Promise<void> {
 	if (running.surfaceClosePromise) return running.surfaceClosePromise;
 	if (!running.surface) return;
 	const surface = running.surface;
-	running.surface = undefined;
-	running.surfaceClosePromise = closeSurfaceAsync(surface, running.zellijTarget);
-	return running.surfaceClosePromise;
+	const closePromise = closeSurfaceAsync(surface, running.zellijTarget);
+	running.surfaceClosePromise = closePromise;
+	try {
+		await closePromise;
+		if (running.surface === surface) running.surface = undefined;
+	} finally {
+		if (running.surfaceClosePromise === closePromise) running.surfaceClosePromise = undefined;
+	}
 }
 
 export async function stopRunningSubagent(running: RunningSubagent): Promise<void> {
@@ -81,13 +126,16 @@ export async function stopRunningSubagent(running: RunningSubagent): Promise<voi
 	updateWidget();
 }
 
-export async function getLaunchedSubagentResult(
-	running: RunningSubagent,
-	signal?: AbortSignal,
-) {
+export async function getLaunchedSubagentResult(running: RunningSubagent, signal?: AbortSignal) {
 	return getLaunchedSubagentResultWithRuntime(
 		running,
-		{ formatElapsed, updateWidget, waitForSubagentResult, withSubagentBatchStop, asSubagentToolResult },
+		{
+			formatElapsed,
+			updateWidget,
+			waitForSubagentResult,
+			withSubagentBatchStop,
+			asSubagentToolResult,
+		},
 		signal,
 	);
 }
@@ -96,10 +144,7 @@ export function getStartedSubagentDetailsForTest(running: RunningSubagent) {
 	return getStartedSubagentDetails(running);
 }
 
-export function getLaunchedSubagentResultForTest(
-	running: RunningSubagent,
-	signal?: AbortSignal,
-) {
+export function getLaunchedSubagentResultForTest(running: RunningSubagent, signal?: AbortSignal) {
 	return getLaunchedSubagentResult(running, signal);
 }
 
@@ -156,7 +201,9 @@ export function waitForSubagentForTest(params: WaitParams, signal?: AbortSignal)
 }
 
 function getBackgroundLaunchRuntime(): BackgroundLaunchRuntime {
-	return { getContextWindow: (modelRef) => widgetManager.resolveModelContextWindow(modelRef) };
+	return {
+		getContextWindow: (modelRef) => widgetManager.resolveModelContextWindow(modelRef),
+	};
 }
 
 export async function launchBackgroundSubagent(
@@ -169,19 +216,27 @@ export async function launchBackgroundSubagent(
 }
 
 function getBackgroundWatchRuntime(): BackgroundWatchRuntime {
-	return { cleanupNoSessionSessionFile, terminateBackgroundChildProcess };
+	return {
+		cleanupNoSessionSessionFile,
+		terminateBackgroundChildProcess,
+		restartForTimeoutWrapUp: (running, signal) =>
+			restartSubagentForTimeoutWrapUp(running, { getShellReadyDelayMs }, signal),
+	};
 }
 
-export async function watchBackgroundSubagent(
-	running: RunningSubagent,
-	signal?: AbortSignal,
-	timeoutMs?: number,
-) {
-	return watchBackgroundSubagentWithRuntime(running, getBackgroundWatchRuntime(), signal ?? moduleAbortController.signal, timeoutMs);
+export async function watchBackgroundSubagent(running: RunningSubagent, signal?: AbortSignal) {
+	return watchBackgroundSubagentWithRuntime(
+		running,
+		getBackgroundWatchRuntime(),
+		signal ?? moduleAbortController.signal,
+	);
 }
 
 function getInteractiveLaunchRuntime(): InteractiveLaunchRuntime {
-	return { getContextWindow: (modelRef) => widgetManager.resolveModelContextWindow(modelRef), getShellReadyDelayMs };
+	return {
+		getContextWindow: (modelRef) => widgetManager.resolveModelContextWindow(modelRef),
+		getShellReadyDelayMs,
+	};
 }
 
 export async function launchSubagent(
@@ -195,7 +250,12 @@ export async function launchSubagent(
 }
 
 function getInteractiveWatchRuntime(): InteractiveWatchRuntime {
-	return { cleanupNoSessionSessionFile, closeRunningSurface };
+	return {
+		cleanupNoSessionSessionFile,
+		closeRunningSurface,
+		restartForTimeoutWrapUp: (running, signal) =>
+			restartSubagentForTimeoutWrapUp(running, { getShellReadyDelayMs }, signal),
+	};
 }
 
 export async function watchSubagent(running: RunningSubagent, signal?: AbortSignal) {

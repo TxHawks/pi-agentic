@@ -1,28 +1,28 @@
 import { spawn, spawnSync } from "node:child_process";
-import { rmSync } from "node:fs";
+import { realpathSync, rmSync } from "node:fs";
+import { launchBackgroundSubagent } from "../../src/launch/background.ts";
+import { launchInteractiveSubagent } from "../../src/launch/interactive.ts";
 import {
 	ASSISTANT_MSG,
-	MODEL_CHANGE,
-	SESSION_HEADER,
-	USER_MSG,
 	assert,
 	createSessionFile,
 	createTestDir,
 	describe,
+	enforceAgentFrontmatterForTest,
 	existsSync,
 	it,
 	join,
+	loadAgentDefaults,
+	MODEL_CHANGE,
 	mkdirSync,
 	readFileSync,
-	enforceAgentFrontmatterForTest,
-	loadAgentDefaults,
 	readSubagentLaunchMetadataForTest,
+	SESSION_HEADER,
 	sleep,
+	USER_MSG,
 	writeExecutable,
 	writeFileSync,
 } from "../support/index.ts";
-import { launchBackgroundSubagent } from "../../src/launch/background.ts";
-import { launchInteractiveSubagent } from "../../src/launch/interactive.ts";
 
 function clearMuxRuntimeEnv(): void {
 	delete process.env.CMUX_SOCKET_PATH;
@@ -133,12 +133,7 @@ function useFakeHerdr(): { dir: string; logFile: string } {
 }
 
 function writeParentSession(dir: string): string {
-	return createSessionFile(dir, [
-		SESSION_HEADER,
-		MODEL_CHANGE,
-		USER_MSG,
-		ASSISTANT_MSG,
-	]);
+	return createSessionFile(dir, [SESSION_HEADER, MODEL_CHANGE, USER_MSG, ASSISTANT_MSG]);
 }
 
 async function readEventually(
@@ -186,13 +181,9 @@ describe("Herdr interactive launch parity", () => {
 			mkdirSync(join(cwd, ".pi", "agents"), { recursive: true });
 			writeFileSync(
 				join(cwd, ".pi", "agents", "sentinel-child.md"),
-				[
-					"---",
-					"name: sentinel-child",
-					"auto-exit: true",
-					"---",
-					"Exit immediately for sentinel verification.",
-				].join("\n"),
+				["---", "name: sentinel-child", "auto-exit: true", "---", "Exit immediately for sentinel verification."].join(
+					"\n",
+				),
 			);
 			const fakePi = writeExecutable(dir, "fake-pi", "#!/bin/sh\nexit 42\n");
 			process.env.PI_SUBAGENT_PI_COMMAND = fakePi;
@@ -224,13 +215,12 @@ describe("Herdr interactive launch parity", () => {
 			const launchScript = readFileSync(launchScriptPath, "utf8");
 			const command = launchScript.split("\n").slice(1).join("\n").trim();
 
-			const shell = spawn("/bin/sh", [], { stdio: ["pipe", "ignore", "ignore"] });
+			const shell = spawn("/bin/sh", [], {
+				stdio: ["pipe", "ignore", "ignore"],
+			});
 			try {
 				shell.stdin.write(`${command}\n`);
-				const sentinel = await readEventually(
-					running.doneSentinelFile!,
-					(text) => /__SUBAGENT_DONE_42__/.test(text),
-				);
+				const sentinel = await readEventually(running.doneSentinelFile!, (text) => /__SUBAGENT_DONE_42__/.test(text));
 				assert.match(sentinel, /__SUBAGENT_DONE_42__/);
 			} finally {
 				shell.stdin.end("exit\n");
@@ -370,10 +360,7 @@ describe("Herdr interactive launch parity", () => {
 		);
 
 		assert.equal(running.surface, "w1:p2");
-		assert.equal(
-			readSubagentLaunchMetadataForTest(running.sessionFile)?.herdrPlacementPolicy,
-			"tab",
-		);
+		assert.equal(readSubagentLaunchMetadataForTest(running.sessionFile)?.herdrPlacementPolicy, "tab");
 		const log = readFileSync(logFile, "utf8");
 		assert.doesNotMatch(log, /pane layout|pane split/);
 		assert.match(log, /tab create --workspace w1/);
@@ -462,13 +449,7 @@ describe("Herdr interactive launch parity", () => {
 		const skillFile = join(skillDir, "SKILL.md");
 		writeFileSync(
 			skillFile,
-			[
-				"---",
-				"name: review",
-				"description: Review skill fixture.",
-				"---",
-				"Review skill body token.",
-			].join("\n"),
+			["---", "name: review", "description: Review skill fixture.", "---", "Review skill body token."].join("\n"),
 		);
 		writeFileSync(
 			join(cwd, ".pi", "agents", "capability-lifecycle.md"),
@@ -550,7 +531,7 @@ describe("Herdr interactive launch parity", () => {
 		assert.equal(metadata?.skills, "review");
 		assert.equal(metadata?.injectSkills, "review");
 		assert.deepEqual(metadata?.extensions, []);
-		assert.deepEqual(metadata?.denyTools, ["subagent", "subagent_resume", "grep", "set_tab_title"]);
+		assert.deepEqual(metadata?.denyTools, ["subagent", "subagent_resume", "subagent_kill", "grep", "set_tab_title"]);
 		assert.equal(metadata?.noContextFiles, true);
 		assert.equal(metadata?.inheritAppendSystem, false);
 
@@ -562,7 +543,7 @@ describe("Herdr interactive launch parity", () => {
 		assert.doesNotMatch(log, /pane send-keys w1:p2 Enter/);
 		const launchScript = readHerdrRunScript(log);
 		assert.match(launchScript, /PI_SUBAGENT_AUTO_EXIT='1'/);
-		assert.match(launchScript, /PI_DENY_TOOLS='subagent,subagent_resume,grep,set_tab_title'/);
+		assert.match(launchScript, /PI_DENY_TOOLS='subagent,subagent_resume,subagent_kill,grep,set_tab_title'/);
 		assert.match(launchScript, /PI_SUBAGENT_EXTENSIONS=''/);
 		assert.match(launchScript, /--model 'zai-messages\/glm-5-turbo:off'/);
 		assert.match(launchScript, /--no-context-files/);
@@ -571,7 +552,7 @@ describe("Herdr interactive launch parity", () => {
 		assert.equal(launchScript.match(/'--tools' '([^']+)'/)?.[1], "read,grep,caller_ping,subagent_done");
 		assert.equal(
 			launchScript.match(/'--exclude-tools' '([^']+)'/)?.[1],
-			"subagent,subagent_resume,grep,set_tab_title",
+			"subagent,subagent_resume,subagent_kill,grep,set_tab_title",
 		);
 		assert.match(launchScript, new RegExp(`'--skill' '${skillFile.replace(/'/g, "'\\''")}'`));
 
@@ -597,6 +578,7 @@ describe("Herdr interactive launch parity", () => {
 				"name: bg-agent",
 				"session-mode: lineage-only",
 				"trust-project: true",
+				"report-context-usage: false",
 				"cwd: background-workspace",
 				"env: |",
 				"  CUSTOM_ENV=from-background-agent",
@@ -646,7 +628,11 @@ describe("Herdr interactive launch parity", () => {
 		assert.equal(running.mode, "background");
 		assert.equal(running.surface, undefined);
 		assert.equal(running.modelContextWindow, 2048);
-		assert.match(childLog, new RegExp(`PWD=${childCwd.replace(/'/g, "'\\''")}`));
+		assert.equal(running.reportContextUsage, false);
+		assert.equal(readSubagentLaunchMetadataForTest(running.sessionFile)?.reportContextUsage, false);
+		const expectedChildCwd = realpathSync(childCwd);
+		const escapedChildCwd = expectedChildCwd.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+		assert.match(childLog, new RegExp(`PWD=${escapedChildCwd}`));
 		assert.match(childLog, /CUSTOM_ENV=from-background-agent/);
 		assert.match(childLog, /SURFACE=\n/);
 		assert.match(childLog, /--no-approve/);

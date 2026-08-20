@@ -1,20 +1,13 @@
-import {
-	appendFileSync,
-	existsSync,
-	mkdirSync,
-	readFileSync,
-	writeFileSync,
-} from "node:fs";
+import { randomUUID } from "node:crypto";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
-import { randomUUID } from "node:crypto";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import type { AgentDefaults } from "../agents/definitions.ts";
-import type { ParentClosePolicy, SubagentParamsInput } from "../types.ts";
 import type { HerdrPlacementPolicy } from "../mux/herdr-surfaces.ts";
 import type { ZellijPlacementPolicy } from "../mux/zellij-placement.ts";
+import type { ParentClosePolicy, SubagentParamsInput } from "../types.ts";
 import { getEntries } from "./session.ts";
-
 
 export type SubagentSessionMode = "standalone" | "lineage-only" | "fork";
 
@@ -22,6 +15,9 @@ export interface ChildContextBoundaryOptions {
 	name: string;
 	agent?: string;
 	spawningAllowed: boolean;
+	spawnableAgents?: string[] | true;
+	spawnBudget?: number | null;
+	spawnWidth?: number | null;
 }
 
 export type ResumeMode = "interactive" | "background";
@@ -56,6 +52,10 @@ export interface PersistedSubagentLaunchMetadata {
 	skills?: string;
 	injectSkills?: string;
 	denyTools: string[];
+	/** Optional for legacy sessions; resume treats a missing grant as deny-all. */
+	spawnableAgents?: string[] | true;
+	/** Optional for legacy sessions; resume treats a missing grant as zero. */
+	spawnBudget?: number | null;
 	extensions?: string[];
 	noContextFiles: boolean;
 	inheritAppendSystem?: boolean;
@@ -67,6 +67,15 @@ export interface PersistedSubagentLaunchMetadata {
 	systemPrompt?: string;
 	boundarySystemPrompt: boolean;
 	taskExpansion?: "shell";
+	/** Wall-clock budget the parent re-arms when this session is resumed. */
+	timeout?: number;
+	/** Idle budget the parent re-arms when this session is resumed. */
+	idleTimeout?: number;
+	timeoutWarnThreshold?: string;
+	onTimeout?: "report" | "block-resume";
+	contextWarnThreshold?: string;
+	contextWarnStep?: string;
+	reportContextUsage?: boolean;
 	herdrPlacementPolicy?: HerdrPlacementPolicy;
 	zellijPlacementPolicy?: ZellijPlacementPolicy;
 	zellijPlacementGroupKey?: string;
@@ -75,8 +84,7 @@ export interface PersistedSubagentLaunchMetadata {
 	env?: string;
 }
 
-const SUBAGENT_LAUNCH_METADATA_CUSTOM_TYPE =
-	"pi-subagents_launch_metadata";
+const SUBAGENT_LAUNCH_METADATA_CUSTOM_TYPE = "pi-subagents_launch_metadata";
 
 /**
  * Generate a unique session file path for a subagent.
@@ -148,7 +156,19 @@ export function seedSubagentSessionFile(
 			writeHeaderOnlySubagentSessionFile(childSessionFile, cwd, parentSessionFile, seedOptions?.sessionName);
 			return;
 		}
-		const branch = parentManager.getBranch(leafId);
+		// Filter roster reminders out of the inherited branch, then re-chain the
+		// surviving entries. getBranch walks parentId links, so dropping an entry
+		// without re-linking leaves the next entry pointing at a missing id and
+		// silently truncates the fork's inherited context at that point.
+		const rawBranch = parentManager.getBranch(leafId);
+		const branch: Array<Record<string, unknown>> = [];
+		let prevId: string | null = null;
+		for (const entry of rawBranch) {
+			if ((entry as { customType?: unknown }).customType === "subagent_roster") continue;
+			const e = entry as unknown as Record<string, unknown> & { id?: unknown; parentId?: unknown };
+			branch.push({ ...e, ...(typeof e.id === "string" ? { parentId: prevId } : {}) });
+			if (typeof e.id === "string") prevId = e.id;
+		}
 		if (branch.length === 0) {
 			writeHeaderOnlySubagentSessionFile(childSessionFile, cwd, parentSessionFile, seedOptions?.sessionName);
 			return;
@@ -180,8 +200,7 @@ function getLastSessionEntryId(sessionFile: string): string | null {
 	for (let i = lines.length - 1; i >= 0; i--) {
 		try {
 			const entry = JSON.parse(lines[i]);
-			if (entry.type !== "session" && typeof entry.id === "string")
-				return entry.id;
+			if (entry.type !== "session" && typeof entry.id === "string") return entry.id;
 		} catch {
 			// Ignore malformed historical lines here; session loading will report them later.
 		}
@@ -209,16 +228,10 @@ export function writeChildContextBoundaryEntry(
 	writeFileSync(childSessionFile, `${line}\n`, { flag: "a" });
 }
 
-export function writeSubagentExtensionEntry(
-	path: string,
-	extensions: string[] | undefined,
-): void {
+export function writeSubagentExtensionEntry(path: string, extensions: string[] | undefined): void {
 	if (extensions === undefined) return;
 	mkdirSync(dirname(path), { recursive: true });
-	writeFileSync(
-		`${path}.ext`,
-		`${JSON.stringify({ extensions, timestamp: new Date().toISOString() })}\n`,
-	);
+	writeFileSync(`${path}.ext`, `${JSON.stringify({ extensions, timestamp: new Date().toISOString() })}\n`);
 }
 
 export function writeSubagentModelStateEntries(
@@ -259,10 +272,7 @@ export function writeSubagentModelStateEntries(
 	);
 }
 
-export function writeSubagentLaunchMetadataEntry(
-	path: string,
-	metadata: PersistedSubagentLaunchMetadata,
-): void {
+export function writeSubagentLaunchMetadataEntry(path: string, metadata: PersistedSubagentLaunchMetadata): void {
 	if (!existsSync(path)) return;
 	const parentId = getLastSessionEntryId(path);
 	const line = JSON.stringify({
@@ -276,10 +286,7 @@ export function writeSubagentLaunchMetadataEntry(
 	appendFileSync(path, `${line}\n`, "utf8");
 }
 
-async function waitForSessionFile(
-	path: string,
-	timeoutMs = 5000,
-): Promise<boolean> {
+async function waitForSessionFile(path: string, timeoutMs = 5000): Promise<boolean> {
 	const startedAt = Date.now();
 	while (Date.now() - startedAt < timeoutMs) {
 		if (existsSync(path)) return true;
@@ -318,39 +325,42 @@ export function getSubagentActivityStartIndex(
 ): number {
 	for (let i = entries.length - 1; i >= 0; i--) {
 		const entry = entries[i];
-		if (
-			entry?.type === "custom" &&
-			entry.customType === SUBAGENT_LAUNCH_METADATA_CUSTOM_TYPE
-		) {
+		if (entry?.type === "custom" && entry.customType === SUBAGENT_LAUNCH_METADATA_CUSTOM_TYPE) {
 			return i + 1;
 		}
 	}
 	return 0;
 }
 
-export function readSubagentLaunchMetadata(
-	path: string,
-): PersistedSubagentLaunchMetadata | undefined {
+export function readSubagentLaunchMetadataEntries(path: string): PersistedSubagentLaunchMetadata[] {
+	const metadata: PersistedSubagentLaunchMetadata[] = [];
 	try {
 		const entries = getEntries(path) as Array<Record<string, unknown>>;
-		for (let i = entries.length - 1; i >= 0; i--) {
-			const entry = entries[i];
-			if (
-				entry?.type !== "custom" ||
-				entry.customType !== SUBAGENT_LAUNCH_METADATA_CUSTOM_TYPE
-			)
-				continue;
-			const data = entry.data as
-				| Partial<PersistedSubagentLaunchMetadata>
-				| undefined;
-			if (!data || data.version !== 1 || !isResumeMode(data.mode))
-				return undefined;
-			return data as PersistedSubagentLaunchMetadata;
+		for (const entry of entries) {
+			if (entry?.type !== "custom" || entry.customType !== SUBAGENT_LAUNCH_METADATA_CUSTOM_TYPE) continue;
+			const data = entry.data as Partial<PersistedSubagentLaunchMetadata> | undefined;
+			if (!data || data.version !== 1 || !isResumeMode(data.mode)) continue;
+			metadata.push(data as PersistedSubagentLaunchMetadata);
 		}
 	} catch {
-		return undefined;
+		return [];
 	}
-	return undefined;
+	return metadata;
+}
+
+/**
+ * Returns the first valid launch metadata entry, which the parent writes at
+ * launch. Later entries can be appended by the child session, so they never
+ * override the launch grants recorded here.
+ *
+ * This is an ordering guard, not a trust boundary. The child session runs as
+ * the same OS user as the parent, so a child that can write files can rewrite
+ * this entry in place — and can equally edit its own agent definition. Nothing
+ * read here is trustworthy against a hostile child; it only stops later
+ * appends from widening an earlier grant.
+ */
+export function readSubagentLaunchMetadata(path: string): PersistedSubagentLaunchMetadata | undefined {
+	return readSubagentLaunchMetadataEntries(path)[0];
 }
 
 /**
@@ -375,7 +385,6 @@ export function resolveEffectiveSessionMode(
 	agentDefs: AgentDefaults | null,
 ): SubagentSessionMode {
 	if (agentDefs?.sessionMode) return agentDefs.sessionMode;
-	if (agentDefs?.fork) return "fork";
 	return "lineage-only";
 }
 
@@ -384,34 +393,22 @@ export type ResolveSubagentNoSession = (agentDefs: AgentDefaults | null) => bool
 export function resolveTaskSessionMode(
 	agentDefs: AgentDefaults | null,
 	resolveSubagentNoSession: ResolveSubagentNoSession,
-	getNoSessionSeedMode: (
-		sessionMode: SubagentSessionMode,
-	) => Exclude<SubagentSessionMode, "standalone"> | null,
+	getNoSessionSeedMode: (sessionMode: SubagentSessionMode) => Exclude<SubagentSessionMode, "standalone"> | null,
 ): SubagentSessionMode {
 	const sessionMode = resolveEffectiveSessionMode({}, agentDefs);
 	if (!resolveSubagentNoSession(agentDefs)) return sessionMode;
 	return getNoSessionSeedMode(sessionMode) ?? sessionMode;
 }
 
-export function buildPiPromptArgs(
-	skills: string[],
-	taskArg: string,
-	directTask: boolean,
-): string[] {
+export function buildPiPromptArgs(skills: string[], taskArg: string, directTask: boolean): string[] {
 	const skillPrompts = skills.map((skill) => `/skill:${skill}`);
 	const isArtifactTask = taskArg.startsWith("@");
 	const needsSeparator = isArtifactTask && (skillPrompts.length > 0 || directTask);
 	return [...(needsSeparator ? [""] : []), ...skillPrompts, taskArg];
 }
 
-export function buildIdentityBlock(
-	agentDefs: AgentDefaults | null,
-	systemPrompt?: string,
-): string {
+export function buildIdentityBlock(agentDefs: AgentDefaults | null, systemPrompt?: string): string {
 	return [agentDefs?.body, systemPrompt]
-		.filter(
-			(value): value is string =>
-				typeof value === "string" && value.trim() !== "",
-		)
+		.filter((value): value is string => typeof value === "string" && value.trim() !== "")
 		.join("\n\n");
 }

@@ -13,7 +13,10 @@ export interface AgentDefaults {
 	extensions?: string;
 	thinking?: string;
 	denyTools?: string;
-	spawning?: boolean;
+	spawning?: true | string[] | false;
+	spawnDepth?: number;
+	spawnWidth?: number;
+	visibleTo?: string[];
 	autoExit?: boolean;
 	systemPromptMode?: "append" | "replace";
 	cwd?: string;
@@ -22,15 +25,23 @@ export interface AgentDefaults {
 	body?: string;
 	mode?: "interactive" | "background";
 	sessionMode?: "standalone" | "lineage-only" | "fork";
-	fork?: boolean;
 	async?: boolean;
-	blocking?: boolean;
 	noContextFiles?: boolean;
 	inheritAppendSystem?: boolean;
 	noSession?: boolean;
 	trustProject?: boolean;
-	timeout?: number;
 	taskExpansion?: "shell";
+	/** Wall-clock seconds a child may run before the parent kills it. */
+	timeout?: number;
+	/** Seconds a child may go without session growth before the parent kills it. */
+	idleTimeout?: number;
+	/** Raw `timeout-warn-threshold` value; launch policy validates it. */
+	timeoutWarnThreshold?: string;
+	/** What the parent allows after a timeout kill. Defaults to `report`. */
+	onTimeout?: "report" | "block-resume";
+	contextWarnThreshold?: string;
+	contextWarnStep?: string;
+	reportContextUsage?: boolean;
 
 	flags?: string;
 	env?: string;
@@ -58,9 +69,10 @@ function parseAgentDefinition(
 	if (!match) return null;
 	const frontmatter = match[1];
 	const get = (key: string) => {
-		const m = frontmatter.match(new RegExp(`^${key}:\\s*(.+)$`, "m"));
+		const m = frontmatter.match(new RegExp(`^${key}:[ \\t]*(.+)$`, "m"));
 		return m ? m[1].trim() : undefined;
 	};
+	const hasKey = (key: string) => new RegExp(`^${key}:`, "m").test(frontmatter);
 	const getBlock = (key: string) => {
 		const inline = get(key);
 		if (inline !== "|") return inline;
@@ -82,15 +94,21 @@ function parseAgentDefinition(
 	const allowModelOverrideRaw = get("allow-model-override");
 	const modeRaw = get("mode");
 	const sessionModeRaw = get("session-mode");
-	const forkRaw = get("fork");
 	const asyncRaw = get("async");
-	const blockingRaw = get("blocking");
 	const noContextFilesRaw = get("no-context-files");
 	const inheritAppendSystemRaw = get("inherit-append-system");
 	const noSessionRaw = get("no-session");
 	const trustProjectRaw = get("trust-project");
-	const timeoutRaw = get("timeout");
 	const taskExpansionRaw = get("task-expansion");
+	const timeoutRaw = get("timeout");
+	const idleTimeoutRaw = get("idle-timeout");
+	const timeoutWarnThresholdRaw = get("timeout-warn-threshold");
+	const onTimeoutRaw = get("on-timeout");
+	const contextWarnThresholdRaw = get("context-warn-threshold");
+	const contextWarnStepRaw = get("context-warn-step");
+	const reportContextUsageRaw = get("report-context-usage");
+	const spawnDepthRaw = get("spawn-depth");
+	const spawnWidthRaw = get("spawn-width");
 
 	const systemPromptRaw = get("system-prompt");
 	const extensionsRaw = get("extensions");
@@ -98,6 +116,15 @@ function parseAgentDefinition(
 	const flagsRaw = get("flags");
 	const parentClosePolicyRaw = get("parent-close-policy");
 	const body = content.replace(/^---\n[\s\S]*?\n---\n*/, "").trim();
+	const spawning = parseSpawning(spawningRaw);
+	const spawnDepth = parsePositiveInteger("spawn-depth", spawnDepthRaw, hasKey("spawn-depth"));
+	const spawnWidth = parsePositiveInteger("spawn-width", spawnWidthRaw, hasKey("spawn-width"));
+	// A malformed budget must never resolve to "unbounded": that turns a typo
+	// into the exact runaway the field exists to prevent.
+	const timeout = parsePositiveInteger("timeout", timeoutRaw, hasKey("timeout"));
+	const idleTimeout = parsePositiveInteger("idle-timeout", idleTimeoutRaw, hasKey("idle-timeout"));
+	const onTimeout = parseOnTimeout(onTimeoutRaw, hasKey("on-timeout"), path);
+	const visibleTo = parseVisibleTo(get("visible-to"));
 	return {
 		name: get("name") ?? basename(path, ".md"),
 		description: get("description"),
@@ -106,64 +133,106 @@ function parseAgentDefinition(
 		enabled: enabledRaw != null ? enabledRaw === "true" : undefined,
 		model: get("model"),
 		allowedModels: get("allowed-models"),
-		allowModelOverride:
-			allowModelOverrideRaw != null
-				? allowModelOverrideRaw === "true"
-				: undefined,
+		allowModelOverride: allowModelOverrideRaw != null ? allowModelOverrideRaw === "true" : undefined,
 		tools: get("tools"),
 		skills: get("skills"),
 		injectSkills: injectSkillsRaw,
 		extensions: extensionsRaw,
 		thinking: get("thinking"),
 		denyTools: get("deny-tools"),
-		spawning: spawningRaw != null ? spawningRaw === "true" : false,
+		spawning,
+		...(spawnDepth !== undefined ? { spawnDepth } : {}),
+		...(spawnWidth !== undefined ? { spawnWidth } : {}),
+		visibleTo,
 		autoExit: autoExitRaw != null ? autoExitRaw === "true" : undefined,
-		systemPromptMode:
-			systemPromptRaw === "append" || systemPromptRaw === "replace"
-				? systemPromptRaw
-				: undefined,
+		systemPromptMode: systemPromptRaw === "append" || systemPromptRaw === "replace" ? systemPromptRaw : undefined,
 		cwd: get("cwd"),
 		cwdBase,
 		body: body || undefined,
 		sessionMode:
-			sessionModeRaw === "standalone" ||
-			sessionModeRaw === "lineage-only" ||
-			sessionModeRaw === "fork"
+			sessionModeRaw === "standalone" || sessionModeRaw === "lineage-only" || sessionModeRaw === "fork"
 				? sessionModeRaw
-				: forkRaw === "true"
-					? "fork"
-					: undefined,
-		fork: forkRaw != null ? forkRaw === "true" : undefined,
+				: undefined,
 		async: asyncRaw != null ? asyncRaw === "true" : undefined,
-		blocking: blockingRaw != null ? blockingRaw === "true" : undefined,
-		noContextFiles:
-			noContextFilesRaw != null ? noContextFilesRaw === "true" : undefined,
+		noContextFiles: noContextFilesRaw != null ? noContextFilesRaw === "true" : undefined,
 		inheritAppendSystem: inheritAppendSystemRaw === "true",
 		noSession: noSessionRaw != null ? noSessionRaw === "true" : undefined,
-		trustProject:
-			trustProjectRaw != null ? trustProjectRaw === "true" : undefined,
-		mode:
-			modeRaw === "background" || modeRaw === "interactive"
-				? modeRaw
-				: undefined,
-		timeout: timeoutRaw != null ? parseInt(timeoutRaw, 10) : undefined,
+		trustProject: trustProjectRaw != null ? trustProjectRaw === "true" : undefined,
+		mode: modeRaw === "background" || modeRaw === "interactive" ? modeRaw : undefined,
 		taskExpansion: taskExpansionRaw === "shell" ? "shell" : undefined,
+		...(timeout !== undefined ? { timeout } : {}),
+		...(idleTimeout !== undefined ? { idleTimeout } : {}),
+		timeoutWarnThreshold: timeoutWarnThresholdRaw,
+		onTimeout,
+		contextWarnThreshold: contextWarnThresholdRaw,
+		contextWarnStep: contextWarnStepRaw,
+		reportContextUsage: reportContextUsageRaw != null ? reportContextUsageRaw === "true" : undefined,
 
 		flags: flagsRaw,
 		env: getBlock("env"),
 		parentClosePolicy:
-			parentClosePolicyRaw === "terminate" ||
-			parentClosePolicyRaw === "continue"
-				? parentClosePolicyRaw
-				: undefined,
+			parentClosePolicyRaw === "terminate" || parentClosePolicyRaw === "continue" ? parentClosePolicyRaw : undefined,
 	};
+}
+
+const RESERVED_SPAWNING_NAMES = new Set(["root", "all", "true", "false"]);
+
+function parseCommaSeparated(value: string): string[] {
+	return value
+		.split(",")
+		.map((token) => token.trim())
+		.filter(Boolean);
+}
+
+function parseSpawning(raw: string | undefined): true | string[] | false {
+	if (raw === undefined || raw === "false") return false;
+	if (raw === "true") return true;
+	const names = parseCommaSeparated(raw);
+	for (const name of names) {
+		if (RESERVED_SPAWNING_NAMES.has(name)) {
+			throw new Error(`Invalid spawning value: reserved agent name "${name}" cannot appear in a spawn list.`);
+		}
+	}
+	return names;
+}
+
+function parsePositiveInteger(key: string, raw: string | undefined, present: boolean): number | undefined {
+	if (!present) return undefined;
+	if (raw === undefined || !/^\d+$/.test(raw) || !Number.isSafeInteger(Number(raw)) || Number(raw) <= 0) {
+		throw new Error(`${key} must be a positive safe integer greater than 0.`);
+	}
+	return Number(raw);
+}
+
+/**
+ * Resolve the `on-timeout` policy, rejecting anything unrecognised.
+ *
+ * This one fails closed on purpose. Silently taking the permissive default
+ * would mean a typo like `block-resuem` re-enables resume for exactly the
+ * agent that asked to be protected from a second partial run.
+ */
+function parseOnTimeout(
+	raw: string | undefined,
+	present: boolean,
+	path: string,
+): "report" | "block-resume" | undefined {
+	if (!present) return undefined;
+	if (raw === "report" || raw === "block-resume") return raw;
+	throw new Error(`on-timeout must be "report" or "block-resume" (got ${JSON.stringify(raw ?? "")}) in ${path}.`);
+}
+
+function parseVisibleTo(raw: string | undefined): string[] {
+	if (raw === undefined) return ["all"];
+	const names = parseCommaSeparated(raw);
+	if (names.includes("all") && names.length > 1) {
+		throw new Error('visible-to cannot mix "all" with other agent names.');
+	}
+	return names;
 }
 
 export type ResolveAgentCwd = (cwdHint: string | null, baseCwd: string) => string;
 
-export function getEffectiveAgentDefinitions(
-	baseCwd = process.cwd(),
-): ResolvedAgentDefinition[] {
+export function getEffectiveAgentDefinitions(baseCwd = process.cwd()): ResolvedAgentDefinition[] {
 	const configDir = getAgentConfigDir();
 	const agents = new Map<string, ResolvedAgentDefinition>();
 	const dirs = [
@@ -198,9 +267,5 @@ export function loadAgentDefaults(
 	resolveAgentCwd: ResolveAgentCwd,
 ): AgentDefaults | null {
 	const resolvedBaseCwd = resolveAgentCwd(cwdHint ?? null, baseCwd);
-	return (
-		getEffectiveAgentDefinitions(resolvedBaseCwd).find(
-			(agent) => agent.name === agentName,
-		) ?? null
-	);
+	return getEffectiveAgentDefinitions(resolvedBaseCwd).find((agent) => agent.name === agentName) ?? null;
 }

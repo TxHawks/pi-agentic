@@ -1,19 +1,19 @@
 import {
-	assert,
-	mkdirSync,
-	writeFileSync,
-	join,
 	afterEach,
+	assert,
+	createTestDir,
 	describe,
-	it,
 	getBaseSubagentEnvVarsForTest,
+	it,
+	join,
 	loadAgentDefaults,
+	mkdirSync,
 	parseEnvStringForTest,
 	readSubagentLaunchMetadataForTest,
 	resetSubagentStateForTest,
 	resolveSubagentRuntimePathsForTest,
+	writeFileSync,
 	writeSubagentLaunchMetadataEntryForTest,
-	createTestDir,
 } from "../support/index.ts";
 
 describe("env frontmatter field", () => {
@@ -22,7 +22,10 @@ describe("env frontmatter field", () => {
 	});
 
 	it("parses block KEY=VALUE pairs without splitting commas or equals in values", () => {
-		assert.deepEqual(parseEnvStringForTest("FOO=bar\nBAZ=qux"), { FOO: "bar", BAZ: "qux" });
+		assert.deepEqual(parseEnvStringForTest("FOO=bar\nBAZ=qux"), {
+			FOO: "bar",
+			BAZ: "qux",
+		});
 		assert.deepEqual(parseEnvStringForTest("FOO=value,with,commas\nTOKEN=a=b=c"), {
 			FOO: "value,with,commas",
 			TOKEN: "a=b=c",
@@ -78,7 +81,10 @@ describe("env frontmatter field", () => {
 
 		assert.equal(paths.localAgentConfigDir, childConfigDir);
 		assert.equal(paths.effectiveAgentConfigDir, childConfigDir);
-		assert.equal(paths.sessionDir, join(childConfigDir, "sessions", `--${dir.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`));
+		assert.equal(
+			paths.sessionDir,
+			join(childConfigDir, "sessions", `--${dir.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`),
+		);
 	});
 
 	it("returns empty env record when no env field is set", () => {
@@ -116,6 +122,22 @@ describe("env frontmatter field", () => {
 		});
 		assert.notEqual(env.PI_SUBAGENT_NAME, "evil");
 		assert.equal(typeof env.PI_SUBAGENT_NAME, "string");
+	});
+
+	it("passes context-warn-threshold and step as child-owned internal env vars", () => {
+		const env = getBaseSubagentEnvVarsForTest({
+			contextWarnThreshold: "80%",
+			contextWarnStep: "10%",
+			env: "PI_SUBAGENT_CONTEXT_WARN_THRESHOLD=5%\nPI_SUBAGENT_CONTEXT_WARN_STEP=1%",
+		});
+		assert.equal(env.PI_SUBAGENT_CONTEXT_WARN_THRESHOLD, "80%");
+		assert.equal(env.PI_SUBAGENT_CONTEXT_WARN_STEP, "10%");
+	});
+
+	it("clears an inherited parent context threshold when the child does not opt in", () => {
+		const env = getBaseSubagentEnvVarsForTest(null);
+		assert.equal(env.PI_SUBAGENT_CONTEXT_WARN_THRESHOLD, "");
+		assert.equal(env.PI_SUBAGENT_CONTEXT_WARN_STEP, "");
 	});
 
 	it("propagates PI_SUBAGENT_ENABLE_SET_TAB_TITLE to children when opted in", () => {
