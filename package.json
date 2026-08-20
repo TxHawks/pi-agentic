@@ -31,9 +31,9 @@
 		"test:live-herdr-timeout-wrap-up": "node scripts/test-live-herdr-timeout-wrap-up.mjs"
 	},
 	"devDependencies": {
-		"@earendil-works/pi-ai": "^0.84.1",
-		"@earendil-works/pi-coding-agent": "^0.84.1",
-		"@earendil-works/pi-tui": "^0.84.1",
+		"@earendil-works/pi-ai": "^0.84.2",
+		"@earendil-works/pi-coding-agent": "^0.84.2",
+		"@earendil-works/pi-tui": "^0.84.2",
 		"@types/node": "^26.1.2",
 		"lefthook": "^1.13.6",
 		"typebox": "*",
