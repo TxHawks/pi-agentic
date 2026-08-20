@@ -13,6 +13,7 @@
 	},
 	"type": "module",
 	"scripts": {
+		"prepare": "lefthook install",
 		"test": "node --test test/test.ts test/system-prompt-mode.test.ts test/runtime/widget.test.ts test/mux/cmux.test.ts test/live-test-guard.test.ts",
 		"test:e2e-live-blocking": "node scripts/test-e2e-live-blocking.mjs",
 		"test:e2e-live-mix-blocking": "node scripts/test-e2e-live-mix-blocking.mjs",
@@ -36,12 +37,13 @@
 		"typebox": "*"
 	},
 	"devDependencies": {
-		"@earendil-works/pi-ai": "^0.84.0",
-		"@earendil-works/pi-coding-agent": "^0.84.0",
-		"@earendil-works/pi-tui": "^0.84.0",
-		"@types/node": "^25.9.1",
-		"typebox": "^1.1.33",
-		"typescript": "^6.0.3"
+		"@earendil-works/pi-ai": "^0.84.1",
+		"@earendil-works/pi-coding-agent": "^0.84.1",
+		"@earendil-works/pi-tui": "^0.84.1",
+		"@types/node": "^26.1.2",
+		"lefthook": "^1.13.6",
+		"typebox": "*",
+		"typescript": "^7.0.2"
 	},
 	"pi": {
 		"extensions": [

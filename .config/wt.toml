@@ -1,0 +1,26 @@
+# Worktrunk per-repo configuration. https://worktrunk.dev/
+#
+# On every `wt switch` (new or existing worktree), set up a tmux session for
+# the target branch: one session per branch, 75/25 vertical split, with Pi in
+# the wide left pane. The hook is idempotent (`tmux has-session` check), so
+# switching back to an existing session preserves the running Pi session.
+#
+# Outside tmux this hook is a no-op; worktrunk's shell integration handles
+# cwd via the regular `wt switch` cd.
+
+[post-switch]
+tmux = """
+if [ -n "$TMUX" ]; then
+  S='{{ branch | sanitize }}'
+  W='{{ worktree_path }}'
+  if tmux has-session -t "$S" 2>/dev/null; then
+    tmux switch-client -t "$S"
+  else
+    tmux new-session -d -s "$S" -c "$W"
+    tmux split-window -h -t "$S" -c "$W" -l '25%'
+    tmux send-keys -t "$S.0" 'pi' Enter
+    tmux select-pane -t "$S.0"
+    tmux switch-client -t "$S"
+  fi
+fi
+"""
