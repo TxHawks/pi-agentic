@@ -13,11 +13,17 @@ _Avoid_: job, execution, incarnation
 **Task**:
 The instructions the parent gives a child for one run.
 
+**Time budget**:
+The time limits that a run gets at launch: one limit for the whole run, and one limit for time without output. The budget is part of the run record. A recorded budget is a standing stop order: the extension may stop a run that is past its budget, even when the run has no owner.
+
 **Session**:
 The saved conversation of one agent, stored by Pi. One session can receive many runs.
 
 **Launching**:
 The state of a run whose record exists but whose process is not yet confirmed.
+
+**Waiting**:
+The state of a run that has an open wait on its own descendant runs. A waiting run is not idle while a live descendant shows work. The whole-run limit still applies while a run waits.
 
 **Settled**:
 The state of a run whose final result exists in durable storage. Settled does not mean delivered.
@@ -116,6 +122,9 @@ _Avoid_: abort
 
 **Redirect**:
 Interrupt a run, then resume its session with a new task. A redirect is one operation with one answer. The session keeps the work of its completed messages.
+
+**Wrap-up**:
+A redirect that the time-limit rules trigger near the end of a run's time budget. The interrupted run's session resumes with one instruction: report the finished work and the unfinished work. The report gets the remaining budget. The original deadline does not move.
 
 **Stop**:
 End a run's process.
