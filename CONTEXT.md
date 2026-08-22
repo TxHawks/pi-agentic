@@ -19,6 +19,16 @@ The time limits that a run gets at launch: one limit for the whole run, and one 
 **Session**:
 The saved conversation of one agent, stored by Pi. One session can receive many runs.
 
+**Queued**:
+The state of a run that is accepted but waits for a free place in the run pool. A queued run has a run record and no process. Code alone decides when a queued run launches; a model never does.
+
+**Queue-wait limit**:
+The longest time a run may stay queued. Any extension process may cancel a queued run that is past the limit.
+
+**Run pool**:
+The shared limit on live runs in one project. Every run with a live process takes one place in the pool, no matter who owns the run. A launch waits in the queue when the pool is full.
+_Avoid_: global pool, machine pool
+
 **Launching**:
 The state of a run whose record exists but whose process is not yet confirmed.
 
