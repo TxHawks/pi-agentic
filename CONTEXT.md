@@ -16,6 +16,9 @@ The instructions the parent gives a child for one run.
 **Time budget**:
 The time limits that a run gets at launch: one limit for the whole run, and one limit for time without output. The budget is part of the run record. A recorded budget is a standing stop order: the extension may stop a run that is past its budget, even when the run has no owner.
 
+**Warning schedule**:
+The ordered token thresholds that watch a run's context window. Each threshold sends the child one warning. The last threshold is the context floor. The schedule is part of the run record.
+
 **Session**:
 The saved conversation of one agent, stored by Pi. One session can receive many runs.
 
@@ -135,6 +138,9 @@ Interrupt a run, then resume its session with a new task. A redirect is one oper
 
 **Wrap-up**:
 A redirect that the time-limit rules trigger near the end of a run's time budget. The interrupted run's session resumes with one instruction: report the finished work and the unfinished work. The report gets the remaining budget. The original deadline does not move.
+
+**Context floor**:
+The last threshold of a run's warning schedule. Past the floor, the extension refuses every new tool call in the child, so the run can only report and end. Code enforces the floor; the model does not decide.
 
 **Stop**:
 End a run's process.
