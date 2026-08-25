@@ -48,6 +48,7 @@ import {
 	resolveAvailableModelRef,
 	splitModelRefThinking,
 } from "../launch/prep.ts";
+import { getSkillVisibilitySpec } from "../launch/skill-visibility.ts";
 import { writeResumeTaskArtifact, writeSystemPromptArtifact } from "../launch/prompt-artifacts.ts";
 import {
 	buildResumePiArgs,
@@ -430,6 +431,9 @@ export function getBaseSubagentEnvVarsForTest(agentDefs: AgentDefaults | null) {
 			runtimePaths: {},
 			subagentSessionFile: "child.jsonl",
 			sessionFile: "parent.jsonl",
+			// Minimal stand-in for the plan the real launcher builds; the env
+			// forwarder only reads the validated visibility spec off it.
+			skillLaunchPlan: { visibilitySpec: getSkillVisibilitySpec(agentDefs?.skills) },
 		} as PreparedSubagentLaunch,
 		{ agent: "tester", name: "child", title: "Child task", task: "Task" },
 		() => "lineage-only",

@@ -154,7 +154,7 @@ For a fuller example of the intended style, see the [scout agent gist by edxeth]
 | `extensions` | `all` | Which extension code loads in the child: `all`, `none`, or a comma-separated allowlist |
 | `tools` | `all` | Child tool availability: `all`, `none`, or a comma-separated allowlist of Pi tool names. Lists may include built-in, extension/custom, and protocol tools. `none` disables built-in tools while preserving extension/custom tools unless denied. |
 | `deny-tools` | unset | Final comma-separated tool names to remove from the child after built-in tools, extensions, and protocol tools are selected |
-| `skills` | `all` | Child skill availability: `all`, `none`, or a comma-separated allowlist resolved by skill name |
+| `skills` | `all` | Child skill availability: `all`, `none`, or a comma-separated allowlist resolved by skill name. Entries may carry a visibility annotation: `name=auto` advertises the skill in the child's system prompt even when its frontmatter disables model invocation; `name=manual` hides it from that child only. |
 | `inject-skills` | unset | Comma-separated skills to load into the child prompt before the task |
 | `no-context-files` | `false` | Skip project context-file discovery in the child, including `AGENTS.override.md`, `AGENTS.md`, and `CLAUDE.md`. Pi loads these files independently of project approval. |
 | `inherit-append-system` | `false` | Let Pi load the child's applicable global or trusted-project `APPEND_SYSTEM.md` file |
@@ -702,6 +702,23 @@ skills: pua,torpathy
 
 A comma-separated list is an allowlist. `pi-subagents` resolves each name through Pi's resource loader, then launches the child with `--no-skills --skill <resolved-path> ...`. Only those named skills are available.
 
+Entries in the list may carry a visibility annotation:
+
+```md
+---
+name: worker
+skills: context7=auto, torpathy=manual, tdd
+---
+```
+
+- `=auto` advertises the skill in this child's `<available_skills>` prompt block even when its SKILL.md sets `disable-model-invocation: true`. The skill stays hidden everywhere else.
+- `=manual` hides the skill from this child's prompt only, but it can still be invoked manually. It stays advertised in the main session and in other agents.
+- Plain names keep Pi's own visibility. `all` and `none` cannot carry annotations.
+
+The precedence is: agent annotation > global manual list (as materialized into skill frontmatter) > upstream frontmatter. Bad values (`=banana`) and conflicting annotations for one skill fail at launch with a clear error.
+
+Visibility is applied at turn time: the runtime corrects the child's loaded skill list in place and swaps the rendered `<available_skills>` section. Extensions that rebuild a skills section from the structured skill list (tool adapters that replace Pi's native tools, for example) inherit the correction too. No SKILL.md file is ever written or modified. Annotations require the allowlist form; an agent with `skills: all` has nowhere to put one.
+
 `skills` resolves names from the same places Pi sees skills, including:
 
 - `.pi/skills/`
@@ -801,7 +818,7 @@ The `tools` field narrows the child to a Pi tool allowlist. Use built-in names s
 
 Pi silently ignores `--tools` names that are not registered by a built-in or a loaded extension. That means a typo (for example `tools: read,edti`) leaves the child silently without `edit`. pi-subagents surfaces a non-blocking warning in the subagent result when a name is within one edit of a built-in (`edti`→`edit`, `raed`→`read`); the launch still proceeds, because a near-miss name can be a legitimate custom tool (for example `hash` is one edit from `bash`). pi-subagents cannot validate arbitrary extension/custom tool names before the child loads its extensions, so ensure every custom/extension name in `tools:` is registered by an extension listed in `extensions:`.
 
-> **Allowlisted `skills:` need a tool named `read`.** Pi core renders the `<available_skills>` block in the child's system prompt only when the active tool set includes `read` (it checks `selectedTools.includes("read")`). If you narrow `tools:` to swap Pi's native file tools for an extension's replacements and drop `read`, every allowlisted (non-injected) skill becomes invisible to the child even though its files exist on disk. Keep the built-in `read` in `tools:` when a child relies on allowlisted skills. `inject-skills` is unaffected — injected skills are pasted into the task text directly. Note that some tool extensions re-inject skills through their own path and may not need `read`; check how yours handles skills.
+> **Pi-core skill advertisement needs a tool named `read`.** Pi core renders the `<available_skills>` block in the child's system prompt only when the active tool set includes `read` (it checks `selectedTools.includes("read")`). If you narrow `tools:` to swap Pi's native file tools for an extension's replacements and drop `read`, a child relying on Pi's own block loses every allowlisted (non-injected) skill from its prompt even though the files exist on disk. Keep the built-in `read` in `tools:` for such a child. Visibility annotations (`=auto`/`=manual`) still work without `read` — the runtime corrects the structured skill list, and extensions that render their own skills section from it inherit the correction. `inject-skills` is unaffected — injected skills are pasted into the task text directly.
 
 `deny-tools` is a final named tool denylist. It can remove built-in Pi tools, extension/custom tools, or pi-subagents protocol tools after they have otherwise been selected.
 
@@ -908,6 +925,7 @@ Runtime internals you may see while debugging:
 - `PI_SUBAGENT_SESSION`
 - `PI_SUBAGENT_SURFACE`
 - `PI_SUBAGENT_AUTO_EXIT`
+- `PI_SUBAGENT_SKILL_VISIBILITY` (serialized `name=auto|manual` annotations for the child prompt rewrite)
 - `PI_SUBAGENT_LLM_VERIFIER_VENV` (llm-as-a-verifier: pre-provisioned `llm-verifier` venv root)
 - `PI_SUBAGENT_SUPERVISOR_RUNTIME` (llm-as-a-verifier: command that runs the detached supervisor `.ts` entry)
 

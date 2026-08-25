@@ -6,7 +6,7 @@ import {
 	shouldAutoExitOnAgentEnd,
 	shouldMarkUserTookOver,
 } from "../auto-exit.ts";
-import { PI_SUBAGENT_APPEND_SYSTEM_PROMPT } from "../launch/append-system.ts";
+import { applyChildSystemPromptOverrides } from "./child-system-prompt.ts";
 import { getPublishedRunningSubagentCount } from "../runtime/nested-lifecycle.ts";
 import { installSubagentContextReminders } from "./context-reminders.ts";
 import { createExitSignalWriter } from "./exit-signal.ts";
@@ -268,11 +268,7 @@ export default function (pi: ExtensionAPI) {
 
 	pi.on("before_agent_start", (event) => {
 		enforceDeniedTools();
-		const appendSystemPrompt = process.env[PI_SUBAGENT_APPEND_SYSTEM_PROMPT]?.trim();
-		if (!appendSystemPrompt) return;
-		return {
-			systemPrompt: `${event.systemPrompt}\n\n${appendSystemPrompt}`,
-		};
+		return applyChildSystemPromptOverrides(event);
 	});
 
 	pi.on("message_end", (event, ctx) => {
