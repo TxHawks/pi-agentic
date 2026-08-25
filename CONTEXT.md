@@ -169,6 +169,9 @@ The rules that limit how long and how much run data is kept.
 **Live probe**:
 A scripted check that launches a real child and asserts on run artifacts. A live probe never judges the quality of a model's output.
 
+**Smoke**:
+A scripted live check that is not part of the release gate. A smoke covers a path that the release gate does not own. A human runs a smoke on demand.
+
 **Pass receipt**:
 The durable, machine-readable record of one full live-probe run: the commit it proves, the Pi version, the model ref, and the result of every probe.
 
