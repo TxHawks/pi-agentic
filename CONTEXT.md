@@ -146,6 +146,10 @@ The last threshold of a run's warning schedule. Past the floor, the extension re
 End a run's process.
 _Avoid_: kill, terminate (terminate names a parent-close policy)
 
+**Auto-exit**:
+An option of an interactive run. The child ends its own process after its final response, so the run settles and delivers without help. Operator input in the pane disarms auto-exit; the `/auto-exit` command re-arms it.
+_Avoid_: takeover, abort
+
 ### Cleanup
 
 **Dismiss**:
