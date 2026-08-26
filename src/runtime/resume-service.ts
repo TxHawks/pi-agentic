@@ -6,10 +6,10 @@ import { loadAgentDefaults as loadAgentDefaultsFromDefinitions } from "../agents
 import { assertModelAllowed, buildModelRef, splitModelRef } from "../agents/model-refs.ts";
 import { getArtifactStorageRoot } from "../artifact-storage.ts";
 import { buildAppendSystemInheritancePlan } from "../launch/append-system.ts";
-import { getPiInvocation, getPiShellParts, getSubagentChildProcessEnv } from "../launch/child-command.ts";
+import { getPiInvocation, getSubagentChildProcessEnv } from "../launch/child-command.ts";
+import { resolveDenyEnvPatterns } from "../launch/child-env.ts";
 import { CHILD_CONTEXT_BOUNDARY_SYSTEM_PROMPT } from "../launch/context-boundary.ts";
 import { parseEnvString } from "../launch/env.ts";
-import { buildInteractiveSentinelShellCommands } from "../launch/interactive-sentinel.ts";
 import { resolveSubagentTimeoutState } from "../launch/policy.ts";
 import {
 	getExtensionLaunchArgs,
@@ -21,12 +21,12 @@ import {
 import { writeResumeTaskArtifact } from "../launch/prompt-artifacts.ts";
 import {
 	buildResumePiArgs,
-	buildShellChangeDirectoryPrefix,
 	getResumeCwd,
 	resolveResumeLaunchMetadata,
 } from "../launch/resume.ts";
 import { expandSubagentTask } from "../launch/task-expansion.ts";
 import { resolveSubagentCwd } from "../launch/runtime-paths.ts";
+import { buildInteractiveShellCommand } from "../launch/shell-command.ts";
 import { createZellijCommandSurface } from "../mux/zellij-placement.ts";
 import { getZellijShellCommand, resolveZellijTarget } from "../mux/zellij-runtime.ts";
 import {
@@ -36,7 +36,6 @@ import {
 	resolveHerdrPlacementPolicy,
 	resolveZellijPlacementPolicy,
 	sendShellCommand,
-	shellEscape,
 } from "../mux.ts";
 import { clearSubagentExitSidecar } from "../session/exit-sidecar.ts";
 import { clearSubagentTimeoutSidecar, readSubagentTimeoutSidecar } from "../session/timeout-sidecar.ts";
@@ -209,6 +208,18 @@ export async function resumeSubagentSession(
 	input: ResumeSessionInput,
 	runtime: ResumeServiceRuntime,
 ): Promise<RunningSubagent> {
+	// Verified fan-out candidates are non-resumable (SPEC): their run is
+	// finalized and their worktree workspace is deleted after selection, so a
+	// resume would resurrect a session whose cwd no longer exists. Follow-up
+	// work starts a fresh launch against the updated source tree.
+	const verifiedRunDir = process.env.PI_SUBAGENT_VF_RUN_DIR;
+	if (verifiedRunDir && verifiedRunDir.trim()) {
+		throw new Error(
+			`Session ${input.sessionFile} was one finished attempt of an llm-as-a-verifier run; ` +
+				"its worktree was removed after selection, so it cannot be resumed. " +
+				"Start a new launch of the agent for follow-up work.",
+		);
+	}
 	const widthLimit = getSpawnWidthLimit();
 	if (!tryAcquireSlots(1, widthLimit)) {
 		throw new Error(
@@ -408,12 +419,12 @@ async function resumeSubagentSessionWithoutWidth(
 		resumeEnvVars[PI_SUBAGENT_TIMEOUT_STARTED_AT] = String(resumeStartTime);
 	}
 	resumeEnvVars.PI_SUBAGENT_NAME = invocationMetadata?.name ?? name;
-	if (resumedAgent) resumeEnvVars.PI_SUBAGENT_AGENT = resumedAgent;
+	resumeEnvVars.PI_SUBAGENT_AGENT = resumedAgent ?? "";
 	resumeEnvVars.PI_SUBAGENT_SESSION = sessionFile;
 
 	const resumedAsync = invocationMetadata?.async ?? metadata.async ?? true;
 	const resumedAutoExit = invocationMetadata?.autoExit ?? metadata.autoExit ?? true;
-	if (resumedAutoExit) resumeEnvVars.PI_SUBAGENT_AUTO_EXIT = "1";
+	resumeEnvVars.PI_SUBAGENT_AUTO_EXIT = resumedAutoExit ? "1" : "";
 	resumeEnvVars.PI_PACKAGE_DIR = "";
 	resumeEnvVars.PI_ARTIFACT_PROJECT_ROOT = getArtifactStorageRoot();
 
@@ -458,7 +469,7 @@ async function resumeSubagentSessionWithoutWidth(
 				running.parentClosePolicy === "continue"
 					? (["pipe", "ignore", "ignore"] as const)
 					: (["pipe", "pipe", "pipe"] as const),
-			env: getSubagentChildProcessEnv(invocation, resumeEnvVars),
+			env: getSubagentChildProcessEnv(invocation, resumeEnvVars, resolveDenyEnvPatterns(invocationMetadata?.denyEnv)),
 		});
 		if (expandedTask !== undefined) {
 			child.stdin?.end(expandedTask);
@@ -503,32 +514,38 @@ async function resumeSubagentSessionWithoutWidth(
 					zellij: zellijContext,
 				});
 		const doneSentinelFile = getDoneSentinelFile(sessionFile, id);
-		const parts = getPiShellParts(buildResumePiArgs(sessionFile, "interactive"));
-		for (const arg of [...extensionArgs, ...parityArgs]) {
-			parts.push(shellEscape(arg));
-		}
+		const piArgs = buildResumePiArgs(sessionFile, "interactive");
+		piArgs.push(...extensionArgs, ...parityArgs);
 		if (expandedTask !== undefined) {
 			const taskPath = writeResumeTaskArtifact(name, expandedTask, sessionFile, resumeCwd ?? process.cwd());
-			parts.push(shellEscape(`@${taskPath}`));
+			piArgs.push(`@${taskPath}`);
 		}
 		if (zellijTarget) resumeEnvVars.ZELLIJ_SESSION_NAME = zellijTarget.sessionName;
 		if (ordinarySurface) resumeEnvVars.PI_SUBAGENT_SURFACE = ordinarySurface;
-		const resumeEnvPrefix = `${Object.entries(resumeEnvVars)
-			.map(([key, value]) => `${key}=${shellEscape(value)}`)
-			.join(" ")} `;
-		const sentinel = buildInteractiveSentinelShellCommands(doneSentinelFile);
-		const surfacePrefix = zellijTarget ? "PI_SUBAGENT_SURFACE=pane:$ZELLIJ_PANE_ID " : "";
-		const command = `trap ${shellEscape(sentinel.exitTrap)} EXIT; ${buildShellChangeDirectoryPrefix(resumeCwd)}${resumeEnvPrefix}${surfacePrefix}${parts.join(" ")}; ${sentinel.direct}`;
-		const surface =
-			ordinarySurface ??
-			(await createZellijCommandSurface(surfaceName, zellijTarget!, getZellijShellCommand(command), zellijContext));
-		if (!zellijTarget) {
-			await new Promise<void>((resolve) => setTimeout(resolve, runtime.getShellReadyDelayMs()));
-			sendShellCommand(surface, command);
+		const { command, dispose } = buildInteractiveShellCommand({
+			cwd: resumeCwd ?? undefined,
+			piArgs,
+			envOverrides: resumeEnvVars,
+			denyEnv: invocationMetadata?.denyEnv,
+			doneSentinelFile,
+			...(zellijTarget ? { deriveZellijPaneSurface: true } : {}),
+		});
+		try {
+			const surface =
+				ordinarySurface ??
+				(await createZellijCommandSurface(surfaceName, zellijTarget!, getZellijShellCommand(command), zellijContext));
+			if (!zellijTarget) {
+				await new Promise<void>((resolve) => setTimeout(resolve, runtime.getShellReadyDelayMs()));
+				sendShellCommand(surface, command);
+			}
+			running.surface = surface;
+			running.doneSentinelFile = doneSentinelFile;
+			running.zellijTarget = zellijTarget;
+		} catch (error) {
+			// Nothing consumed the capsule; do not leave credentials behind.
+			dispose();
+			throw error;
 		}
-		running.surface = surface;
-		running.doneSentinelFile = doneSentinelFile;
-		running.zellijTarget = zellijTarget;
 	}
 
 	if (shouldPersistInvocationMetadata) {
