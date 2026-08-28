@@ -26,7 +26,7 @@ The saved conversation of one agent, stored by Pi. One session can receive many 
 The state of a run that is accepted but waits for a free place in the run pool. A queued run has a run record and no process. Code alone decides when a queued run launches; a model never does.
 
 **Queue-wait limit**:
-The longest time a run may stay queued. Any extension process may cancel a queued run that is past the limit.
+The longest time an ownerless queued run may stay queued. Any extension process may cancel an ownerless queued run that is past the limit. A queued run with a living owner has no wait limit.
 
 **Run pool**:
 The shared limit on live runs in one project. Every run with a live process takes one place in the pool, no matter who owns the run. A launch waits in the queue when the pool is full.
@@ -76,6 +76,9 @@ _Avoid_: adopt, take over
 **Reconciliation**:
 The check that compares run records against live processes and updates each run's state.
 
+**Owner sweep**:
+The periodic pass that each owner process runs. The sweep launches the owner's queued runs, applies standing stop orders, cancels expired ownerless queued runs, and runs retention when the throttle permits.
+
 **Spawn grace**:
 The short time a launching run may stay unconfirmed before reconciliation marks it lost.
 
@@ -105,6 +108,9 @@ The durable record that one run's result was delivered.
 
 **Observation log**:
 The durable log of one run's events.
+
+**Log ceiling**:
+The size limit of one observation log. The extension stops a run whose log passes the ceiling. The ceiling protects the disk, not the model's context window.
 
 **Exit record**:
 The durable record of one run's process end: the exit code, the signal if one ended the process, and the end time.
