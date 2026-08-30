@@ -24,6 +24,7 @@ Source layout:
 - `src/launch/` — child launch preparation, launch policy, child command construction, resume args, prompt artifacts, runtime path resolution, and session seeding.
 - `src/runtime/` — running state, wait/join, shutdown, background/interactive watchers, result routing, and widgets.
 - `src/session/` — JSONL session helpers and trimmed fork-session logic.
+- `src/settings/` — user configuration: the `pi-agentic.jsonc` loader and the typed settings object.
 - `src/tools/` — Pi tool/command implementations and tool policy.
 - `src/mux/` — multiplexer internals; `src/mux.ts` is the public barrel.
 - `src/artifact-storage.ts` — artifact storage roots and paths. `src/launch/prompt-artifacts.ts` — writes launch prompt/task artifact files. Keep these two names distinct.
