@@ -1,4 +1,4 @@
-# The local mirror of the Tier A gate: the same package scripts that
+# The local mirror of the automated gate: the same package scripts that
 # .github/workflows/ci.yml runs, so a commit that passes here passes CI.
 pre-commit:
   parallel: true

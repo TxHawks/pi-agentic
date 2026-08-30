@@ -79,19 +79,29 @@ import "./agents/roster-limit-fields.test.ts";
 // so a new suite cannot stay out of `npm test` without a visible failure.
 const testRoot = dirname(fileURLToPath(import.meta.url));
 
+// Every .ts file in the test tree must be a suite this file imports.
+// Shared helpers live in test/support/, which suites import directly.
 function collectTestFiles(dir: string, out: string[] = []): string[] {
 	for (const entry of readdirSync(dir, { withFileTypes: true })) {
 		const path = join(dir, entry.name);
-		if (entry.isDirectory()) collectTestFiles(path, out);
-		else if (entry.name.endsWith(".test.ts")) out.push(path);
+		if (entry.isDirectory()) {
+			if (entry.name !== "support") collectTestFiles(path, out);
+		} else if (entry.name.endsWith(".ts") && path !== join(testRoot, "test.ts")) {
+			out.push(path);
+		}
 	}
 	return out;
 }
 
 test("the entry point imports every test file in the test tree", () => {
-	const source = readFileSync(join(testRoot, "test.ts"), "utf8");
+	// Match whole lines, so an import inside a comment does not count.
+	const importLines = new Set(
+		readFileSync(join(testRoot, "test.ts"), "utf8")
+			.split("\n")
+			.map((line) => line.trim()),
+	);
 	const missing = collectTestFiles(testRoot)
 		.map((path) => relative(testRoot, path).split(sep).join("/"))
-		.filter((specifier) => !source.includes(`import "./${specifier}";`));
+		.filter((specifier) => !importLines.has(`import "./${specifier}";`));
 	assert.deepEqual(missing, [], `test/test.ts must import: ${missing.join(", ")}`);
 });

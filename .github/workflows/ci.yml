@@ -1,7 +1,7 @@
 name: CI
 
-# Tier A gates: every automated check runs on every change, Ubuntu only.
-# The local pre-commit hook (lefthook.yml) must run the same gates.
+# The automated gate: every check runs on every change, Ubuntu only.
+# The local pre-commit hook (lefthook.yml) must run the same checks.
 on:
   push:
   pull_request:
