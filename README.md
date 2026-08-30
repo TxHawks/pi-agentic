@@ -891,8 +891,8 @@ Zellij 0.44.x needs a short focus transaction for directional and stacked placem
 Unit tests:
 
 ```bash
-bunx tsc --noEmit
-npm test
+pnpm check:types
+pnpm test
 ```
 
 Herdr-focused fake tests:

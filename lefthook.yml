@@ -1,10 +1,15 @@
+# The local mirror of the Tier A gate: the same package scripts that
+# .github/workflows/ci.yml runs, so a commit that passes here passes CI.
 pre-commit:
   parallel: true
   commands:
-    biome:
-      glob: "*.{js,jsx,ts,tsx,json,jsonc}"
-      run: bunx biome check --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
-    typecheck:
-      run: bunx tsc --noEmit
+    types:
+      run: pnpm check:types
+    lint:
+      run: pnpm check:lint
+    dead-code:
+      run: pnpm check:dead-code
+    file-sizes:
+      run: pnpm check:file-sizes
     test:
-      run: npm test
+      run: pnpm test

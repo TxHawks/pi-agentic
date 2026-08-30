@@ -11,7 +11,7 @@ common person would understand.
 
 - This is a Pi package extension. The extension entrypoint is `src/index.ts`.
 - Tests run on plain `node --test` (see `package.json` scripts). `npm test` and `bun test` both work.
-- One-off checks (`tsc`, `biome`, `knip`) run through `bunx`, so no extra deps are declared.
+- The check tools (`typescript`, `@biomejs/biome`, `knip`) are pinned dev dependencies. Run them through the `check:*` package scripts.
 
 ## Project structure contract
 
@@ -32,7 +32,7 @@ Source layout:
 Test layout:
 
 - Tests live in `test/`; the `node --test` scripts already target it.
-- Mirror source ownership in tests. Each domain suite must be imported by `test/test.ts`, or `npm test` will not run it.
+- Mirror source ownership in tests. Each domain suite must be imported by `test/test.ts`; a guard test in that file fails the run when a test file is not imported.
 - `test/support/` is split by ownership. Check its current files with `ls` rather than assuming.
 - When a test probes a dynamic result shape, use a local cast at that assertion. `// @ts-nocheck` is banned.
 
@@ -52,19 +52,19 @@ Test layout:
 For ordinary code changes, run:
 
 ```bash
-bunx tsc --noEmit
+pnpm check:types
 pnpm test
 ```
 
-For structure/cleanup changes, also run the one-off checks, and verify file sizes before handoff:
+For structure/cleanup changes, also run the other checks, and verify file sizes before handoff:
 
 ```bash
-bunx biome check .
-bunx knip
-node scripts/check-file-sizes.mjs
+pnpm check:lint
+pnpm check:dead-code
+pnpm check:file-sizes
 ```
 
-The size script enforces the file-size ceilings and exits non-zero on the first violation.
+The size script enforces the file-size ceilings and exits non-zero on the first violation. CI (`.github/workflows/ci.yml`) and the pre-commit hook (`lefthook.yml`) run all five gates on every change.
 
 ## Live behavior validation
 

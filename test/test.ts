@@ -1,4 +1,12 @@
+import assert from "node:assert/strict";
+import { readdirSync, readFileSync } from "node:fs";
+import { dirname, join, relative, sep } from "node:path";
+import { test } from "node:test";
+import { fileURLToPath } from "node:url";
+
 import "./auto-exit.test.ts";
+import "./live-test-guard.test.ts";
+import "./system-prompt-mode.test.ts";
 import "./session/session.test.ts";
 import "./session/child-session-storage.test.ts";
 import "./session/exit-sidecar.test.ts";
@@ -38,6 +46,7 @@ import "./runtime/timeout-result-delivery.test.ts";
 import "./runtime/state.test.ts";
 import "./runtime/elapsed-format.test.ts";
 import "./runtime/fork-session-manager.test.ts";
+import "./runtime/widget.test.ts";
 
 import "./agents/ambient-runtime-paths.test.ts";
 import "./launch/fork-session.test.ts";
@@ -54,6 +63,7 @@ import "./runtime/resume-grant.test.ts";
 import "./runtime/spawn-width.test.ts";
 import "./runtime/mixed-batch-classifier.test.ts";
 import "./launch/helpers.test.ts";
+import "./mux/cmux.test.ts";
 import "./mux/mux.test.ts";
 import "./mux/poll.test.ts";
 import "./mux/herdr.test.ts";
@@ -63,3 +73,25 @@ import "./mux/zellij-placement.test.ts";
 import "./mux/zellij-owned-placement.test.ts";
 import "./agents/roster-filtering.test.ts";
 import "./agents/roster-limit-fields.test.ts";
+
+// The gate contract: this file is the one test entry point. The guard below
+// fails when a test file exists in the test tree but is not imported here,
+// so a new suite cannot stay out of `npm test` without a visible failure.
+const testRoot = dirname(fileURLToPath(import.meta.url));
+
+function collectTestFiles(dir: string, out: string[] = []): string[] {
+	for (const entry of readdirSync(dir, { withFileTypes: true })) {
+		const path = join(dir, entry.name);
+		if (entry.isDirectory()) collectTestFiles(path, out);
+		else if (entry.name.endsWith(".test.ts")) out.push(path);
+	}
+	return out;
+}
+
+test("the entry point imports every test file in the test tree", () => {
+	const source = readFileSync(join(testRoot, "test.ts"), "utf8");
+	const missing = collectTestFiles(testRoot)
+		.map((path) => relative(testRoot, path).split(sep).join("/"))
+		.filter((specifier) => !source.includes(`import "./${specifier}";`));
+	assert.deepEqual(missing, [], `test/test.ts must import: ${missing.join(", ")}`);
+});
