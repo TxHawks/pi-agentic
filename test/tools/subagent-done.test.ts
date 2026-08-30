@@ -507,7 +507,10 @@ describe("subagent-done.ts", () => {
 					},
 				);
 				assert.equal(statusKey, "pi-subagent-auto-exit");
-				assert.equal(statusMessage, "Auto-exit disabled \u2014 close manually or /auto-exit to re-enable");
+				assert.equal(
+					statusMessage,
+					"Auto-exit disabled \u2014 close manually or /auto-exit to re-enable",
+				);
 			} finally {
 				if (originalSession == null) delete process.env.PI_SUBAGENT_SESSION;
 				else process.env.PI_SUBAGENT_SESSION = originalSession;
@@ -686,7 +689,8 @@ describe("subagent-done.ts", () => {
 	describe("APPEND_SYSTEM inheritance", () => {
 		it("appends pi-subagents child prompt text after Pi performs native discovery", () => {
 			const original = process.env.PI_SUBAGENT_APPEND_SYSTEM_PROMPT;
-			process.env.PI_SUBAGENT_APPEND_SYSTEM_PROMPT = "Reviewer identity.\n\nChild boundary instructions.";
+			process.env.PI_SUBAGENT_APPEND_SYSTEM_PROMPT =
+				"Reviewer identity.\n\nChild boundary instructions.";
 			try {
 				const handlers = new Map<string, any>();
 				subagentDoneExtension({

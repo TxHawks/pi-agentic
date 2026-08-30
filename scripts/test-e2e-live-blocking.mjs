@@ -1,12 +1,24 @@
 #!/usr/bin/env node
 import { execFileSync, spawn } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+	copyFileSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	writeFileSync,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { installLiveTestCleanup } from "./live-test-cleanup.mjs";
-import { acquireLiveWindowLock, LIVE_TEST_MODEL, requireLiveWindowOptIn } from "./live-test-guard.mjs";
+import {
+	acquireLiveWindowLock,
+	LIVE_TEST_MODEL,
+	requireLiveWindowOptIn,
+} from "./live-test-guard.mjs";
 
 const piBin = process.env.PI_E2E_PI_BIN ?? "pi";
 
@@ -115,7 +127,10 @@ function getAssistantTexts(events) {
 
 function getToolResult(events, toolName) {
 	return events.findLast(
-		(event) => event.type === "message" && event.message?.role === "toolResult" && event.message.toolName === toolName,
+		(event) =>
+			event.type === "message" &&
+			event.message?.role === "toolResult" &&
+			event.message.toolName === toolName,
 	)?.message;
 }
 
@@ -194,7 +209,11 @@ const ghostty = spawn("ghostty", ["-e", "bash", "-lc", launchCommand], {
 	env: (() => {
 		const env = { ...process.env };
 		for (const key of Object.keys(env)) {
-			if (key.startsWith("PI_SUBAGENT_") || key === "PI_DENY_TOOLS" || key === "PI_ARTIFACT_PROJECT_ROOT") {
+			if (
+				key.startsWith("PI_SUBAGENT_") ||
+				key === "PI_DENY_TOOLS" ||
+				key === "PI_ARTIFACT_PROJECT_ROOT"
+			) {
 				delete env[key];
 			}
 		}
@@ -246,11 +265,15 @@ try {
 		if (details.status !== "completed")
 			throw new Error(`Expected completed blocking result, got ${details.status ?? "missing"}.`);
 		if (details.deliveryState !== "awaited")
-			throw new Error(`Expected awaited blocking result, got ${details.deliveryState ?? "missing"}.`);
-		if (details.async !== false) throw new Error(`Expected blocking true, got ${details.blocking ?? "missing"}.`);
+			throw new Error(
+				`Expected awaited blocking result, got ${details.deliveryState ?? "missing"}.`,
+			);
+		if (details.async !== false)
+			throw new Error(`Expected blocking true, got ${details.blocking ?? "missing"}.`);
 		if (!details.sessionFile || !existsSync(details.sessionFile))
 			throw new Error("Blocking result missing sessionFile.");
-		if (!sawTwoPanes) throw new Error("Did not observe a second tmux pane while the blocking child was running.");
+		if (!sawTwoPanes)
+			throw new Error("Did not observe a second tmux pane while the blocking child was running.");
 
 		const assistantMessages = parent.events.filter(
 			(event) => event.type === "message" && event.message?.role === "assistant",

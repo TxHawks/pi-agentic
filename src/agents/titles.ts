@@ -75,11 +75,18 @@ function summarizeSubagentTaskForSessionTitle(task: string): string {
 	return cleanSubagentSessionTitleDescription(firstMeaningfulLine);
 }
 
-export function getSubagentDisplayTitle(params: Pick<SubagentParamsInput, "title" | "task">): string {
-	return cleanSubagentSessionTitleDescription(params.title ?? "") || summarizeSubagentTaskForSessionTitle(params.task);
+export function getSubagentDisplayTitle(
+	params: Pick<SubagentParamsInput, "title" | "task">,
+): string {
+	return (
+		cleanSubagentSessionTitleDescription(params.title ?? "") ||
+		summarizeSubagentTaskForSessionTitle(params.task)
+	);
 }
 
-export type SubagentTitleParams = Pick<SubagentParamsInput, "name" | "task" | "title"> & { agent?: string };
+export type SubagentTitleParams = Pick<SubagentParamsInput, "name" | "task" | "title"> & {
+	agent?: string;
+};
 
 export function buildSubagentSessionTitle(params: SubagentTitleParams): string | undefined {
 	if (areSubagentSessionTitlesDisabled()) return undefined;
@@ -97,13 +104,18 @@ export function getTerminalAssistantSummary(entries: SessionEntryLike[]): string
 		if (message?.role !== "assistant") return null;
 		if (message.stopReason === "toolUse") return null;
 		const texts = (message.content ?? [])
-			.filter((block) => block.type === "text" && typeof block.text === "string" && block.text.trim() !== "")
+			.filter(
+				(block) =>
+					block.type === "text" && typeof block.text === "string" && block.text.trim() !== "",
+			)
 			.map((block) => block.text as string);
 		return texts.length > 0 ? texts.join("\n") : null;
 	}
 	return null;
 }
 
-export function shouldReapStableTerminalSummary(running: Pick<{ autoExit?: boolean }, "autoExit">): boolean {
+export function shouldReapStableTerminalSummary(
+	running: Pick<{ autoExit?: boolean }, "autoExit">,
+): boolean {
 	return running.autoExit === true;
 }

@@ -67,7 +67,10 @@ describe("fork session launch behavior", () => {
 				content: [{ type: "text", text: "abandoned" }],
 			},
 		};
-		writeFileSync(parent, `${[header, root, main, abandoned].map((entry) => JSON.stringify(entry)).join("\n")}\n`);
+		writeFileSync(
+			parent,
+			`${[header, root, main, abandoned].map((entry) => JSON.stringify(entry)).join("\n")}\n`,
+		);
 
 		seedSubagentSessionFileForTest("fork", parent, child, dir, {
 			activeLeafId: "main-assistant",
@@ -114,7 +117,10 @@ describe("fork session launch behavior", () => {
 
 		assert.equal(getTerminalAssistantSummaryAfterLaunchForTest(seededEntries, 2), newSummary);
 		assert.equal(findLastAssistantMessage(seededEntries.slice(2)), newSummary);
-		assert.equal(getTerminalAssistantSummaryAfterLaunchForTest(seededEntries, seededEntries.length), null);
+		assert.equal(
+			getTerminalAssistantSummaryAfterLaunchForTest(seededEntries, seededEntries.length),
+			null,
+		);
 		assert.equal(getTerminalAssistantSummaryForTest(seededEntries.slice(0, 2)), oldSummary);
 	});
 
@@ -143,7 +149,9 @@ describe("fork session launch behavior", () => {
 				timestamp: "2026-08-07T20:00:02.000Z",
 				message: {
 					role: "assistant",
-					content: [{ type: "toolCall", id: "subagent_131", name: "subagent", arguments: { agent: "x" } }],
+					content: [
+						{ type: "toolCall", id: "subagent_131", name: "subagent", arguments: { agent: "x" } },
+					],
 				},
 			},
 			{
@@ -153,7 +161,14 @@ describe("fork session launch behavior", () => {
 				timestamp: "2026-08-07T20:00:03.000Z",
 				message: {
 					role: "assistant",
-					content: [{ type: "toolCall", id: "subagent_kill_70", name: "subagent_kill", arguments: { id: "x" } }],
+					content: [
+						{
+							type: "toolCall",
+							id: "subagent_kill_70",
+							name: "subagent_kill",
+							arguments: { id: "x" },
+						},
+					],
 				},
 			},
 			{
@@ -161,7 +176,11 @@ describe("fork session launch behavior", () => {
 				id: "tool-001",
 				parentId: "asst-002",
 				timestamp: "2026-08-07T20:00:04.000Z",
-				message: { role: "toolResult", toolCallId: "subagent_kill_70", content: [{ type: "text", text: "ok" }] },
+				message: {
+					role: "toolResult",
+					toolCallId: "subagent_kill_70",
+					content: [{ type: "text", text: "ok" }],
+				},
 			},
 			{
 				type: "message",
@@ -182,7 +201,12 @@ describe("fork session launch behavior", () => {
 					role: "assistant",
 					content: [
 						{ type: "text", text: "final answer" },
-						{ type: "toolCall", id: "subagent_137", name: "subagent", arguments: { agent: "reviewer" } },
+						{
+							type: "toolCall",
+							id: "subagent_137",
+							name: "subagent",
+							arguments: { agent: "reviewer" },
+						},
 					],
 				},
 			},
@@ -222,7 +246,16 @@ describe("fork session launch behavior", () => {
 		const messages = seeded.filter((entry) => entry.type === "message");
 		assert.deepEqual(
 			messages.map((entry) => entry.id),
-			["user-001", "asst-001", "asst-002", "tool-001", "asst-003", "asst-004", "asst-005", "asst-006"],
+			[
+				"user-001",
+				"asst-001",
+				"asst-002",
+				"tool-001",
+				"asst-003",
+				"asst-004",
+				"asst-005",
+				"asst-006",
+			],
 		);
 		// Roster entries are dropped from the inherited context, and orphaned
 		// tool calls are preserved verbatim: pi-ai's transformMessages synthesizes
@@ -480,7 +513,9 @@ describe("fork session launch behavior", () => {
 		for (const running of [asyncA, asyncB, blocking]) {
 			setRunningSubagentForTest(running);
 		}
-		const launchedPromises = [asyncA, blocking, asyncB].map((running) => getLaunchedSubagentResultForTest(running));
+		const launchedPromises = [asyncA, blocking, asyncB].map((running) =>
+			getLaunchedSubagentResultForTest(running),
+		);
 
 		resolveAsyncA({
 			name: asyncA.name,

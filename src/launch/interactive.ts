@@ -105,7 +105,11 @@ export async function launchInteractiveSubagent(
 	if (skillInjection) fullTask = `${skillInjection}\n\n${fullTask}`;
 
 	const parts = getPiShellParts(getPreparedSessionLaunchArgs(prepared));
-	const subagentDonePath = join(dirname(dirname(fileURLToPath(import.meta.url))), "tools", "subagent-done.ts");
+	const subagentDonePath = join(
+		dirname(dirname(fileURLToPath(import.meta.url))),
+		"tools",
+		"subagent-done.ts",
+	);
 	for (const arg of getPreparedExtensionLaunchArgs(prepared, subagentDonePath)) {
 		parts.push(shellEscape(arg));
 	}
@@ -120,12 +124,15 @@ export async function launchInteractiveSubagent(
 		inheritAppendSystem: launch.launchMetadata.inheritAppendSystem === true,
 		systemPromptMode: launch.launchMetadata.systemPromptMode,
 		systemPrompt: launch.launchMetadata.systemPrompt,
-		boundarySystemPrompt: launch.boundarySystemPrompt ? CHILD_CONTEXT_BOUNDARY_SYSTEM_PROMPT : undefined,
+		boundarySystemPrompt: launch.boundarySystemPrompt
+			? CHILD_CONTEXT_BOUNDARY_SYSTEM_PROMPT
+			: undefined,
 	});
 	for (let i = 0; i < appendSystemPlan.promptArgs.length; i += 2) {
 		const flag = appendSystemPlan.promptArgs[i];
 		const text = appendSystemPlan.promptArgs[i + 1] ?? "";
-		const value = flag === "--system-prompt" ? writeSystemPromptArtifact(params.name, text, ctx) : text;
+		const value =
+			flag === "--system-prompt" ? writeSystemPromptArtifact(params.name, text, ctx) : text;
 		parts.push(flag, shellEscape(value));
 	}
 	for (const arg of getApprovalLaunchArgs(prepared.agentDefs, "interactive")) {
@@ -146,7 +153,8 @@ export async function launchInteractiveSubagent(
 	}
 
 	const startTime = Date.now();
-	const zellijTarget = !surfacePreCreated && getMuxBackend() === "zellij" ? await resolveZellijTarget() : undefined;
+	const zellijTarget =
+		!surfacePreCreated && getMuxBackend() === "zellij" ? await resolveZellijTarget() : undefined;
 	const ordinarySurface = zellijTarget
 		? undefined
 		: (options?.surface ??
@@ -189,7 +197,12 @@ export async function launchInteractiveSubagent(
 	const command = `trap ${shellEscape(sentinel.exitTrap)} EXIT; ${cdPrefix}${envPrefix}${surfacePrefix}${parts.join(" ")}; ${sentinel.direct}`;
 	const surface =
 		ordinarySurface ??
-		(await createZellijCommandSurface(surfaceName, zellijTarget!, getZellijShellCommand(command), zellijContext));
+		(await createZellijCommandSurface(
+			surfaceName,
+			zellijTarget!,
+			getZellijShellCommand(command),
+			zellijContext,
+		));
 	traceSubagentLaunch("interactive.surface", {
 		id,
 		name: params.name,

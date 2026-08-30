@@ -126,7 +126,10 @@ describe("getSubagentCompletionStatus (via buildCompletedSubagentResult)", () =>
 	});
 
 	it("returns cancelled when error is 'cancelled'", () => {
-		const result = buildCompletedSubagentResult(makeRunning(), makeResult({ error: "cancelled", exitCode: 1 }));
+		const result = buildCompletedSubagentResult(
+			makeRunning(),
+			makeResult({ error: "cancelled", exitCode: 1 }),
+		);
 		assert.equal(result.status, "cancelled");
 	});
 

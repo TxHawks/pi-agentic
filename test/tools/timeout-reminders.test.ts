@@ -105,7 +105,10 @@ describe("timeout warning text", () => {
 
 	it("states time spent and time left for the idle budget", () => {
 		const text = formatTimeoutWarning("idle-timeout", 300, 240);
-		assert.match(text, /Idle limit: you have produced no output for 240s, and your limit is 300s without output/);
+		assert.match(
+			text,
+			/Idle limit: you have produced no output for 240s, and your limit is 300s without output/,
+		);
 		assert.match(text, /Output means a message from you or a completed tool result/);
 		assert.match(text, /long tool call counts as silence/i);
 		assert.match(text, /About 60s remain/);
@@ -150,9 +153,15 @@ describe("timeout reminder installation", () => {
 		const handler = pi.handlers.get("before_agent_start")?.[0];
 		assert.ok(handler, "the child must know its clock before it starts work");
 		const result = (await handler({ systemPrompt: "base" }, {})) as { systemPrompt?: string };
-		assert.match(result.systemPrompt ?? "", new RegExp(new Date(startedAt).toISOString().slice(0, 19)));
+		assert.match(
+			result.systemPrompt ?? "",
+			new RegExp(new Date(startedAt).toISOString().slice(0, 19)),
+		);
 		assert.match(result.systemPrompt ?? "", /process restart.*will not reset/i);
-		assert.match(result.systemPrompt ?? "", /conversation inherited or forked.*consumed zero seconds/i);
+		assert.match(
+			result.systemPrompt ?? "",
+			/conversation inherited or forked.*consumed zero seconds/i,
+		);
 		assert.match(result.systemPrompt ?? "", /parent runtime will interrupt.*50%/i);
 		assert.deepEqual(pi.sent, []);
 	});
@@ -165,7 +174,11 @@ describe("timeout reminder installation", () => {
 		installSubagentTimeoutReminders(pi as never);
 
 		await sleep(700);
-		assert.deepEqual(pi.sent, [], "the parent-owned deadline must not be blocked by this event loop");
+		assert.deepEqual(
+			pi.sent,
+			[],
+			"the parent-owned deadline must not be blocked by this event loop",
+		);
 	});
 
 	it("blocks new tools in a forced wrap-up continuation", async () => {

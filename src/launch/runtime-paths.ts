@@ -10,7 +10,10 @@ export function resolveSubagentCwd(rawCwd: string | null, baseCwd = process.cwd(
 	return rawCwd.startsWith("/") ? rawCwd : join(baseCwd, rawCwd);
 }
 
-export function resolveSubagentConfigDir(rawCwd: string | null, baseCwd = process.cwd()): string | null {
+export function resolveSubagentConfigDir(
+	rawCwd: string | null,
+	baseCwd = process.cwd(),
+): string | null {
 	const localAgentDir = join(resolveSubagentCwd(rawCwd, baseCwd), ".pi", "agent");
 	return existsSync(localAgentDir) ? localAgentDir : null;
 }
@@ -41,7 +44,8 @@ export function resolveSubagentRuntimePaths(
 	const rawCwd = params.cwd ?? agentDefs?.cwd ?? null;
 	const cwdBase = params.cwd ? parentCwd : (agentDefs?.cwdBase ?? parentCwd);
 	const effectiveCwd = rawCwd ? resolveSubagentCwd(rawCwd, cwdBase) : null;
-	const localAgentConfigDir = getEnvAgentConfigDir(agentDefs?.env) ?? resolveSubagentConfigDir(rawCwd, cwdBase);
+	const localAgentConfigDir =
+		getEnvAgentConfigDir(agentDefs?.env) ?? resolveSubagentConfigDir(rawCwd, cwdBase);
 	const effectiveAgentConfigDir = localAgentConfigDir ?? getAgentConfigDir();
 	const targetCwdForSession = effectiveCwd ?? parentCwd;
 	return {

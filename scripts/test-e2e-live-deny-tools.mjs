@@ -136,7 +136,10 @@ function getAssistantTexts(events) {
 
 function getToolResult(events, toolName) {
 	return events.findLast(
-		(event) => event.type === "message" && event.message?.role === "toolResult" && event.message.toolName === toolName,
+		(event) =>
+			event.type === "message" &&
+			event.message?.role === "toolResult" &&
+			event.message.toolName === toolName,
 	)?.message;
 }
 
@@ -153,7 +156,17 @@ function getParentEvents() {
 try {
 	execFileSync(
 		piBin,
-		["-p", "--model", LIVE_TEST_MODEL, "--no-extensions", "-e", extensionSource, "--session-dir", sessionDir, prompt],
+		[
+			"-p",
+			"--model",
+			LIVE_TEST_MODEL,
+			"--no-extensions",
+			"-e",
+			extensionSource,
+			"--session-dir",
+			sessionDir,
+			prompt,
+		],
 		{
 			cwd: repoRoot,
 			encoding: "utf8",
@@ -184,9 +197,12 @@ try {
 	const subagentResult = getToolResult(parent.events, "subagent");
 	if (!subagentResult) throw new Error("Parent did not emit a subagent tool result.");
 	const details = subagentResult.details ?? {};
-	if (details.status !== "completed") throw new Error(`Expected completed status, got ${details.status ?? "missing"}.`);
-	if (details.async !== false) throw new Error(`Expected async false, got ${details.async ?? "missing"}.`);
-	if (!details.sessionFile || !existsSync(details.sessionFile)) throw new Error("Missing child sessionFile.");
+	if (details.status !== "completed")
+		throw new Error(`Expected completed status, got ${details.status ?? "missing"}.`);
+	if (details.async !== false)
+		throw new Error(`Expected async false, got ${details.async ?? "missing"}.`);
+	if (!details.sessionFile || !existsSync(details.sessionFile))
+		throw new Error("Missing child sessionFile.");
 
 	const childEvents = parseJsonl(details.sessionFile);
 	const childHeader = childEvents.find((event) => event.type === "session");
@@ -200,7 +216,9 @@ try {
 	if (!existsSync(outputFile)) throw new Error("Child did not write active tool snapshot.");
 	const snapshot = JSON.parse(readFileSync(outputFile, "utf8"));
 	if (snapshot.extensionLoaded !== true) {
-		throw new Error(`Extension did not write its loaded marker. Snapshot: ${JSON.stringify(snapshot)}`);
+		throw new Error(
+			`Extension did not write its loaded marker. Snapshot: ${JSON.stringify(snapshot)}`,
+		);
 	}
 	const active = snapshot.active ?? [];
 	const all = snapshot.all ?? [];

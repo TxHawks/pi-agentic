@@ -38,7 +38,10 @@ writeAgent(
 		async: "false",
 		spawning: "true",
 	},
-	['First, run bash with: echo "DENY=\\$PI_DENY_TOOLS"', "Then reply with exactly `FM_COORDINATOR_OK`."].join("\n"),
+	[
+		'First, run bash with: echo "DENY=\\$PI_DENY_TOOLS"',
+		"Then reply with exactly `FM_COORDINATOR_OK`.",
+	].join("\n"),
 );
 
 // Also write an agent with spawning: false for comparison
@@ -53,7 +56,10 @@ writeAgent(
 		async: "false",
 		spawning: "false",
 	},
-	['First, run bash with: echo "DENY=\\$PI_DENY_TOOLS"', "Then reply with exactly `FM_NO_SPAWN_OK`."].join("\n"),
+	[
+		'First, run bash with: echo "DENY=\\$PI_DENY_TOOLS"',
+		"Then reply with exactly `FM_NO_SPAWN_OK`.",
+	].join("\n"),
 );
 
 const prompt = [
@@ -82,8 +88,10 @@ try {
 
 	// Verify both completed
 	for (const c of [coord, noSpawn]) {
-		if (c.status !== "completed") throw new Error(`${c.name}: expected completed, got ${c.status}.`);
-		if (!c.sessionFile || !existsSync(c.sessionFile)) throw new Error(`${c.name}: missing sessionFile.`);
+		if (c.status !== "completed")
+			throw new Error(`${c.name}: expected completed, got ${c.status}.`);
+		if (!c.sessionFile || !existsSync(c.sessionFile))
+			throw new Error(`${c.name}: missing sessionFile.`);
 	}
 
 	// Verify coordinator's PHI_DENY_TOOLS is empty
@@ -95,7 +103,10 @@ try {
 
 	// Check bash output for DENY= value
 	const coordBashResults = coordEvents
-		.filter((e) => e.type === "message" && e.message?.role === "toolResult" && e.message.toolName === "bash")
+		.filter(
+			(e) =>
+				e.type === "message" && e.message?.role === "toolResult" && e.message.toolName === "bash",
+		)
 		.flatMap((e) => e.message.content ?? [])
 		.filter((p) => p.type === "text")
 		.map((p) => p.text);
@@ -112,7 +123,10 @@ try {
 	}
 
 	const noSpawnBashResults = noSpawnEvents
-		.filter((e) => e.type === "message" && e.message?.role === "toolResult" && e.message.toolName === "bash")
+		.filter(
+			(e) =>
+				e.type === "message" && e.message?.role === "toolResult" && e.message.toolName === "bash",
+		)
 		.flatMap((e) => e.message.content ?? [])
 		.filter((p) => p.type === "text")
 		.map((p) => p.text);
@@ -122,8 +136,12 @@ try {
 	}
 
 	// Check metadata for denyTools
-	const coordMeta = coordEvents.find((e) => e.type === "custom" && e.customType === "pi-subagents_launch_metadata");
-	const noSpawnMeta = noSpawnEvents.find((e) => e.type === "custom" && e.customType === "pi-subagents_launch_metadata");
+	const coordMeta = coordEvents.find(
+		(e) => e.type === "custom" && e.customType === "pi-subagents_launch_metadata",
+	);
+	const noSpawnMeta = noSpawnEvents.find(
+		(e) => e.type === "custom" && e.customType === "pi-subagents_launch_metadata",
+	);
 
 	const coordDenyTools = coordMeta?.data?.denyTools ?? [];
 	const noSpawnDenyTools = noSpawnMeta?.data?.denyTools ?? [];
@@ -146,7 +164,9 @@ try {
 	}
 
 	verified = true;
-	console.log(`frontmatter "spawning: true" ok: coordinator denyTools=[], no-spawn denyTools contains subagent tools`);
+	console.log(
+		`frontmatter "spawning: true" ok: coordinator denyTools=[], no-spawn denyTools contains subagent tools`,
+	);
 } finally {
 	ctx.cleanup();
 }

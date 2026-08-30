@@ -18,7 +18,10 @@ export interface ExitSignalWriterDeps {
  * the durable completion marker the resume guard reads.
  */
 export function createExitSignalWriter(deps: ExitSignalWriterDeps) {
-	return function writeExitSignal(payload: object, opts?: { supersede?: boolean; autonomous?: boolean }) {
+	return function writeExitSignal(
+		payload: object,
+		opts?: { supersede?: boolean; autonomous?: boolean },
+	) {
 		const sessionFile = process.env.PI_SUBAGENT_SESSION;
 		if (!sessionFile) return;
 		// Only a normal completion the child itself decided can be owned by the

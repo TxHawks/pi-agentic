@@ -143,6 +143,9 @@ describe("session reference under a timeout", () => {
 	});
 
 	it("drops the reference once resume is blocked", () => {
-		assert.equal(formatSessionRef({ sessionFile: "/tmp/child.jsonl", timeoutBlocksResume: true }), "");
+		assert.equal(
+			formatSessionRef({ sessionFile: "/tmp/child.jsonl", timeoutBlocksResume: true }),
+			"",
+		);
 	});
 });

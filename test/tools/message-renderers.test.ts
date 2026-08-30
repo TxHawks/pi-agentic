@@ -51,7 +51,9 @@ describe("subagent message renderers", () => {
 			const unpaddedContent = unpadded.find((line: string) =>
 				line.trim().startsWith(type === "subagent_ping" ? "?" : "✓"),
 			);
-			const paddedContent = padded.find((line: string) => line.trim().startsWith(type === "subagent_ping" ? "?" : "✓"));
+			const paddedContent = padded.find((line: string) =>
+				line.trim().startsWith(type === "subagent_ping" ? "?" : "✓"),
+			);
 
 			assert.ok(unpaddedContent);
 			assert.ok(paddedContent);

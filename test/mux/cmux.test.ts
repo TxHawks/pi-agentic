@@ -92,7 +92,9 @@ describe("cmux surface creation", async () => {
 			assert.ok(identifyIdx >= 0, "expected identify --json call");
 			assert.ok(splitIdx >= 0, "expected new-split call");
 			assert.ok(
-				!calls.some((args) => args[0] === "new-split" && args.includes("--focus") && args.includes("true")),
+				!calls.some(
+					(args) => args[0] === "new-split" && args.includes("--focus") && args.includes("true"),
+				),
 				"should NOT use --focus true",
 			);
 		} finally {

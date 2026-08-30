@@ -8,7 +8,10 @@ import {
 	releaseSlots,
 	tryAcquireSlots,
 } from "../../src/runtime/spawn-width.ts";
-import { registerSubagentCoreTools, type SubagentToolRuntime } from "../../src/tools/subagent-tools.ts";
+import {
+	registerSubagentCoreTools,
+	type SubagentToolRuntime,
+} from "../../src/tools/subagent-tools.ts";
 import type { RunningSubagent, SubagentResult } from "../../src/types.ts";
 import {
 	afterEach,
@@ -60,7 +63,10 @@ function registerToolWithRuntime(runtimeOverrides: Partial<SubagentToolRuntime> 
 		getWatcherSignal: (_running, controller) => controller.signal,
 		wireSubagentSteerBack: () => {},
 		startWidgetRefresh: () => {},
-		getLaunchedSubagentResult: async () => ({ content: [{ type: "text", text: "started" }], details: {} }),
+		getLaunchedSubagentResult: async () => ({
+			content: [{ type: "text", text: "started" }],
+			details: {},
+		}),
 		stopRunningSubagent: async () => {},
 		muxUnavailableResult: () => ({ content: [{ type: "text", text: "mux" }], details: {} }),
 		...runtimeOverrides,
@@ -136,7 +142,13 @@ describe("spawn width semaphore", () => {
 			},
 		});
 
-		const result = await tool.execute("call-1", child("worker-a"), undefined, undefined, toolContext());
+		const result = await tool.execute(
+			"call-1",
+			child("worker-a"),
+			undefined,
+			undefined,
+			toolContext(),
+		);
 		assert.match(result.content[0].text, /Spawn width limit reached \(1\/1 slots busy\)/);
 		assert.match(result.content[0].text, /subagent_kill/);
 		assert.equal(launches, 0);

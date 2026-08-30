@@ -12,7 +12,9 @@ export interface AppendSystemInheritancePlan {
 	env: Record<string, string>;
 }
 
-export function buildAppendSystemInheritancePlan(input: AppendSystemInheritanceInput): AppendSystemInheritancePlan {
+export function buildAppendSystemInheritancePlan(
+	input: AppendSystemInheritanceInput,
+): AppendSystemInheritancePlan {
 	const generatedAppend = [
 		input.systemPromptMode === "append" ? input.systemPrompt : undefined,
 		input.boundarySystemPrompt,
@@ -20,7 +22,9 @@ export function buildAppendSystemInheritancePlan(input: AppendSystemInheritanceI
 
 	if (input.inheritAppendSystem) {
 		const promptArgs =
-			input.systemPromptMode === "replace" && input.systemPrompt ? ["--system-prompt", input.systemPrompt] : [];
+			input.systemPromptMode === "replace" && input.systemPrompt
+				? ["--system-prompt", input.systemPrompt]
+				: [];
 		return {
 			promptArgs,
 			env: {

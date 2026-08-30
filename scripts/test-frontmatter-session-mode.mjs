@@ -97,8 +97,10 @@ try {
 
 	let standaloneResult, forkResult;
 	for (const child of children) {
-		if (child.status !== "completed") throw new Error(`${child.name}: expected completed, got ${child.status}.`);
-		if (!child.sessionFile || !existsSync(child.sessionFile)) throw new Error(`${child.name}: missing sessionFile.`);
+		if (child.status !== "completed")
+			throw new Error(`${child.name}: expected completed, got ${child.status}.`);
+		if (!child.sessionFile || !existsSync(child.sessionFile))
+			throw new Error(`${child.name}: missing sessionFile.`);
 		if (child.name === "FM Standalone Child") standaloneResult = child;
 		if (child.name === "FM Fork Child") forkResult = child;
 	}
@@ -114,13 +116,18 @@ try {
 	// Standalone session must NOT have parentSession in header
 	const standaloneHeader = getSessionHeader(standaloneEvents);
 	if (standaloneHeader?.parentSession) {
-		throw new Error(`Standalone session should not have parentSession, but found: ${standaloneHeader.parentSession}`);
+		throw new Error(
+			`Standalone session should not have parentSession, but found: ${standaloneHeader.parentSession}`,
+		);
 	}
 	console.log("Standalone session header correctly lacks parentSession.");
 
 	// Check bash output for PARENT_SESSION= value to confirm no parent linkage
 	const standaloneBashTexts = standaloneEvents
-		.filter((e) => e.type === "message" && e.message?.role === "toolResult" && e.message.toolName === "bash")
+		.filter(
+			(e) =>
+				e.type === "message" && e.message?.role === "toolResult" && e.message.toolName === "bash",
+		)
 		.flatMap((e) => e.message.content ?? [])
 		.filter((p) => p.type === "text")
 		.map((p) => p.text);
@@ -135,7 +142,8 @@ try {
 
 	// Verify fork child - check directly from batch result
 	const forkSessionFile = forkResult.sessionFile;
-	const forkEvents = forkSessionFile && existsSync(forkSessionFile) ? parseJsonl(forkSessionFile) : [];
+	const forkEvents =
+		forkSessionFile && existsSync(forkSessionFile) ? parseJsonl(forkSessionFile) : [];
 
 	const forkTexts = getAssistantTexts(forkEvents);
 	// Fork child may not produce exact FM_FORK_OK because inherited context

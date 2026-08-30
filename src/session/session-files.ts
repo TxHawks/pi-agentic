@@ -145,7 +145,12 @@ export function seedSubagentSessionFile(
 	// writeSubagentLaunchMetadataEntryWhenReady fallback writes a header that
 	// the child then duplicates when Pi starts.
 	if (mode === "lineage-only") {
-		writeHeaderOnlySubagentSessionFile(childSessionFile, cwd, parentSessionFile, seedOptions?.sessionName);
+		writeHeaderOnlySubagentSessionFile(
+			childSessionFile,
+			cwd,
+			parentSessionFile,
+			seedOptions?.sessionName,
+		);
 		return;
 	}
 
@@ -153,7 +158,12 @@ export function seedSubagentSessionFile(
 		const parentManager = SessionManager.open(parentSessionFile, undefined, cwd);
 		const leafId = seedOptions?.activeLeafId ?? parentManager.getLeafId();
 		if (!leafId) {
-			writeHeaderOnlySubagentSessionFile(childSessionFile, cwd, parentSessionFile, seedOptions?.sessionName);
+			writeHeaderOnlySubagentSessionFile(
+				childSessionFile,
+				cwd,
+				parentSessionFile,
+				seedOptions?.sessionName,
+			);
 			return;
 		}
 		// Filter roster reminders out of the inherited branch, then re-chain the
@@ -170,7 +180,12 @@ export function seedSubagentSessionFile(
 			if (typeof e.id === "string") prevId = e.id;
 		}
 		if (branch.length === 0) {
-			writeHeaderOnlySubagentSessionFile(childSessionFile, cwd, parentSessionFile, seedOptions?.sessionName);
+			writeHeaderOnlySubagentSessionFile(
+				childSessionFile,
+				cwd,
+				parentSessionFile,
+				seedOptions?.sessionName,
+			);
 			return;
 		}
 		const header = {
@@ -231,7 +246,10 @@ export function writeChildContextBoundaryEntry(
 export function writeSubagentExtensionEntry(path: string, extensions: string[] | undefined): void {
 	if (extensions === undefined) return;
 	mkdirSync(dirname(path), { recursive: true });
-	writeFileSync(`${path}.ext`, `${JSON.stringify({ extensions, timestamp: new Date().toISOString() })}\n`);
+	writeFileSync(
+		`${path}.ext`,
+		`${JSON.stringify({ extensions, timestamp: new Date().toISOString() })}\n`,
+	);
 }
 
 export function writeSubagentModelStateEntries(
@@ -272,7 +290,10 @@ export function writeSubagentModelStateEntries(
 	);
 }
 
-export function writeSubagentLaunchMetadataEntry(path: string, metadata: PersistedSubagentLaunchMetadata): void {
+export function writeSubagentLaunchMetadataEntry(
+	path: string,
+	metadata: PersistedSubagentLaunchMetadata,
+): void {
 	if (!existsSync(path)) return;
 	const parentId = getLastSessionEntryId(path);
 	const line = JSON.stringify({
@@ -337,7 +358,8 @@ export function readSubagentLaunchMetadataEntries(path: string): PersistedSubage
 	try {
 		const entries = getEntries(path) as Array<Record<string, unknown>>;
 		for (const entry of entries) {
-			if (entry?.type !== "custom" || entry.customType !== SUBAGENT_LAUNCH_METADATA_CUSTOM_TYPE) continue;
+			if (entry?.type !== "custom" || entry.customType !== SUBAGENT_LAUNCH_METADATA_CUSTOM_TYPE)
+				continue;
 			const data = entry.data as Partial<PersistedSubagentLaunchMetadata> | undefined;
 			if (!data || data.version !== 1 || !isResumeMode(data.mode)) continue;
 			metadata.push(data as PersistedSubagentLaunchMetadata);
@@ -359,7 +381,9 @@ export function readSubagentLaunchMetadataEntries(path: string): PersistedSubage
  * read here is trustworthy against a hostile child; it only stops later
  * appends from widening an earlier grant.
  */
-export function readSubagentLaunchMetadata(path: string): PersistedSubagentLaunchMetadata | undefined {
+export function readSubagentLaunchMetadata(
+	path: string,
+): PersistedSubagentLaunchMetadata | undefined {
 	return readSubagentLaunchMetadataEntries(path)[0];
 }
 
@@ -393,14 +417,20 @@ export type ResolveSubagentNoSession = (agentDefs: AgentDefaults | null) => bool
 export function resolveTaskSessionMode(
 	agentDefs: AgentDefaults | null,
 	resolveSubagentNoSession: ResolveSubagentNoSession,
-	getNoSessionSeedMode: (sessionMode: SubagentSessionMode) => Exclude<SubagentSessionMode, "standalone"> | null,
+	getNoSessionSeedMode: (
+		sessionMode: SubagentSessionMode,
+	) => Exclude<SubagentSessionMode, "standalone"> | null,
 ): SubagentSessionMode {
 	const sessionMode = resolveEffectiveSessionMode({}, agentDefs);
 	if (!resolveSubagentNoSession(agentDefs)) return sessionMode;
 	return getNoSessionSeedMode(sessionMode) ?? sessionMode;
 }
 
-export function buildPiPromptArgs(skills: string[], taskArg: string, directTask: boolean): string[] {
+export function buildPiPromptArgs(
+	skills: string[],
+	taskArg: string,
+	directTask: boolean,
+): string[] {
 	const skillPrompts = skills.map((skill) => `/skill:${skill}`);
 	const isArtifactTask = taskArg.startsWith("@");
 	const needsSeparator = isArtifactTask && (skillPrompts.length > 0 || directTask);

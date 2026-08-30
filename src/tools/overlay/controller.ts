@@ -8,7 +8,14 @@ import { getMaxScroll, renderDetail } from "./render-detail.ts";
 import { getFooterHints, renderFooter, renderHeader } from "./render-frame.ts";
 import { fitLine } from "./render-helpers.ts";
 import { getItemRowCount, renderList } from "./render-list.ts";
-import type { OverlayContext, OverlayItem, OverlayState, OverlayTui, TabId, Theme } from "./render-types.ts";
+import type {
+	OverlayContext,
+	OverlayItem,
+	OverlayState,
+	OverlayTui,
+	TabId,
+	Theme,
+} from "./render-types.ts";
 import { TABS } from "./render-types.ts";
 
 export interface OverlayRuntime extends ResumeServiceRuntime {
@@ -88,14 +95,30 @@ export class SubagentsOverlayController implements Component {
 		const lines = renderHeader(this.state, TABS, this.theme, width);
 		const bodyHeight = this.bodyHeight();
 		if (this.state.view.kind === "detail") {
-			lines.push(...renderDetail(this.state.view.item, this.state.view.scroll, this.theme, width, bodyHeight));
+			lines.push(
+				...renderDetail(
+					this.state.view.item,
+					this.state.view.scroll,
+					this.theme,
+					width,
+					bodyHeight,
+				),
+			);
 		} else if (this.state.view.kind === "confirm") {
 			lines.push(...this.renderConfirmView(this.state.view.item, this.state.view.confirmed, width));
 		} else if (this.state.view.kind === "editor") {
 			const item = this.state.items[this.state.view.itemIndex];
 			if (item) lines.push(...this.renderEditorView(item, width));
 		} else {
-			lines.push(...renderList(this.state, this.theme, width, bodyHeight, this.state.listScroll[this.state.activeTab]));
+			lines.push(
+				...renderList(
+					this.state,
+					this.theme,
+					width,
+					bodyHeight,
+					this.state.listScroll[this.state.activeTab],
+				),
+			);
 		}
 		lines.push(...renderFooter(getFooterHints(this.state), this.theme, width));
 		return lines.map((line) => fitLine(line, width));
@@ -151,7 +174,10 @@ export class SubagentsOverlayController implements Component {
 		}
 		const item = this.state.view.item;
 		const maxScroll = getMaxScroll(item, this.tui.terminal?.columns ?? 80, this.bodyHeight());
-		if ((matchesKey(data, Key.down) || matchesKey(data, "j")) && this.state.view.scroll < maxScroll) {
+		if (
+			(matchesKey(data, Key.down) || matchesKey(data, "j")) &&
+			this.state.view.scroll < maxScroll
+		) {
 			this.state.view = {
 				...this.state.view,
 				scroll: this.state.view.scroll + 1,
@@ -238,7 +264,10 @@ export class SubagentsOverlayController implements Component {
 	}
 
 	private moveSelection(direction: -1 | 1): void {
-		this.state.selectedIndex = Math.max(0, Math.min(this.state.items.length - 1, this.state.selectedIndex + direction));
+		this.state.selectedIndex = Math.max(
+			0,
+			Math.min(this.state.items.length - 1, this.state.selectedIndex + direction),
+		);
 		this.keepSelectionVisible();
 	}
 
@@ -274,7 +303,10 @@ export class SubagentsOverlayController implements Component {
 	}
 
 	private clampSelection(): void {
-		this.state.selectedIndex = Math.max(0, Math.min(this.state.selectedIndex, this.state.items.length - 1));
+		this.state.selectedIndex = Math.max(
+			0,
+			Math.min(this.state.selectedIndex, this.state.items.length - 1),
+		);
 		this.keepSelectionVisible();
 	}
 

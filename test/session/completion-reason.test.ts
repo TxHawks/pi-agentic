@@ -21,7 +21,10 @@ describe("completion reason", () => {
 	it("reports pressure recorded on the active branch", () => {
 		const dir = createTestDir();
 		try {
-			const file = writeSession(dir, [{ id: "root", type: "message" }, marker("pressure", "root", "context-pressure")]);
+			const file = writeSession(dir, [
+				{ id: "root", type: "message" },
+				marker("pressure", "root", "context-pressure"),
+			]);
 			assert.equal(endedUnderContextPressure(file), true);
 		} finally {
 			rmSync(dir, { recursive: true, force: true });

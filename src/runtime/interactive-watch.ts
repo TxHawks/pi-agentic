@@ -4,7 +4,11 @@ import type { PollResult } from "../mux/poll.ts";
 import { isZellijSurfaceLive } from "../mux/zellij-runtime.ts";
 import { consumeSubagentExitSignal, getMuxBackend, pollForExit } from "../mux.ts";
 import { hasSubagentExitSidecar } from "../session/exit-sidecar.ts";
-import { findLastSubagentOutputWithSource, getEntryCount, getNewEntries } from "../session/session.ts";
+import {
+	findLastSubagentOutputWithSource,
+	getEntryCount,
+	getNewEntries,
+} from "../session/session.ts";
 import { writeSubagentTimeoutSidecar } from "../session/timeout-sidecar.ts";
 import type { RunningSubagent, SubagentResult, SubagentSummarySource } from "../types.ts";
 import { resolveFinalContextUsage } from "./final-context-usage.ts";
@@ -25,7 +29,9 @@ export interface InteractiveWatchRuntime {
 	pollForExit?: typeof pollForExit;
 }
 
-type InteractiveGenerationOutcome = { kind: "restart" } | { kind: "result"; result: SubagentResult };
+type InteractiveGenerationOutcome =
+	| { kind: "restart" }
+	| { kind: "result"; result: SubagentResult };
 
 /**
  * Kill a pane child by closing the surface that owns it.
@@ -44,7 +50,8 @@ async function closeTimedOutSurface(
 	if (!targetSurface) return true;
 	const backoffMs = [0, 250, 1000];
 	for (let attempt = 0; attempt < backoffMs.length; attempt++) {
-		if (backoffMs[attempt] > 0) await new Promise((resolve) => setTimeout(resolve, backoffMs[attempt]));
+		if (backoffMs[attempt] > 0)
+			await new Promise((resolve) => setTimeout(resolve, backoffMs[attempt]));
 		if (running.surface !== targetSurface) return true;
 		try {
 			await runtime.closeRunningSurface(running);
@@ -67,7 +74,10 @@ async function closeTimedOutSurface(
 	return false;
 }
 
-function buildInteractiveRestartTimeoutResult(running: RunningSubagent, expiry: ExpiredTimeoutBudget): SubagentResult {
+function buildInteractiveRestartTimeoutResult(
+	running: RunningSubagent,
+	expiry: ExpiredTimeoutBudget,
+): SubagentResult {
 	const { summary, summarySource } = getSummary(running, { reason: "error", exitCode: 1 });
 	const timeoutFields = recordTimeoutOutcome(running);
 	return {
@@ -113,7 +123,10 @@ export function pickFinalUsageSource(
 function recordTimeoutOutcome(
 	running: RunningSubagent,
 	pollResult?: PollResult,
-): Pick<SubagentResult, "timedOut" | "timedOutAfter" | "timeoutBlocksResume" | "timeoutKillFailed"> {
+): Pick<
+	SubagentResult,
+	"timedOut" | "timedOutAfter" | "timeoutBlocksResume" | "timeoutKillFailed"
+> {
 	const expiry = running.timeoutExpiry;
 	if (!expiry) return {};
 	if (pollResult?.reason === "ping") return {};
@@ -201,7 +214,9 @@ async function watchInteractiveGeneration(
 				// Only the child's own output restarts the idle clock; a prompt the
 				// runtime wrote into the session is not child progress.
 				const produced =
-					entries > previousEntries ? hasChildProgress(getNewEntries(sessionFile, previousEntries)) : false;
+					entries > previousEntries
+						? hasChildProgress(getNewEntries(sessionFile, previousEntries))
+						: false;
 				observeSubagentProgress(running, stat.size, now, produced);
 				running.entries = entries;
 			}
@@ -219,7 +234,10 @@ async function watchInteractiveGeneration(
 		const wrapUp = checkSubagentTimeoutWrapUp(running, now);
 		if (wrapUp && !running.timeoutWrapUpMode && !hasSubagentExitSidecar(running.sessionFile)) {
 			running.timeoutWrapUp = wrapUp;
-			const baseline = wrapUp.kind === "timeout" ? running.startTime : (running.lastProgressAt ?? running.startTime);
+			const baseline =
+				wrapUp.kind === "timeout"
+					? running.startTime
+					: (running.lastProgressAt ?? running.startTime);
 			running.timeoutWrapUpDeadlineAt = baseline + wrapUp.seconds * 1000;
 			void closeTimedOutSurface(running, runtime, false);
 		}
@@ -267,7 +285,8 @@ async function watchInteractiveGeneration(
 			sessionFile,
 			pollResult,
 		});
-		const exitSignal = pollResult.outputTokens === undefined ? consumeSubagentExitSignal(sessionFile) : undefined;
+		const exitSignal =
+			pollResult.outputTokens === undefined ? consumeSubagentExitSignal(sessionFile) : undefined;
 		if (
 			running.timeoutWrapUp &&
 			!running.timeoutWrapUpMode &&
@@ -285,7 +304,10 @@ async function watchInteractiveGeneration(
 		const elapsed = Math.floor((Date.now() - startTime) / 1000);
 		const { summary, summarySource } = getSummary(running, pollResult);
 		const errorMessage = pollResult.reason === "error" ? pollResult.errorMessage : undefined;
-		const finalContextUsage = resolveFinalContextUsage(running, pickFinalUsageSource(pollResult, exitSignal));
+		const finalContextUsage = resolveFinalContextUsage(
+			running,
+			pickFinalUsageSource(pollResult, exitSignal),
+		);
 		const timeoutFields = recordTimeoutOutcome(running, pollResult);
 		cleanupDoneSentinel(running);
 		try {
@@ -324,7 +346,12 @@ async function watchInteractiveGeneration(
 		try {
 			await runtime.closeRunningSurface(running);
 		} catch {}
-		if (running.timeoutWrapUp && !running.timeoutWrapUpMode && !running.timeoutExpiry && !signal.aborted) {
+		if (
+			running.timeoutWrapUp &&
+			!running.timeoutWrapUpMode &&
+			!running.timeoutExpiry &&
+			!signal.aborted
+		) {
 			return { kind: "restart" };
 		}
 
@@ -392,8 +419,13 @@ function getSummary(
 	running: RunningSubagent,
 	pollResult: PollResult,
 ): { summary: string; summarySource: SubagentSummarySource } {
-	if ((!running.noSession || running.timeoutWarnThreshold !== undefined) && existsSync(running.sessionFile)) {
-		const output = findLastSubagentOutputWithSource(getNewEntries(running.sessionFile, running.launchEntryCount ?? 0));
+	if (
+		(!running.noSession || running.timeoutWarnThreshold !== undefined) &&
+		existsSync(running.sessionFile)
+	) {
+		const output = findLastSubagentOutputWithSource(
+			getNewEntries(running.sessionFile, running.launchEntryCount ?? 0),
+		);
 		if (output) return output;
 	}
 	return {

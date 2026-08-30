@@ -113,7 +113,11 @@ describe("auto-exit persistence (no headless override leakage)", () => {
 		assert.equal(resumedAutoExit, false, "resume should honor auto-exit: false");
 
 		// Verify model params are also preserved
-		assert.equal(metadata!.modelRef, "zai-messages/glm-5-turbo:low", "modelRef with thinking should be preserved");
+		assert.equal(
+			metadata!.modelRef,
+			"zai-messages/glm-5-turbo:low",
+			"modelRef with thinking should be preserved",
+		);
 	});
 
 	it("handles missing auto-exit field gracefully (no agent default)", async () => {
@@ -153,7 +157,11 @@ describe("auto-exit persistence (no headless override leakage)", () => {
 		const metadata = readSubagentLaunchMetadataForTest(sessionFile);
 		assert.ok(metadata, "metadata should be readable even without autoExit");
 		// autoExit should be undefined when not set
-		assert.equal(metadata!.autoExit, undefined, "autoExit should be undefined when not in metadata");
+		assert.equal(
+			metadata!.autoExit,
+			undefined,
+			"autoExit should be undefined when not in metadata",
+		);
 	});
 
 	it("round-trips auto-exit: true correctly", async () => {

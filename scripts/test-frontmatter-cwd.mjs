@@ -130,7 +130,9 @@ try {
 		// Session header cwd might be the agent config base, not the effective cwd.
 		// The effective cwd is set via `cd` in the interactive path or `cwd` in spawn.
 		// We already verified via file marker, so this is informational.
-		console.log(`child session cwd field: "${childHeader.cwd}" (effective cwd was verified via file marker)`);
+		console.log(
+			`child session cwd field: "${childHeader.cwd}" (effective cwd was verified via file marker)`,
+		);
 	}
 
 	verified = true;

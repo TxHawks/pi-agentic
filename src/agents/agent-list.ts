@@ -74,9 +74,13 @@ export function getAgentListEntries(
 			...(agent.spawnWidth !== undefined ? { spawnWidth: agent.spawnWidth } : {}),
 			...(agent.timeout !== undefined ? { timeout: agent.timeout } : {}),
 			...(agent.idleTimeout !== undefined ? { idleTimeout: agent.idleTimeout } : {}),
-			...(agent.contextWarnThreshold !== undefined ? { contextWarnThreshold: agent.contextWarnThreshold } : {}),
+			...(agent.contextWarnThreshold !== undefined
+				? { contextWarnThreshold: agent.contextWarnThreshold }
+				: {}),
 			...(agent.contextWarnStep !== undefined ? { contextWarnStep: agent.contextWarnStep } : {}),
-			...(agent.reportContextUsage !== undefined ? { reportContextUsage: agent.reportContextUsage } : {}),
+			...(agent.reportContextUsage !== undefined
+				? { reportContextUsage: agent.reportContextUsage }
+				: {}),
 			visibleTo: agent.visibleTo ?? ["all"],
 		}));
 }
@@ -93,7 +97,9 @@ function getContext(entry: AgentListEntry): "fresh_chat_needs_full_brief" | "cop
 	return entry.sessionMode === "fork" ? "copy_of_this_chat" : "fresh_chat_needs_full_brief";
 }
 
-function getCompletion(entry: AgentListEntry): "exits_automatically" | "human_or_agent_must_finish" {
+function getCompletion(
+	entry: AgentListEntry,
+): "exits_automatically" | "human_or_agent_must_finish" {
 	if (entry.autoExit === true) return "exits_automatically";
 	if (entry.autoExit === false) return "human_or_agent_must_finish";
 	// Undefined `auto-exit` resolves to manual lifecycle at launch: interactive
@@ -119,7 +125,8 @@ function renderModelsLine(entry: AgentListEntry): string | undefined {
 }
 
 function renderSpawningLines(entry: AgentListEntry): string[] {
-	if (entry.spawning === false || (Array.isArray(entry.spawning) && entry.spawning.length === 0)) return [];
+	if (entry.spawning === false || (Array.isArray(entry.spawning) && entry.spawning.length === 0))
+		return [];
 	return [
 		`  spawning: ${entry.spawning === true ? "true" : entry.spawning.join(", ")}`,
 		...(entry.spawnDepth !== undefined ? [`  spawn-depth: ${entry.spawnDepth}`] : []),
@@ -145,7 +152,9 @@ function renderLimitLines(entry: AgentListEntry): string[] {
 	const contextWarnPercent = getContextWarnPercent(entry);
 	return [
 		entry.timeout !== undefined ? `  timeout: ${formatTimeoutSeconds(entry.timeout)}` : undefined,
-		entry.idleTimeout !== undefined ? `  idle-timeout: ${formatTimeoutSeconds(entry.idleTimeout)}` : undefined,
+		entry.idleTimeout !== undefined
+			? `  idle-timeout: ${formatTimeoutSeconds(entry.idleTimeout)}`
+			: undefined,
 		contextWarnPercent !== undefined ? `  context-warn: ${contextWarnPercent}%` : undefined,
 		entry.reportContextUsage === false ? "  report-context-usage: false" : undefined,
 	].filter((line): line is string => line !== undefined);
@@ -156,7 +165,9 @@ export function renderAgentListReminder(entries: AgentListEntry[]): string {
 		(entry) => buildModelRef(entry.model, entry.thinking) || entry.allowModelOverride !== false,
 	);
 	const hasIdleTimeout = entries.some((entry) => entry.idleTimeout !== undefined);
-	const hasTimeLimits = entries.some((entry) => entry.timeout !== undefined || entry.idleTimeout !== undefined);
+	const hasTimeLimits = entries.some(
+		(entry) => entry.timeout !== undefined || entry.idleTimeout !== undefined,
+	);
 	const hasContextWarn = entries.some((entry) => getContextWarnPercent(entry) !== undefined);
 	const hasForkedContextWarn = entries.some(
 		(entry) => entry.sessionMode === "fork" && getContextWarnPercent(entry) !== undefined,
@@ -245,7 +256,10 @@ export function getAgentListSignature(entries: AgentListEntry[]): string {
 			spawnWidth: entry.spawnWidth,
 			timeout: entry.timeout,
 			idleTimeout: entry.idleTimeout,
-			contextWarn: entry.contextWarnThreshold !== undefined ? (getContextWarnPercent(entry) ?? null) : undefined,
+			contextWarn:
+				entry.contextWarnThreshold !== undefined
+					? (getContextWarnPercent(entry) ?? null)
+					: undefined,
 			reportContextUsage: entry.reportContextUsage,
 			visibleTo: entry.visibleTo,
 		})),

@@ -113,7 +113,10 @@ describe("ambient agents and runtime paths", () => {
 	});
 
 	it("rejects missing or unknown named agents", () => {
-		const missing = getSubagentAgentRequirementErrorForTest({ name: "No agent", task: "Work" }, null);
+		const missing = getSubagentAgentRequirementErrorForTest(
+			{ name: "No agent", task: "Work" },
+			null,
+		);
 		assert.equal(missing?.details.error, "agent_required");
 
 		const unknown = getSubagentAgentRequirementErrorForTest(
@@ -157,7 +160,10 @@ describe("ambient agents and runtime paths", () => {
 		};
 
 		assert.equal(
-			getSubagentAgentOverrideErrorForTest({ agent: "reviewer", background: true, blocking: false }, defs),
+			getSubagentAgentOverrideErrorForTest(
+				{ agent: "reviewer", background: true, blocking: false },
+				defs,
+			),
 			null,
 		);
 	});
@@ -172,7 +178,10 @@ describe("ambient agents and runtime paths", () => {
 
 		assert.equal(resolveEffectiveSessionModeForTest({ agent: "reviewer" }, defs), "lineage-only");
 		assert.equal(
-			resolveEffectiveSessionModeForTest({ agent: "reviewer" }, { ...defs, sessionMode: "fork" as const }),
+			resolveEffectiveSessionModeForTest(
+				{ agent: "reviewer" },
+				{ ...defs, sessionMode: "fork" as const },
+			),
 			"fork",
 		);
 		assert.equal(
@@ -237,7 +246,8 @@ describe("ambient agents and runtime paths", () => {
 
 			const tool = tools.get("subagent");
 			assert.ok(tool);
-			const executeWithoutAmbientSpawnGrant = (...args: any[]) => withoutAmbientSpawnGrant(() => tool.execute(...args));
+			const executeWithoutAmbientSpawnGrant = (...args: any[]) =>
+				withoutAmbientSpawnGrant(() => tool.execute(...args));
 			await assert.rejects(
 				() =>
 					executeWithoutAmbientSpawnGrant(
@@ -276,7 +286,10 @@ describe("ambient agents and runtime paths", () => {
 			resolveSubagentCwdForTest("roles/tester", "/tmp/custom-agent-root"),
 			"/tmp/custom-agent-root/roles/tester",
 		);
-		assert.equal(resolveSubagentCwdForTest("/tmp/already-absolute", "/tmp/base"), "/tmp/already-absolute");
+		assert.equal(
+			resolveSubagentCwdForTest("/tmp/already-absolute", "/tmp/base"),
+			"/tmp/already-absolute",
+		);
 	});
 
 	it("prefers a target project's .pi/agent dir for subagent config isolation", () => {
@@ -297,14 +310,23 @@ describe("ambient agents and runtime paths", () => {
 		mkdirSync(localAgentDir, { recursive: true });
 
 		const parentSessionDir = join(dir, "parent-sessions");
-		const paths = resolveSubagentRuntimePathsForTest({ cwd: "packages/worker" }, null, dir, parentSessionDir);
+		const paths = resolveSubagentRuntimePathsForTest(
+			{ cwd: "packages/worker" },
+			null,
+			dir,
+			parentSessionDir,
+		);
 		assert.equal(paths.effectiveCwd, target);
 		assert.equal(paths.localAgentConfigDir, localAgentDir);
 		assert.equal(paths.effectiveAgentConfigDir, localAgentDir);
 		assert.equal(paths.targetCwdForSession, target);
 		assert.equal(
 			paths.sessionDir,
-			join(localAgentDir, "sessions", `--${target.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`),
+			join(
+				localAgentDir,
+				"sessions",
+				`--${target.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`,
+			),
 		);
 	});
 
@@ -317,7 +339,12 @@ describe("ambient agents and runtime paths", () => {
 
 		try {
 			const parentSessionDir = join(dir, "parent-sessions");
-			const paths = resolveSubagentRuntimePathsForTest({ cwd: "missing-child" }, null, dir, parentSessionDir);
+			const paths = resolveSubagentRuntimePathsForTest(
+				{ cwd: "missing-child" },
+				null,
+				dir,
+				parentSessionDir,
+			);
 			assert.equal(paths.localAgentConfigDir, null);
 			assert.equal(paths.effectiveAgentConfigDir, globalAgentDir);
 			assert.equal(paths.targetCwdForSession, join(dir, "missing-child"));
@@ -338,7 +365,11 @@ describe("ambient agents and runtime paths", () => {
 		});
 
 		assert.equal(readFileSync(artifactPath, "utf8"), systemPrompt);
-		assert.ok(artifactPath.startsWith(join(getSessionArtifactDir(dir, sessionId), "context", "spec-agent-sysprompt-")));
+		assert.ok(
+			artifactPath.startsWith(
+				join(getSessionArtifactDir(dir, sessionId), "context", "spec-agent-sysprompt-"),
+			),
+		);
 		assert.match(artifactPath, /\.md$/);
 	});
 
@@ -412,7 +443,10 @@ describe("ambient agents and runtime paths", () => {
 			"this-name-is-way-too-long-for-a-subagent-handle",
 			" scout-auth",
 		]) {
-			assert.match(getSubagentNameErrorForTest(name) ?? "", /Error: subagent name|Error: name is required/);
+			assert.match(
+				getSubagentNameErrorForTest(name) ?? "",
+				/Error: subagent name|Error: name is required/,
+			);
 		}
 	});
 
@@ -478,7 +512,10 @@ describe("ambient agents and runtime paths", () => {
 		const dir = createTestDir();
 		const parent = join(dir, "parent.jsonl");
 		const child = join(dir, "child.jsonl");
-		writeFileSync(parent, `${[SESSION_HEADER, MODEL_CHANGE].map((entry) => JSON.stringify(entry)).join("\n")}\n`);
+		writeFileSync(
+			parent,
+			`${[SESSION_HEADER, MODEL_CHANGE].map((entry) => JSON.stringify(entry)).join("\n")}\n`,
+		);
 
 		seedSubagentSessionFileForTest("fork", parent, child, dir, {
 			sessionName: "[reviewer] Gilfoyle-level review of all changes",
@@ -493,7 +530,10 @@ describe("ambient agents and runtime paths", () => {
 		const dir = createTestDir();
 		const parent = join(dir, "parent.jsonl");
 		const child = join(dir, "child.jsonl");
-		writeFileSync(parent, `${[SESSION_HEADER, MODEL_CHANGE].map((entry) => JSON.stringify(entry)).join("\n")}\n`);
+		writeFileSync(
+			parent,
+			`${[SESSION_HEADER, MODEL_CHANGE].map((entry) => JSON.stringify(entry)).join("\n")}\n`,
+		);
 
 		// No context window provided — should succeed and produce a valid child session.
 		seedSubagentSessionFileForTest("fork", parent, child, dir);

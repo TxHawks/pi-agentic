@@ -120,7 +120,10 @@ describe("subagent-done.ts", () => {
 				h.ctx,
 			);
 		}
-		function beginOverflowCompaction(h: ReturnType<typeof loadRecoveryChild>, signal = new AbortController().signal) {
+		function beginOverflowCompaction(
+			h: ReturnType<typeof loadRecoveryChild>,
+			signal = new AbortController().signal,
+		) {
 			h.handlers.get("session_before_compact")?.({
 				type: "session_before_compact",
 				reason: "overflow",
@@ -286,7 +289,10 @@ describe("subagent-done.ts", () => {
 			mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
 			const h = loadRecoveryChild();
 			try {
-				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "tooluse" }] }, h.ctx);
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "tooluse" }] },
+					h.ctx,
+				);
 
 				assert.deepEqual(h.sentMessages, ["continue"]);
 				assert.deepEqual(h.sentMessageOptions, [{ deliverAs: "steer" }]);
@@ -329,7 +335,10 @@ describe("subagent-done.ts", () => {
 					},
 					isError: false,
 				});
-				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
+					h.ctx,
+				);
 				mock.timers.tick(0);
 
 				assert.deepEqual(h.sentMessages, []);
@@ -356,7 +365,10 @@ describe("subagent-done.ts", () => {
 					},
 					isError: false,
 				});
-				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
+					h.ctx,
+				);
 				mock.timers.tick(0);
 
 				assert.deepEqual(h.sentMessages, []);
@@ -380,7 +392,10 @@ describe("subagent-done.ts", () => {
 					result: { content: [{ type: "text", text: "resumed" }], terminate: true },
 					isError: false,
 				});
-				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
+					h.ctx,
+				);
 				mock.timers.tick(0);
 
 				assert.equal(h.shutdowns, 0);
@@ -403,11 +418,18 @@ describe("subagent-done.ts", () => {
 					result: { content: [{ type: "text", text: "started" }], terminate: true },
 					isError: false,
 				});
-				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
+					h.ctx,
+				);
 
 				h.handlers.get("turn_start")?.({ type: "turn_start", turnIndex: 1 });
 				h.handlers.get("agent_end")?.(
-					{ messages: [{ role: "assistant", stopReason: "stop", content: [{ type: "text", text: "final" }] }] },
+					{
+						messages: [
+							{ role: "assistant", stopReason: "stop", content: [{ type: "text", text: "final" }] },
+						],
+					},
 					h.ctx,
 				);
 				mock.timers.tick(0);
@@ -432,7 +454,10 @@ describe("subagent-done.ts", () => {
 					result: { content: [{ type: "text", text: "started" }], terminate: true },
 					isError: false,
 				});
-				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
+					h.ctx,
+				);
 
 				h.handlers.get("turn_start")?.({ type: "turn_start", turnIndex: 1 });
 				h.handlers.get("tool_execution_end")?.({
@@ -442,7 +467,10 @@ describe("subagent-done.ts", () => {
 					result: { content: [{ type: "text", text: "done" }], terminate: true },
 					isError: false,
 				});
-				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
+					h.ctx,
+				);
 				mock.timers.tick(0);
 
 				assert.equal(h.shutdowns, 1);
@@ -472,7 +500,10 @@ describe("subagent-done.ts", () => {
 					result: { content: [{ type: "text", text: "done" }] },
 					isError: false,
 				});
-				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
+					h.ctx,
+				);
 
 				assert.deepEqual(h.sentMessages, ["continue"]);
 				assert.equal(h.shutdowns, 0);
@@ -491,7 +522,15 @@ describe("subagent-done.ts", () => {
 
 				h.handlers.get("turn_start")?.({ type: "turn_start", turnIndex: 1 });
 				h.handlers.get("agent_end")?.(
-					{ messages: [{ role: "assistant", stopReason: "stop", content: [{ type: "text", text: "first result" }] }] },
+					{
+						messages: [
+							{
+								role: "assistant",
+								stopReason: "stop",
+								content: [{ type: "text", text: "first result" }],
+							},
+						],
+					},
 					h.ctx,
 				);
 				mock.timers.tick(0);
@@ -518,7 +557,15 @@ describe("subagent-done.ts", () => {
 				h.handlers.get("agent_start")?.({ type: "agent_start" });
 				h.handlers.get("turn_start")?.({ type: "turn_start", turnIndex: 1 });
 				h.handlers.get("agent_end")?.(
-					{ messages: [{ role: "assistant", stopReason: "stop", content: [{ type: "text", text: "first child" }] }] },
+					{
+						messages: [
+							{
+								role: "assistant",
+								stopReason: "stop",
+								content: [{ type: "text", text: "first child" }],
+							},
+						],
+					},
 					h.ctx,
 				);
 				mock.timers.tick(0);
@@ -530,7 +577,15 @@ describe("subagent-done.ts", () => {
 				h.handlers.get("agent_start")?.({ type: "agent_start" });
 				h.handlers.get("turn_start")?.({ type: "turn_start", turnIndex: 2 });
 				h.handlers.get("agent_end")?.(
-					{ messages: [{ role: "assistant", stopReason: "stop", content: [{ type: "text", text: "last child" }] }] },
+					{
+						messages: [
+							{
+								role: "assistant",
+								stopReason: "stop",
+								content: [{ type: "text", text: "last child" }],
+							},
+						],
+					},
 					h.ctx,
 				);
 				mock.timers.tick(0);
@@ -548,7 +603,10 @@ describe("subagent-done.ts", () => {
 			const h = loadRecoveryChild();
 			try {
 				for (let attempt = 0; attempt < 3; attempt++) {
-					h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+					h.handlers.get("agent_end")?.(
+						{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
+						h.ctx,
+					);
 				}
 				mock.timers.tick(0);
 
@@ -569,7 +627,10 @@ describe("subagent-done.ts", () => {
 			const h = loadRecoveryChild();
 			try {
 				for (let attempt = 0; attempt < 2; attempt++) {
-					h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+					h.handlers.get("agent_end")?.(
+						{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
+						h.ctx,
+					);
 					h.handlers.get("agent_end")?.(
 						{
 							messages: [
@@ -585,7 +646,10 @@ describe("subagent-done.ts", () => {
 					mock.timers.tick(10_000);
 				}
 
-				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
+					h.ctx,
+				);
 				mock.timers.tick(0);
 
 				assert.equal(h.shutdowns, 1);

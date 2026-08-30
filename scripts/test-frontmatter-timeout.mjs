@@ -82,17 +82,29 @@ try {
 	if (!killedDetails) throw new Error("Could not find the subagent result for fm-timeout-child.");
 
 	if (killedDetails.timedOut !== "timeout") {
-		throw new Error(`Expected details.timedOut === "timeout", got ${JSON.stringify(killedDetails.timedOut)}.`);
+		throw new Error(
+			`Expected details.timedOut === "timeout", got ${JSON.stringify(killedDetails.timedOut)}.`,
+		);
 	}
 	if (killedDetails.timedOutAfter !== 15) {
-		throw new Error(`Expected details.timedOutAfter === 15, got ${JSON.stringify(killedDetails.timedOutAfter)}.`);
+		throw new Error(
+			`Expected details.timedOutAfter === 15, got ${JSON.stringify(killedDetails.timedOutAfter)}.`,
+		);
 	}
-	if (typeof killedDetails.elapsed !== "number" || killedDetails.elapsed < 14 || killedDetails.elapsed > 60) {
+	if (
+		typeof killedDetails.elapsed !== "number" ||
+		killedDetails.elapsed < 14 ||
+		killedDetails.elapsed > 60
+	) {
 		throw new Error(`Child elapsed ${killedDetails.elapsed}s is not consistent with a 15s budget.`);
 	}
 
 	const killedText = getAllSubagentText(parent.events);
-	if (!/ran out of time, so the system stopped it after .*limit of 15s for the whole run/s.test(killedText)) {
+	if (
+		!/ran out of time, so the system stopped it after .*limit of 15s for the whole run/s.test(
+			killedText,
+		)
+	) {
 		console.log(`Parent-visible text: ${JSON.stringify(killedText)}`);
 		throw new Error("Parent was not told the child was stopped on its time limit.");
 	}
@@ -112,7 +124,9 @@ try {
 	}
 	const verdict = readTimeoutSidecar(killedDetails.sessionFile);
 	if (verdict?.kind !== "timeout") {
-		throw new Error(`Expected a timeout verdict beside the child session, got ${JSON.stringify(verdict)}.`);
+		throw new Error(
+			`Expected a timeout verdict beside the child session, got ${JSON.stringify(verdict)}.`,
+		);
 	}
 	if (verdict.blocksResume !== false) {
 		throw new Error("Default on-timeout policy must record blocksResume: false.");
@@ -122,11 +136,14 @@ try {
 		(event) => event.type === "custom" && event.customType === "pi-subagents_launch_metadata",
 	);
 	if (metadata?.data?.timeout !== 15) {
-		throw new Error(`Expected timeout: 15 persisted in launch metadata, got ${JSON.stringify(metadata?.data)}.`);
+		throw new Error(
+			`Expected timeout: 15 persisted in launch metadata, got ${JSON.stringify(metadata?.data)}.`,
+		);
 	}
 
 	const freeDetails = findSubagentChild(parent.events, "fm-timeout-free-child");
-	if (!freeDetails) throw new Error("Could not find the subagent result for fm-timeout-free-child.");
+	if (!freeDetails)
+		throw new Error("Could not find the subagent result for fm-timeout-free-child.");
 	if (freeDetails.status !== "completed") {
 		throw new Error(`Unbounded control child should complete, got ${freeDetails.status}.`);
 	}

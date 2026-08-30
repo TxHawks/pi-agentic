@@ -133,7 +133,8 @@ function parseAgentDefinition(
 		enabled: enabledRaw != null ? enabledRaw === "true" : undefined,
 		model: get("model"),
 		allowedModels: get("allowed-models"),
-		allowModelOverride: allowModelOverrideRaw != null ? allowModelOverrideRaw === "true" : undefined,
+		allowModelOverride:
+			allowModelOverrideRaw != null ? allowModelOverrideRaw === "true" : undefined,
 		tools: get("tools"),
 		skills: get("skills"),
 		injectSkills: injectSkillsRaw,
@@ -145,12 +146,15 @@ function parseAgentDefinition(
 		...(spawnWidth !== undefined ? { spawnWidth } : {}),
 		visibleTo,
 		autoExit: autoExitRaw != null ? autoExitRaw === "true" : undefined,
-		systemPromptMode: systemPromptRaw === "append" || systemPromptRaw === "replace" ? systemPromptRaw : undefined,
+		systemPromptMode:
+			systemPromptRaw === "append" || systemPromptRaw === "replace" ? systemPromptRaw : undefined,
 		cwd: get("cwd"),
 		cwdBase,
 		body: body || undefined,
 		sessionMode:
-			sessionModeRaw === "standalone" || sessionModeRaw === "lineage-only" || sessionModeRaw === "fork"
+			sessionModeRaw === "standalone" ||
+			sessionModeRaw === "lineage-only" ||
+			sessionModeRaw === "fork"
 				? sessionModeRaw
 				: undefined,
 		async: asyncRaw != null ? asyncRaw === "true" : undefined,
@@ -166,12 +170,15 @@ function parseAgentDefinition(
 		onTimeout,
 		contextWarnThreshold: contextWarnThresholdRaw,
 		contextWarnStep: contextWarnStepRaw,
-		reportContextUsage: reportContextUsageRaw != null ? reportContextUsageRaw === "true" : undefined,
+		reportContextUsage:
+			reportContextUsageRaw != null ? reportContextUsageRaw === "true" : undefined,
 
 		flags: flagsRaw,
 		env: getBlock("env"),
 		parentClosePolicy:
-			parentClosePolicyRaw === "terminate" || parentClosePolicyRaw === "continue" ? parentClosePolicyRaw : undefined,
+			parentClosePolicyRaw === "terminate" || parentClosePolicyRaw === "continue"
+				? parentClosePolicyRaw
+				: undefined,
 	};
 }
 
@@ -190,15 +197,26 @@ function parseSpawning(raw: string | undefined): true | string[] | false {
 	const names = parseCommaSeparated(raw);
 	for (const name of names) {
 		if (RESERVED_SPAWNING_NAMES.has(name)) {
-			throw new Error(`Invalid spawning value: reserved agent name "${name}" cannot appear in a spawn list.`);
+			throw new Error(
+				`Invalid spawning value: reserved agent name "${name}" cannot appear in a spawn list.`,
+			);
 		}
 	}
 	return names;
 }
 
-function parsePositiveInteger(key: string, raw: string | undefined, present: boolean): number | undefined {
+function parsePositiveInteger(
+	key: string,
+	raw: string | undefined,
+	present: boolean,
+): number | undefined {
 	if (!present) return undefined;
-	if (raw === undefined || !/^\d+$/.test(raw) || !Number.isSafeInteger(Number(raw)) || Number(raw) <= 0) {
+	if (
+		raw === undefined ||
+		!/^\d+$/.test(raw) ||
+		!Number.isSafeInteger(Number(raw)) ||
+		Number(raw) <= 0
+	) {
 		throw new Error(`${key} must be a positive safe integer greater than 0.`);
 	}
 	return Number(raw);
@@ -218,7 +236,9 @@ function parseOnTimeout(
 ): "report" | "block-resume" | undefined {
 	if (!present) return undefined;
 	if (raw === "report" || raw === "block-resume") return raw;
-	throw new Error(`on-timeout must be "report" or "block-resume" (got ${JSON.stringify(raw ?? "")}) in ${path}.`);
+	throw new Error(
+		`on-timeout must be "report" or "block-resume" (got ${JSON.stringify(raw ?? "")}) in ${path}.`,
+	);
 }
 
 function parseVisibleTo(raw: string | undefined): string[] {
@@ -267,5 +287,7 @@ export function loadAgentDefaults(
 	resolveAgentCwd: ResolveAgentCwd,
 ): AgentDefaults | null {
 	const resolvedBaseCwd = resolveAgentCwd(cwdHint ?? null, baseCwd);
-	return getEffectiveAgentDefinitions(resolvedBaseCwd).find((agent) => agent.name === agentName) ?? null;
+	return (
+		getEffectiveAgentDefinitions(resolvedBaseCwd).find((agent) => agent.name === agentName) ?? null
+	);
 }

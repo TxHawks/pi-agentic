@@ -36,7 +36,9 @@ function parseEntryLine(sessionFile: string, line: string, lineNumber: number): 
 }
 
 export function getEntries(sessionFile: string): SessionEntry[] {
-	return getNonEmptyLines(sessionFile).map((line, index) => parseEntryLine(sessionFile, line, index + 1));
+	return getNonEmptyLines(sessionFile).map((line, index) =>
+		parseEntryLine(sessionFile, line, index + 1),
+	);
 }
 
 export function getLeafId(sessionFile: string): string | null {
@@ -56,7 +58,10 @@ export function getNewEntries(sessionFile: string, afterLine: number): SessionEn
 
 function getTextContent(msg: MessageEntry): string | null {
 	const texts = msg.message.content
-		.filter((block) => block.type === "text" && typeof block.text === "string" && block.text.trim() !== "")
+		.filter(
+			(block) =>
+				block.type === "text" && typeof block.text === "string" && block.text.trim() !== "",
+		)
 		.map((block) => block.text as string);
 
 	return texts.length > 0 && texts.join("").trim() ? texts.join("\n") : null;
@@ -105,7 +110,9 @@ export interface AssistantContextSnapshot {
 	model?: string;
 }
 
-export function findLatestAssistantContextSnapshot(entries: SessionEntry[]): AssistantContextSnapshot | undefined {
+export function findLatestAssistantContextSnapshot(
+	entries: SessionEntry[],
+): AssistantContextSnapshot | undefined {
 	for (let index = entries.length - 1; index >= 0; index--) {
 		const entry = entries[index];
 		if (entry.type !== "message") continue;
@@ -209,7 +216,11 @@ export function copySessionFile(sessionFile: string, destDir: string): string {
 	return dest;
 }
 
-export function mergeNewEntries(sourceFile: string, targetFile: string, afterLine: number): SessionEntry[] {
+export function mergeNewEntries(
+	sourceFile: string,
+	targetFile: string,
+	afterLine: number,
+): SessionEntry[] {
 	const entries = getNewEntries(sourceFile, afterLine);
 	for (const entry of entries) {
 		appendFileSync(targetFile, `${JSON.stringify(entry)}\n`, "utf8");

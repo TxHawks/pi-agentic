@@ -78,9 +78,12 @@ function runHerdrJson(operation, args, options = {}) {
 	const parsed = parseHerdrJson(operation, output);
 	if (parsed && typeof parsed === "object" && "error" in parsed) {
 		const error = parsed.error;
-		const code = error && typeof error === "object" && typeof error.code === "string" ? error.code : "unknown";
+		const code =
+			error && typeof error === "object" && typeof error.code === "string" ? error.code : "unknown";
 		const message =
-			error && typeof error === "object" && typeof error.message === "string" ? error.message : trimForError(output);
+			error && typeof error === "object" && typeof error.message === "string"
+				? error.message
+				: trimForError(output);
 		throw new Error(`herdr ${operation} failed: ${code}: ${message}`);
 	}
 	return parsed;
@@ -88,7 +91,12 @@ function runHerdrJson(operation, args, options = {}) {
 
 function herdrResult(operation, args) {
 	const envelope = runHerdrJson(operation, args);
-	if (!envelope || typeof envelope !== "object" || !envelope.result || typeof envelope.result !== "object") {
+	if (
+		!envelope ||
+		typeof envelope !== "object" ||
+		!envelope.result ||
+		typeof envelope.result !== "object"
+	) {
 		throw new Error(`herdr ${operation} returned malformed API envelope`);
 	}
 	return envelope.result;
@@ -149,7 +157,9 @@ function requireCompatibleHerdrServer() {
 function copyUserConfig(configDir) {
 	const envConfigDir = process.env.PI_CODING_AGENT_DIR;
 	const sourceConfigDir =
-		envConfigDir && existsSync(join(envConfigDir, "auth.json")) ? envConfigDir : join(homedir(), ".pi", "agent");
+		envConfigDir && existsSync(join(envConfigDir, "auth.json"))
+			? envConfigDir
+			: join(homedir(), ".pi", "agent");
 
 	for (const name of ["auth.json", "settings.json", "models.json", "mcp.json"]) {
 		const source = join(sourceConfigDir, name);
@@ -219,13 +229,18 @@ function getLaunchMetadata(events) {
 function hasAssistantToolCall(events, toolName) {
 	return events.some((event) => {
 		if (event.type !== "message" || event.message?.role !== "assistant") return false;
-		return (event.message.content ?? []).some((part) => part.type === "toolCall" && part.name === toolName);
+		return (event.message.content ?? []).some(
+			(part) => part.type === "toolCall" && part.name === toolName,
+		);
 	});
 }
 
 function hasToolResult(events, toolName) {
 	return events.some(
-		(event) => event.type === "message" && event.message?.role === "toolResult" && event.message.toolName === toolName,
+		(event) =>
+			event.type === "message" &&
+			event.message?.role === "toolResult" &&
+			event.message.toolName === toolName,
 	);
 }
 
@@ -259,7 +274,9 @@ function findObservedChildPane(scenario, parentPaneId) {
 }
 
 function isChildPaneOpen(scenario, childPaneId) {
-	return listPanes().some((pane) => pane?.pane_id === childPaneId || childPaneMatches(scenario, pane));
+	return listPanes().some(
+		(pane) => pane?.pane_id === childPaneId || childPaneMatches(scenario, pane),
+	);
 }
 
 function findChildSession(sessionDir, scenario) {
@@ -285,14 +302,26 @@ async function waitForManualInteractiveChildReady(ctx, scenario, childPaneId) {
 	}
 	await sleep(2000);
 	if (!isChildPaneOpen(scenario, childPaneId)) {
-		throw new Error(`Manual interactive child ${scenario.childName} auto-closed instead of waiting for the operator`);
+		throw new Error(
+			`Manual interactive child ${scenario.childName} auto-closed instead of waiting for the operator`,
+		);
 	}
 	return true;
 }
 
 function getParentScreen(parentPaneId) {
 	try {
-		return runHerdrRaw(["pane", "read", parentPaneId, "--source", "recent", "--lines", "100", "--format", "text"]);
+		return runHerdrRaw([
+			"pane",
+			"read",
+			parentPaneId,
+			"--source",
+			"recent",
+			"--lines",
+			"100",
+			"--format",
+			"text",
+		]);
 	} catch (error) {
 		return error instanceof Error ? error.message : String(error);
 	}
@@ -340,7 +369,9 @@ async function submitParentPromptUntilAssistant(ctx, scenario, parentPaneId) {
 			if (hasAssistantTurn) return;
 		}
 	}
-	throw new Error(`Parent never produced an assistant turn after submitting the prompt for ${scenario.name}`);
+	throw new Error(
+		`Parent never produced an assistant turn after submitting the prompt for ${scenario.name}`,
+	);
 }
 
 async function waitForScenarioOutcome(ctx, scenario, parentPaneId) {
@@ -514,7 +545,9 @@ function validateParentOutcome(scenario, toolResult) {
 	if (details.autoExit !== scenario.autoExit)
 		throw new Error(`Expected autoExit=${scenario.autoExit}, got ${details.autoExit ?? "missing"}`);
 	if (details.parentClosePolicy !== "terminate")
-		throw new Error(`Expected parentClosePolicy=terminate, got ${details.parentClosePolicy ?? "missing"}`);
+		throw new Error(
+			`Expected parentClosePolicy=terminate, got ${details.parentClosePolicy ?? "missing"}`,
+		);
 	if (details.name !== scenario.childName)
 		throw new Error(`Expected child name ${scenario.childName}, got ${details.name ?? "missing"}`);
 	if (!details.sessionFile || !existsSync(details.sessionFile))
@@ -528,22 +561,32 @@ function validateChildSession(ctx, scenario, childSessionFile) {
 	if (!metadata) throw new Error(`Child session ${childSessionFile} missing launch metadata`);
 
 	const expectedChildCwd = join(ctx.workDir, scenario.childWorkspaceName);
-	if (metadata.mode !== scenario.childMode) throw new Error(`Child metadata mode was ${metadata.mode ?? "missing"}`);
+	if (metadata.mode !== scenario.childMode)
+		throw new Error(`Child metadata mode was ${metadata.mode ?? "missing"}`);
 	if (metadata.autoExit !== scenario.autoExit)
 		throw new Error(`Child metadata autoExit was ${metadata.autoExit ?? "missing"}`);
-	if (metadata.async !== false) throw new Error(`Child metadata async was ${metadata.async ?? "missing"}`);
+	if (metadata.async !== false)
+		throw new Error(`Child metadata async was ${metadata.async ?? "missing"}`);
 	if (metadata.parentClosePolicy !== "terminate")
-		throw new Error(`Child metadata parentClosePolicy was ${metadata.parentClosePolicy ?? "missing"}`);
-	if (metadata.agent !== scenario.agentName) throw new Error(`Child metadata agent was ${metadata.agent ?? "missing"}`);
-	if (metadata.name !== scenario.childName) throw new Error(`Child metadata name was ${metadata.name ?? "missing"}`);
+		throw new Error(
+			`Child metadata parentClosePolicy was ${metadata.parentClosePolicy ?? "missing"}`,
+		);
+	if (metadata.agent !== scenario.agentName)
+		throw new Error(`Child metadata agent was ${metadata.agent ?? "missing"}`);
+	if (metadata.name !== scenario.childName)
+		throw new Error(`Child metadata name was ${metadata.name ?? "missing"}`);
 	if (metadata.cwd !== expectedChildCwd)
-		throw new Error(`Child metadata cwd ${metadata.cwd ?? "missing"} did not match ${expectedChildCwd}`);
+		throw new Error(
+			`Child metadata cwd ${metadata.cwd ?? "missing"} did not match ${expectedChildCwd}`,
+		);
 	if (metadata.env !== `LIVE_HERDR_CHILD_ENV=${scenario.name}-env`)
 		throw new Error(`Child metadata env was ${metadata.env ?? "missing"}`);
 	if (metadata.trustProject !== true)
 		throw new Error(`Child metadata trustProject was ${metadata.trustProject ?? "missing"}`);
 	if (!Array.isArray(metadata.denyTools) || !metadata.denyTools.includes("subagent")) {
-		throw new Error(`Child metadata did not preserve non-spawning deny tools: ${JSON.stringify(metadata.denyTools)}`);
+		throw new Error(
+			`Child metadata did not preserve non-spawning deny tools: ${JSON.stringify(metadata.denyTools)}`,
+		);
 	}
 	if (!getAssistantTexts(events).some((text) => text.includes(scenario.childDoneText))) {
 		throw new Error(`Child session ${childSessionFile} did not include ${scenario.childDoneText}`);
@@ -559,15 +602,20 @@ function validateChildSession(ctx, scenario, childSessionFile) {
 
 	const header = getSessionHeader(events);
 	if (header?.cwd !== expectedChildCwd)
-		throw new Error(`Child session cwd ${header?.cwd ?? "missing"} did not match ${expectedChildCwd}`);
+		throw new Error(
+			`Child session cwd ${header?.cwd ?? "missing"} did not match ${expectedChildCwd}`,
+		);
 	return { metadata, header };
 }
 
 async function validateChildProbe(scenario, expectedCwd) {
 	const probe = await waitForFile(scenario.probePath);
-	if (!probe.includes(`scenario=${scenario.name}`)) throw new Error(`Probe file missing scenario marker: ${probe}`);
-	if (!probe.includes(`cwd=${expectedCwd}`)) throw new Error(`Probe file missing cwd ${expectedCwd}: ${probe}`);
-	if (!probe.includes(`env=${scenario.name}-env`)) throw new Error(`Probe file missing env marker: ${probe}`);
+	if (!probe.includes(`scenario=${scenario.name}`))
+		throw new Error(`Probe file missing scenario marker: ${probe}`);
+	if (!probe.includes(`cwd=${expectedCwd}`))
+		throw new Error(`Probe file missing cwd ${expectedCwd}: ${probe}`);
+	if (!probe.includes(`env=${scenario.name}-env`))
+		throw new Error(`Probe file missing env marker: ${probe}`);
 }
 
 async function runScenario(ctx, scenario, liveModel) {
@@ -593,7 +641,9 @@ async function runScenario(ctx, scenario, liveModel) {
 		const parentPane = created.root_pane ?? created.pane;
 		const parentTab = created.tab;
 		if (!parentPane || typeof parentPane.pane_id !== "string") {
-			throw new Error(`herdr tab create did not return a parent root pane: ${JSON.stringify(created)}`);
+			throw new Error(
+				`herdr tab create did not return a parent root pane: ${JSON.stringify(created)}`,
+			);
 		}
 		if (!parentTab || typeof parentTab.tab_id !== "string") {
 			throw new Error(`herdr tab create did not return a parent tab: ${JSON.stringify(created)}`);
@@ -613,7 +663,9 @@ async function runScenario(ctx, scenario, liveModel) {
 		const outcome = await waitForScenarioOutcome(ctx, scenario, parentPaneId);
 		observedChildPaneId = outcome.observedChildPaneId;
 		if (scenario.expectChildPane && !observedChildPaneId) {
-			throw new Error(`Did not observe a Herdr child pane for ${scenario.childName} while ${scenario.name} ran`);
+			throw new Error(
+				`Did not observe a Herdr child pane for ${scenario.childName} while ${scenario.name} ran`,
+			);
 		}
 		if (!scenario.expectChildPane && observedChildPaneId) {
 			throw new Error(
@@ -621,7 +673,9 @@ async function runScenario(ctx, scenario, liveModel) {
 			);
 		}
 		if (scenario.operatorCloses && !outcome.operatorClosedChild) {
-			throw new Error(`Manual interactive scenario ${scenario.name} did not reach operator-close validation`);
+			throw new Error(
+				`Manual interactive scenario ${scenario.name} did not reach operator-close validation`,
+			);
 		}
 
 		const childSessionFile = validateParentOutcome(scenario, outcome.toolResult);
@@ -805,7 +859,10 @@ async function runOuter() {
 		);
 	} finally {
 		try {
-			sweepTabsByLabels([ctx.marker, ...ctx.scenarios.flatMap((scenario) => [scenario.agentName, scenario.childName])]);
+			sweepTabsByLabels([
+				ctx.marker,
+				...ctx.scenarios.flatMap((scenario) => [scenario.agentName, scenario.childName]),
+			]);
 		} catch {}
 		try {
 			execFileSync("pkill", ["-f", ctx.tmpRoot], { stdio: "ignore" });

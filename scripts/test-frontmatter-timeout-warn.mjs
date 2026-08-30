@@ -120,16 +120,24 @@ try {
 		throw new Error(`The wrap-up child should complete, got ${JSON.stringify(warnedDetails)}.`);
 	}
 	if (warnedDetails.timedOut !== undefined) {
-		throw new Error(`The wrap-up child reached the hard timeout: ${JSON.stringify(warnedDetails.timedOut)}.`);
+		throw new Error(
+			`The wrap-up child reached the hard timeout: ${JSON.stringify(warnedDetails.timedOut)}.`,
+		);
 	}
 	if (
 		warnedDetails.timeoutWrapUp?.kind !== "timeout" ||
 		warnedDetails.timeoutWrapUp?.seconds !== 60 ||
 		warnedDetails.timeoutWrapUp?.threshold !== 50
 	) {
-		throw new Error(`Missing enforced wrap-up details: ${JSON.stringify(warnedDetails.timeoutWrapUp)}.`);
+		throw new Error(
+			`Missing enforced wrap-up details: ${JSON.stringify(warnedDetails.timeoutWrapUp)}.`,
+		);
 	}
-	if (typeof warnedDetails.elapsed !== "number" || warnedDetails.elapsed < 29 || warnedDetails.elapsed >= 60) {
+	if (
+		typeof warnedDetails.elapsed !== "number" ||
+		warnedDetails.elapsed < 29 ||
+		warnedDetails.elapsed >= 60
+	) {
 		throw new Error(`Wrap-up elapsed ${warnedDetails.elapsed}s is outside the original 60s clock.`);
 	}
 	if (warnedDetails.sessionFile !== undefined) {
@@ -151,7 +159,9 @@ try {
 	const controlDetails = findSubagentChild(parent.events, "fm-warn-control");
 	if (!controlDetails) throw new Error("Could not find the result for fm-warn-control.");
 	if (controlDetails.timedOut !== "timeout" || controlDetails.timedOutAfter !== 15) {
-		throw new Error(`The no-threshold control did not reach its hard timeout: ${JSON.stringify(controlDetails)}.`);
+		throw new Error(
+			`The no-threshold control did not reach its hard timeout: ${JSON.stringify(controlDetails)}.`,
+		);
 	}
 	if (controlDetails.timeoutWrapUp !== undefined) {
 		throw new Error("A child without timeout-warn-threshold must not enter wrap-up mode.");

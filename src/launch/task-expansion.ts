@@ -143,7 +143,10 @@ async function collectReplacements(task: string, cwd: string): Promise<TaskExpan
 	return replacements;
 }
 
-export async function expandSubagentTask(task: string, options: SubagentTaskExpansionOptions): Promise<string> {
+export async function expandSubagentTask(
+	task: string,
+	options: SubagentTaskExpansionOptions,
+): Promise<string> {
 	if (!options.enabled) return task;
 	if (!task.includes("!`") && !task.includes("```!")) return task;
 

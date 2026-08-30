@@ -1,4 +1,9 @@
-import type { CompletedSubagentResult, ParentClosePolicy, ParentShutdownAction, RunningSubagent } from "../types.ts";
+import type {
+	CompletedSubagentResult,
+	ParentClosePolicy,
+	ParentShutdownAction,
+	RunningSubagent,
+} from "../types.ts";
 import { clearSubagentShutdownTimer } from "./state.ts";
 
 export type ShutdownSubagentsOptions = {
@@ -13,7 +18,10 @@ export interface ShutdownRuntime {
 	closeRunningSurface(running: RunningSubagent): Promise<void>;
 }
 
-export function terminateBackgroundChildProcess(running: RunningSubagent, signal: NodeJS.Signals): void {
+export function terminateBackgroundChildProcess(
+	running: RunningSubagent,
+	signal: NodeJS.Signals,
+): void {
 	if (!running.childProcess?.pid) return;
 	try {
 		process.kill(-running.childProcess.pid, signal);
@@ -38,7 +46,10 @@ function abortBackgroundSubagent(running: RunningSubagent, escalationMs: number)
 	running.shutdownTimer.unref?.();
 }
 
-async function terminateInteractiveSubagent(running: RunningSubagent, runtime: ShutdownRuntime): Promise<void> {
+async function terminateInteractiveSubagent(
+	running: RunningSubagent,
+	runtime: ShutdownRuntime,
+): Promise<void> {
 	running.abortController?.abort();
 	try {
 		await runtime.closeRunningSurface(running);

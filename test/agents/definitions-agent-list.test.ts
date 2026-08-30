@@ -39,23 +39,32 @@ describe("agent definitions and catalog", () => {
 		process.env.PI_CODING_AGENT_DIR = configDir;
 
 		const defs = loadAgentDefaults("tester");
-		assert.equal(defs?.extensions, "./extensions/caveman.ts, npm:@foo/bar, https://example.com/ext.ts");
+		assert.equal(
+			defs?.extensions,
+			"./extensions/caveman.ts, npm:@foo/bar, https://example.com/ext.ts",
+		);
 		assert.deepEqual(resolveSubagentExtensionsForTest(defs), [
 			join(configDir, "extensions", "caveman.ts"),
 			"npm:@foo/bar",
 			"https://example.com/ext.ts",
 		]);
-		assert.deepEqual(getExtensionLaunchArgsForTest(resolveSubagentExtensionsForTest(defs), "/tmp/subagent-done.ts"), [
-			"--no-extensions",
-			"-e",
-			"/tmp/subagent-done.ts",
-			"-e",
-			join(configDir, "extensions", "caveman.ts"),
-			"-e",
-			"npm:@foo/bar",
-			"-e",
-			"https://example.com/ext.ts",
-		]);
+		assert.deepEqual(
+			getExtensionLaunchArgsForTest(
+				resolveSubagentExtensionsForTest(defs),
+				"/tmp/subagent-done.ts",
+			),
+			[
+				"--no-extensions",
+				"-e",
+				"/tmp/subagent-done.ts",
+				"-e",
+				join(configDir, "extensions", "caveman.ts"),
+				"-e",
+				"npm:@foo/bar",
+				"-e",
+				"https://example.com/ext.ts",
+			],
+		);
 	});
 
 	it("allows extensions none to launch child with only mandatory internal extension", () => {
@@ -72,11 +81,13 @@ describe("agent definitions and catalog", () => {
 		const defs = loadAgentDefaults("tester");
 		assert.equal(defs?.extensions, "none");
 		assert.deepEqual(resolveSubagentExtensionsForTest(defs), []);
-		assert.deepEqual(getExtensionLaunchArgsForTest(resolveSubagentExtensionsForTest(defs), "/tmp/subagent-done.ts"), [
-			"--no-extensions",
-			"-e",
-			"/tmp/subagent-done.ts",
-		]);
+		assert.deepEqual(
+			getExtensionLaunchArgsForTest(
+				resolveSubagentExtensionsForTest(defs),
+				"/tmp/subagent-done.ts",
+			),
+			["--no-extensions", "-e", "/tmp/subagent-done.ts"],
+		);
 	});
 
 	it("treats extensions all as the default extension set", () => {
@@ -84,16 +95,22 @@ describe("agent definitions and catalog", () => {
 		const configDir = join(dir, "agent-root");
 		const agentsDir = join(configDir, "agents");
 		mkdirSync(agentsDir, { recursive: true });
-		writeFileSync(join(agentsDir, "tester.md"), `---\nname: tester\nextensions: all\n---\n\nYou are the tester.`);
+		writeFileSync(
+			join(agentsDir, "tester.md"),
+			`---\nname: tester\nextensions: all\n---\n\nYou are the tester.`,
+		);
 		process.env.PI_CODING_AGENT_DIR = configDir;
 
 		const defs = loadAgentDefaults("tester");
 		assert.equal(defs?.extensions, "all");
 		assert.equal(resolveSubagentExtensionsForTest(defs), undefined);
-		assert.deepEqual(getExtensionLaunchArgsForTest(resolveSubagentExtensionsForTest(defs), "/tmp/subagent-done.ts"), [
-			"-e",
-			"/tmp/subagent-done.ts",
-		]);
+		assert.deepEqual(
+			getExtensionLaunchArgsForTest(
+				resolveSubagentExtensionsForTest(defs),
+				"/tmp/subagent-done.ts",
+			),
+			["-e", "/tmp/subagent-done.ts"],
+		);
 	});
 
 	it("rejects legacy extensions disable aliases", () => {
@@ -170,7 +187,9 @@ describe("agent definitions and catalog", () => {
 		assert.equal(resolveEffectiveSessionModeForTest({ agent: "legacy" }, defs), "lineage-only");
 		assert.equal(resolveSubagentBlockingForTest({}, defs), false);
 		assert.equal(
-			Object.keys(defs as Record<string, unknown>).some((key) => ["fork", "blocking"].includes(key)),
+			Object.keys(defs as Record<string, unknown>).some((key) =>
+				["fork", "blocking"].includes(key),
+			),
 			false,
 		);
 		// `timeout` came back as a real budget; the other two stayed removed.
@@ -300,8 +319,14 @@ describe("agent definitions and catalog", () => {
 		);
 
 		const defs = getEffectiveAgentDefinitionsForTest(dir);
-		assert.equal(defs.find((entry) => entry.name === "project-agent")?.description, "Project description");
-		assert.equal(defs.find((entry) => entry.name === "global-agent")?.description, "Use the global route");
+		assert.equal(
+			defs.find((entry) => entry.name === "project-agent")?.description,
+			"Project description",
+		);
+		assert.equal(
+			defs.find((entry) => entry.name === "global-agent")?.description,
+			"Use the global route",
+		);
 		assert.equal(
 			defs.some((entry) => entry.name === "disabled"),
 			false,
@@ -316,11 +341,23 @@ describe("agent definitions and catalog", () => {
 			ambient.map((entry) => entry.name),
 			["description-only", "global-agent", "lenient-enabled", "project-agent"],
 		);
-		assert.equal(ambient.find((entry) => entry.name === "project-agent")?.description, "Project description");
-		assert.equal(ambient.find((entry) => entry.name === "description-only")?.description, "Fallback description");
-		assert.equal(ambient.find((entry) => entry.name === "description-only")?.sessionMode, "lineage-only");
+		assert.equal(
+			ambient.find((entry) => entry.name === "project-agent")?.description,
+			"Project description",
+		);
+		assert.equal(
+			ambient.find((entry) => entry.name === "description-only")?.description,
+			"Fallback description",
+		);
+		assert.equal(
+			ambient.find((entry) => entry.name === "description-only")?.sessionMode,
+			"lineage-only",
+		);
 		assert.equal(ambient.find((entry) => entry.name === "global-agent")?.sessionMode, "fork");
-		assert.equal(ambient.find((entry) => entry.name === "project-agent")?.sessionMode, "lineage-only");
+		assert.equal(
+			ambient.find((entry) => entry.name === "project-agent")?.sessionMode,
+			"lineage-only",
+		);
 		assert.equal(
 			ambient.some((entry) => entry.name === "hidden-agent"),
 			false,
@@ -349,7 +386,10 @@ describe("agent definitions and catalog", () => {
 		const entries = getAgentListEntriesForTest(dir);
 		const reminder = renderAgentListReminderForTest(entries);
 		assert.match(reminder, /default_model: zai-messages\/glm-5\.1:high/);
-		assert.match(reminder, /models: zai-messages\/glm-5\.1:high \| openai-ws\/gpt-5\.5:low \| nahcrof\/glm-5\.1:off/);
+		assert.match(
+			reminder,
+			/models: zai-messages\/glm-5\.1:high \| openai-ws\/gpt-5\.5:low \| nahcrof\/glm-5\.1:off/,
+		);
 		assert.match(reminder, /- `scout`: Inspect files\n(?: {2}.+\n){4,5} {2}models: any model ref/);
 		assert.match(reminder, /`models:` lists accepted overrides/);
 
@@ -429,7 +469,9 @@ describe("agent definitions and catalog", () => {
 		// matched across the blank-line block boundary into the next agent's
 		// completion line, so they passed even against the old renderer.
 		const blockFor = (name: string) =>
-			reminder.match(new RegExp(`^- \`${name}\`:[\\s\\S]*?(?=\\n\\n|\\n</subagent-roster>)`, "m"))?.[0] ?? "";
+			reminder.match(
+				new RegExp(`^- \`${name}\`:[\\s\\S]*?(?=\\n\\n|\\n</subagent-roster>)`, "m"),
+			)?.[0] ?? "";
 		// Interactive children without `auto-exit` are told to stay open for the
 		// operator and never receive `subagent_done`, so their results only
 		// arrive after the pane is closed. The roster must not promise otherwise.
@@ -450,7 +492,10 @@ describe("agent definitions and catalog", () => {
 		mkdirSync(agentsDir, { recursive: true });
 		process.env.PI_CODING_AGENT_DIR = configDir;
 
-		writeFileSync(join(agentsDir, "worker.md"), `---\nname: worker\ndescription: Do focused work\n---\n\nWorker body.`);
+		writeFileSync(
+			join(agentsDir, "worker.md"),
+			`---\nname: worker\ndescription: Do focused work\n---\n\nWorker body.`,
+		);
 		writeFileSync(
 			join(agentsDir, "coordinator.md"),
 			`---\nname: coordinator\ndescription: Coordinate work\nspawning: true\n---\n\nCoordinator body.`,
@@ -511,7 +556,10 @@ describe("agent definitions and catalog", () => {
 		const tool = tools.get("subagent");
 		assert.ok(tool);
 		assert.match(tool.description, /named helper agents from the subagent roster/);
-		assert.match(tool.promptSnippet, /separate helper processes you can launch to do work outside this chat turn/);
+		assert.match(
+			tool.promptSnippet,
+			/separate helper processes you can launch to do work outside this chat turn/,
+		);
 		assert.match(
 			tool.promptSnippet,
 			/Use exact agent names and behavior fields from the subagent roster when present; field meanings are defined in <subagent-rules>/,
@@ -530,12 +578,18 @@ describe("agent definitions and catalog", () => {
 			/Do small direct work yourself: quick answers, simple file reads, and tiny one-shot edits/,
 		);
 		assert.match(tool.promptSnippet, /Do not redo delegated work/);
-		assert.match(tool.promptSnippet, /do not claim the helper's findings before its later message appears/);
+		assert.match(
+			tool.promptSnippet,
+			/do not claim the helper's findings before its later message appears/,
+		);
 		assert.match(
 			tool.promptSnippet,
 			/For helpers with tool_return=later_message, the runtime may stop after this tool batch/,
 		);
-		assert.match(tool.promptSnippet, /Do not redo delegated work or claim results before the later report appears/);
+		assert.match(
+			tool.promptSnippet,
+			/Do not redo delegated work or claim results before the later report appears/,
+		);
 		assert.doesNotMatch(tool.promptSnippet, /PI_SUBAGENT_DISABLE_COORDINATOR_ONLY_TURN/);
 	});
 
@@ -561,6 +615,9 @@ describe("agent definitions and catalog", () => {
 			/You may continue with non-overlapping work after launching a tool_return=later_message helper/,
 		);
 		assert.match(tool.promptSnippet, /Do not redo delegated work/);
-		assert.doesNotMatch(tool.promptSnippet, /For helpers with tool_return=later_message, the runtime may stop/);
+		assert.doesNotMatch(
+			tool.promptSnippet,
+			/For helpers with tool_return=later_message, the runtime may stop/,
+		);
 	});
 });

@@ -4,7 +4,12 @@ import type { FooterHint, OverlayState, TabDef, Theme } from "./render-types.ts"
 /**
  * Render the overlay header: accent border, title, tab bar.
  */
-export function renderHeader(state: OverlayState, tabs: TabDef[], theme: Theme, width: number): string[] {
+export function renderHeader(
+	state: OverlayState,
+	tabs: TabDef[],
+	theme: Theme,
+	width: number,
+): string[] {
 	const lines: string[] = [];
 
 	// Top border
@@ -93,7 +98,8 @@ function renderTabBar(activeTab: string, tabs: TabDef[], theme: Theme, width: nu
 	const separator = " ";
 	const activeIndex = tabs.findIndex((tab) => tab.id === activeTab);
 	const leftArrow = activeIndex > 0 ? theme.fg("dim", "←  ") : "   ";
-	const rightArrow = activeIndex >= 0 && activeIndex < tabs.length - 1 ? theme.fg("dim", "  →") : "";
+	const rightArrow =
+		activeIndex >= 0 && activeIndex < tabs.length - 1 ? theme.fg("dim", "  →") : "";
 	const tabContent = rendered.join(separator);
 
 	return fitLine(`${leftArrow}${tabContent}${rightArrow}`, width);

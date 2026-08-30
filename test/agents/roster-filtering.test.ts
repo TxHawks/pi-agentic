@@ -1,4 +1,8 @@
-import { getAgentListEntries, getAgentListSignature, renderAgentListReminder } from "../../src/agents/agent-list.ts";
+import {
+	getAgentListEntries,
+	getAgentListSignature,
+	renderAgentListReminder,
+} from "../../src/agents/agent-list.ts";
 import type { getEffectiveAgentDefinitions } from "../../src/agents/definitions.ts";
 import subagentsExtension from "../../src/subagents.ts";
 import {
@@ -81,7 +85,10 @@ describe("roster filtering", () => {
 			join(agentsDir, "other-only.md"),
 			`---\nname: other-only\ndescription: Caller worker\nvisible-to: all\nspawning: scout, reviewer\nspawn-depth: 2\nspawn-width: 3\n---\n\nCaller body.`,
 		);
-		assert.notEqual(signature, getAgentListSignature(getAgentListEntries(dir, resolveSessionMode, options)));
+		assert.notEqual(
+			signature,
+			getAgentListSignature(getAgentListEntries(dir, resolveSessionMode, options)),
+		);
 	});
 
 	it("emits a superseding no-agents reminder when filtering empties a roster", () => {
@@ -106,7 +113,9 @@ describe("roster filtering", () => {
 				cwd: dir,
 				hasUI: false,
 				ui: { setWidget() {} },
-				sessionManager: { getHeader: () => ({ id: "child", type: "session", timestamp: "", cwd: dir }) },
+				sessionManager: {
+					getHeader: () => ({ id: "child", type: "session", timestamp: "", cwd: dir }),
+				},
 			},
 		);
 		const result = handlers.get("before_agent_start")({ type: "before_agent_start" });

@@ -44,7 +44,11 @@ export function parseTimeoutSeconds(raw: string | undefined): number | null {
  * it. So the message states the limit, what counts against it, what happens at
  * the end, and what to do now — without naming anything outside the child.
  */
-export function formatTimeoutWarning(kind: SubagentTimeoutKind, budgetSeconds: number, spentSeconds: number): string {
+export function formatTimeoutWarning(
+	kind: SubagentTimeoutKind,
+	budgetSeconds: number,
+	spentSeconds: number,
+): string {
 	const remaining = Math.max(0, budgetSeconds - spentSeconds);
 	const clockOrigin =
 		"This clock belongs to the current logical sub-agent run. A process restart for wrap-up does not reset it. " +
@@ -125,7 +129,12 @@ export function installSubagentTimeoutReminders(pi: ExtensionAPI): void {
 	const idleTimeoutSeconds = parseTimeoutSeconds(process.env[PI_SUBAGENT_IDLE_TIMEOUT]);
 	if (!timeoutSeconds && !idleTimeoutSeconds) return;
 	const startedAt = parseStartedAt(process.env[PI_SUBAGENT_TIMEOUT_STARTED_AT]) ?? Date.now();
-	const contract = formatTimeoutLaunchInstruction(timeoutSeconds, idleTimeoutSeconds, threshold, startedAt);
+	const contract = formatTimeoutLaunchInstruction(
+		timeoutSeconds,
+		idleTimeoutSeconds,
+		threshold,
+		startedAt,
+	);
 	const wrapUpMode = process.env[PI_SUBAGENT_TIMEOUT_WRAP_UP] === "1";
 
 	pi.on("before_agent_start", (event) => ({

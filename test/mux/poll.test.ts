@@ -17,7 +17,10 @@ describe("interpretExitSidecar", () => {
 	it("does not invent a completion reason", () => {
 		const decoded = interpretExitSidecar({ type: "done", outputTokens: 4 });
 		assert.equal("completionReason" in decoded, false);
-		assert.equal(interpretExitSidecar({ type: "done", completionReason: "bogus" }).completionReason, undefined);
+		assert.equal(
+			interpretExitSidecar({ type: "done", completionReason: "bogus" }).completionReason,
+			undefined,
+		);
 	});
 
 	it("decodes ping payloads", () => {

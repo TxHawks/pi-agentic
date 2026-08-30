@@ -332,9 +332,15 @@ describe("subagent launch result delivery", () => {
 		assert.equal(message.customType, "subagent_roster");
 		assert.equal(message.display, false);
 		assert.equal((message.details as any).entries[0].name, "reviewer");
-		assert.equal((message.details as any).signature, getAgentListSignatureForTest((message.details as any).entries));
+		assert.equal(
+			(message.details as any).signature,
+			getAgentListSignatureForTest((message.details as any).entries),
+		);
 		assert.match(message.content, /^<system-reminder>\nYou can launch separate helper agents/);
-		assert.match(message.content, /`reviewer`: Review changes for regressions[\s\S]*?tool_return: later_message/m);
+		assert.match(
+			message.content,
+			/`reviewer`: Review changes for regressions[\s\S]*?tool_return: later_message/m,
+		);
 		assert.match(message.content, /\n<\/subagent-roster>\n<subagent-rules>\n/);
 		assert.match(
 			message.content,
@@ -344,7 +350,10 @@ describe("subagent launch result delivery", () => {
 			message.content,
 			/context=fresh_chat_needs_full_brief means write a self-contained task with objective, files, constraints, and expected output/,
 		);
-		assert.match(message.content, /context=copy_of_this_chat means the helper starts from this conversation/);
+		assert.match(
+			message.content,
+			/context=copy_of_this_chat means the helper starts from this conversation/,
+		);
 		assert.match(message.content, /\n<\/subagent-rules>\n<\/system-reminder>$/);
 		assert.equal(renderAgentListReminderForTest((message.details as any).entries), message.content);
 		assert.equal(

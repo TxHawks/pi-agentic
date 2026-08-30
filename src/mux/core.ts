@@ -14,7 +14,13 @@ function hasCommand(command: string): boolean {
 
 function muxPreference(): MuxBackend | null {
 	const pref = (process.env.PI_SUBAGENT_MUX ?? "").trim().toLowerCase();
-	if (pref === "cmux" || pref === "tmux" || pref === "zellij" || pref === "wezterm" || pref === "herdr") {
+	if (
+		pref === "cmux" ||
+		pref === "tmux" ||
+		pref === "zellij" ||
+		pref === "wezterm" ||
+		pref === "herdr"
+	) {
 		return pref;
 	}
 	return null;

@@ -121,13 +121,19 @@ describe("auto-exit operator-takeover notification", () => {
 		try {
 			// Escape disables auto-exit first (notifies once, session stays open).
 			h.handlers.get("agent_start")?.({});
-			h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "aborted" }] }, h.ctx());
+			h.handlers.get("agent_end")?.(
+				{ messages: [{ role: "assistant", stopReason: "aborted" }] },
+				h.ctx(),
+			);
 			// Idle operator input (no streamingBehavior) starts a fresh run via
 			// runAgentLoopContinue. The takeover episode was already announced, so
 			// this input must not emit the same warning again.
 			h.handlers.get("input")?.({ source: "interactive" }, h.ctx());
 			h.handlers.get("agent_start")?.({});
-			h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "stop" }] }, h.ctx());
+			h.handlers.get("agent_end")?.(
+				{ messages: [{ role: "assistant", stopReason: "stop" }] },
+				h.ctx(),
+			);
 			await sleep(0);
 			assert.equal(h.disabledNotifies().length, 1, "idle input after disable must not spam");
 			assert.equal(h.sidecarExists(), false, "session stays open");
@@ -144,9 +150,15 @@ describe("auto-exit operator-takeover notification", () => {
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());
 			await sleep(0);
-			assert.equal(h.disabledNotifies().length, 1, "repeat input while already disabled must not spam");
 			assert.equal(
-				h.statusSets.filter((s) => s.msg === "Auto-exit disabled — close manually or /auto-exit to re-enable").length,
+				h.disabledNotifies().length,
+				1,
+				"repeat input while already disabled must not spam",
+			);
+			assert.equal(
+				h.statusSets.filter(
+					(s) => s.msg === "Auto-exit disabled — close manually or /auto-exit to re-enable",
+				).length,
 				1,
 			);
 		} finally {
@@ -162,7 +174,10 @@ describe("auto-exit operator-takeover notification", () => {
 			// agent_start), so the input-time notify must not double up with any
 			// agent_end branch.
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());
-			h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "stop" }] }, h.ctx());
+			h.handlers.get("agent_end")?.(
+				{ messages: [{ role: "assistant", stopReason: "stop" }] },
+				h.ctx(),
+			);
 			await sleep(0);
 			assert.equal(h.disabledNotifies().length, 1, "steer notifies once, not twice");
 			assert.equal(h.sidecarExists(), false);
@@ -182,7 +197,10 @@ describe("auto-exit operator-takeover notification", () => {
 			// NOT notify, and the next normal completion auto-exits.
 			h.handlers.get("input")?.({ source: "interactive" }, h.ctx());
 			h.handlers.get("agent_start")?.({});
-			h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "stop" }] }, h.ctx());
+			h.handlers.get("agent_end")?.(
+				{ messages: [{ role: "assistant", stopReason: "stop" }] },
+				h.ctx(),
+			);
 			await sleep(0);
 			assert.equal(h.disabledNotifies().length, before, "re-arm-consuming input must not notify");
 			assert.equal(h.sidecarExists(), true, "re-arm lets the next completion auto-exit");
@@ -199,9 +217,16 @@ describe("auto-exit operator-takeover notification", () => {
 			// Extension recovery nudge: source "extension" is not operator input.
 			h.handlers.get("agent_start")?.({});
 			h.handlers.get("input")?.({ source: "extension", streamingBehavior: "steer" }, h.ctx());
-			h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "stop" }] }, h.ctx());
+			h.handlers.get("agent_end")?.(
+				{ messages: [{ role: "assistant", stopReason: "stop" }] },
+				h.ctx(),
+			);
 			await sleep(0);
-			assert.equal(h.disabledNotifies().length, 0, "initial task and extension nudges must not notify or disable");
+			assert.equal(
+				h.disabledNotifies().length,
+				0,
+				"initial task and extension nudges must not notify or disable",
+			);
 			assert.equal(h.sidecarExists(), true, "auto-exit proceeds normally");
 		} finally {
 			h.restore();
@@ -213,11 +238,18 @@ describe("auto-exit operator-takeover notification", () => {
 		try {
 			h.handlers.get("agent_start")?.({});
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());
-			h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "stop" }] }, h.ctx());
+			h.handlers.get("agent_end")?.(
+				{ messages: [{ role: "assistant", stopReason: "stop" }] },
+				h.ctx(),
+			);
 			await sleep(0);
 			assert.equal(h.notifies.length, 0, "background child never notifies");
 			assert.equal(h.statusSets.length, 0, "background child never sets status");
-			assert.equal(h.sidecarExists(), false, "operator input still disables auto-exit (stays open)");
+			assert.equal(
+				h.sidecarExists(),
+				false,
+				"operator input still disables auto-exit (stays open)",
+			);
 		} finally {
 			h.restore();
 		}
@@ -244,9 +276,16 @@ describe("auto-exit operator-takeover notification", () => {
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());
 			h.handlers.get("turn_start")?.({});
 			// The new turn completes normally: the re-arm must now actually fire.
-			h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "stop" }] }, h.ctx());
+			h.handlers.get("agent_end")?.(
+				{ messages: [{ role: "assistant", stopReason: "stop" }] },
+				h.ctx(),
+			);
 			await sleep(0);
-			assert.equal(h.sidecarExists(), true, "re-armed auto-exit must engage after the consumed-steer completion");
+			assert.equal(
+				h.sidecarExists(),
+				true,
+				"re-armed auto-exit must engage after the consumed-steer completion",
+			);
 			assert.equal(h.shutdowns(), 1, "re-armed auto-exit must shut the child down");
 		} finally {
 			h.restore();
@@ -266,9 +305,16 @@ describe("auto-exit operator-takeover notification", () => {
 			h.handlers.get("agent_start")?.({});
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());
 			// No turn_start: the answer completes without tools.
-			h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "stop" }] }, h.ctx());
+			h.handlers.get("agent_end")?.(
+				{ messages: [{ role: "assistant", stopReason: "stop" }] },
+				h.ctx(),
+			);
 			await sleep(0);
-			assert.equal(h.sidecarExists(), true, "re-armed auto-exit engages on the first clean completion");
+			assert.equal(
+				h.sidecarExists(),
+				true,
+				"re-armed auto-exit engages on the first clean completion",
+			);
 		} finally {
 			h.restore();
 		}
@@ -299,7 +345,10 @@ describe("auto-exit operator-takeover notification", () => {
 				await h.commands.get("auto-exit").handler({}, h.ctx());
 				h.handlers.get("agent_start")?.({});
 				h.handlers.get("turn_start")?.({});
-				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "stop" }] }, h.ctx());
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "stop" }] },
+					h.ctx(),
+				);
 				await sleep(0);
 				assert.equal(h.sidecarExists(), true, `${c.name}: re-arm must auto-exit`);
 			} finally {
@@ -322,7 +371,10 @@ describe("auto-exit operator-takeover notification", () => {
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());
 			h.handlers.get("turn_start")?.({});
-			h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "stop" }] }, h.ctx());
+			h.handlers.get("agent_end")?.(
+				{ messages: [{ role: "assistant", stopReason: "stop" }] },
+				h.ctx(),
+			);
 			await sleep(0);
 			assert.equal(h.sidecarExists(), true, "re-arm must survive multiple queued inputs");
 		} finally {

@@ -1,6 +1,14 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+	copyFileSync,
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import process from "node:process";
@@ -80,7 +88,9 @@ function getToolResults(events, toolName) {
 	return events
 		.filter(
 			(event) =>
-				event.type === "message" && event.message?.role === "toolResult" && event.message.toolName === toolName,
+				event.type === "message" &&
+				event.message?.role === "toolResult" &&
+				event.message.toolName === toolName,
 		)
 		.map((event) => event.message);
 }
@@ -96,7 +106,17 @@ function findParentSession(sessionDir, marker) {
 function runPi(sessionDir, prompt, extraEnv = {}) {
 	execFileSync(
 		piBin,
-		["-p", "--model", LIVE_TEST_MODEL, "--no-extensions", "-e", extensionSource, "--session-dir", sessionDir, prompt],
+		[
+			"-p",
+			"--model",
+			LIVE_TEST_MODEL,
+			"--no-extensions",
+			"-e",
+			extensionSource,
+			"--session-dir",
+			sessionDir,
+			prompt,
+		],
 		{
 			cwd: workDir,
 			encoding: "utf8",
@@ -136,7 +156,9 @@ try {
 	const optOutSingle = findParentSession(optOutSingleSessionDir, optOutSingleMarker);
 	const optOutSingleResults = getToolResults(optOutSingle.events, "subagent");
 	if (optOutSingleResults.length !== 1) {
-		throw new Error(`Expected one opt-out async subagent result, got ${optOutSingleResults.length}.`);
+		throw new Error(
+			`Expected one opt-out async subagent result, got ${optOutSingleResults.length}.`,
+		);
 	}
 	const optOutSingleDetails = optOutSingleResults[0].details ?? {};
 	if (!optOutSingleDetails.sessionFile || !existsSync(optOutSingleDetails.sessionFile)) {

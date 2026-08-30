@@ -25,7 +25,11 @@ export interface FinalContextUsage {
  * details.
  */
 export function formatSessionRef(
-	result: FinalContextUsage & { sessionFile?: string; timedOut?: string; timeoutBlocksResume?: boolean },
+	result: FinalContextUsage & {
+		sessionFile?: string;
+		timedOut?: string;
+		timeoutBlocksResume?: boolean;
+	},
 ): string {
 	if (!result.sessionFile) return "";
 	if (result.contextWarned) return "";
@@ -101,10 +105,15 @@ export function resolveFinalContextUsage(
 	// The exit sidecar is authoritative: a `--no-session` child persists nothing,
 	// so its session entries can never carry this.
 	const warned: { contextWarned?: true } =
-		exitSignal?.completionReason === "context-pressure" ? { contextWarned: true } : wasContextWarned(running);
+		exitSignal?.completionReason === "context-pressure"
+			? { contextWarned: true }
+			: wasContextWarned(running);
 	const exhausted: { contextExhausted?: true } =
 		exitSignal?.completionReason === "context-pressure-failure" ? { contextExhausted: true } : {};
-	if (typeof exitSignal?.contextTokens === "number" && typeof exitSignal.contextWindow === "number") {
+	if (
+		typeof exitSignal?.contextTokens === "number" &&
+		typeof exitSignal.contextWindow === "number"
+	) {
 		return {
 			contextTokens: exitSignal.contextTokens,
 			contextWindow: exitSignal.contextWindow,
@@ -120,8 +129,10 @@ export function resolveFinalContextUsage(
 			getNewEntries(running.sessionFile, running.launchEntryCount ?? 0),
 		);
 		const launchModel = running.modelRef ? splitModelRef(running.modelRef).model : undefined;
-		const snapshotModel = snapshot?.provider && snapshot.model ? `${snapshot.provider}/${snapshot.model}` : undefined;
-		if (!snapshot || !launchModel || launchModel !== snapshotModel) return { ...warned, ...exhausted };
+		const snapshotModel =
+			snapshot?.provider && snapshot.model ? `${snapshot.provider}/${snapshot.model}` : undefined;
+		if (!snapshot || !launchModel || launchModel !== snapshotModel)
+			return { ...warned, ...exhausted };
 		return {
 			contextTokens: snapshot.contextTokens,
 			contextWindow: running.modelContextWindow,

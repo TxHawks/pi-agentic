@@ -111,7 +111,10 @@ describe("shouldRecoverProviderErrorMessage", () => {
 	});
 
 	it("recovers an unfamiliar provider failure without an HTTP status", () => {
-		assert.equal(shouldRecoverProviderErrorMessage("Provider adapter rejected the upstream response"), true);
+		assert.equal(
+			shouldRecoverProviderErrorMessage("Provider adapter rejected the upstream response"),
+			true,
+		);
 	});
 
 	it("recognizes transient provider and transport failures", () => {
@@ -140,10 +143,15 @@ describe("shouldRecoverProviderErrorMessage", () => {
 
 	it("rejects an explicitly missing model", () => {
 		assert.equal(
-			shouldRecoverProviderErrorMessage("The requested model does not exist or you do not have access to it"),
+			shouldRecoverProviderErrorMessage(
+				"The requested model does not exist or you do not have access to it",
+			),
 			false,
 		);
-		assert.equal(shouldRecoverProviderErrorMessage("Unknown Model, please check the model code."), false);
+		assert.equal(
+			shouldRecoverProviderErrorMessage("Unknown Model, please check the model code."),
+			false,
+		);
 	});
 
 	it("rejects common permanent provider error formats", () => {
@@ -176,7 +184,10 @@ describe("shouldRecoverProviderErrorMessage", () => {
 	});
 
 	it("does not treat every balance-related transport failure as permanent", () => {
-		assert.equal(shouldRecoverProviderErrorMessage("Available balance service temporarily unavailable"), true);
+		assert.equal(
+			shouldRecoverProviderErrorMessage("Available balance service temporarily unavailable"),
+			true,
+		);
 	});
 });
 
@@ -186,7 +197,8 @@ describe("shouldDeferErrorForPiRecovery", () => {
 			shouldDeferErrorForPiRecovery({
 				role: "assistant",
 				stopReason: "error",
-				errorMessage: "Requested token count exceeds the model's maximum context length of 131072 tokens",
+				errorMessage:
+					"Requested token count exceeds the model's maximum context length of 131072 tokens",
 			}),
 			true,
 		);

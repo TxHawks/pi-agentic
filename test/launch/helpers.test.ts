@@ -26,7 +26,10 @@ describe("launch helpers", () => {
 			"/skill:pua",
 			"@/tmp/task.md",
 		]);
-		assert.deepEqual(buildPiPromptArgsForTest(["debugger"], "do work", true), ["/skill:debugger", "do work"]);
+		assert.deepEqual(buildPiPromptArgsForTest(["debugger"], "do work", true), [
+			"/skill:debugger",
+			"do work",
+		]);
 		assert.deepEqual(buildPiPromptArgsForTest(["research"], "@/tmp/fork-task.md", true), [
 			"",
 			"/skill:research",

@@ -26,7 +26,10 @@ function getSubagentArtifactPath(name: string, ctx: ArtifactContext, suffix = ""
 		.replace(/\s+/g, "-")
 		.replace(/-+/g, "-")
 		.replace(/^-|-$/g, "");
-	return join(artifactDir, `context/${safeName || "subagent"}${suffix ? `-${suffix}` : ""}-${ts}.md`);
+	return join(
+		artifactDir,
+		`context/${safeName || "subagent"}${suffix ? `-${suffix}` : ""}-${ts}.md`,
+	);
 }
 
 export function writeTaskArtifact(name: string, task: string, ctx: ArtifactContext): string {
@@ -56,7 +59,12 @@ function readSessionHeaderArtifactContext(sessionFile: string): SessionHeaderArt
 	}
 }
 
-export function writeResumeTaskArtifact(name: string, task: string, sessionFile: string, cwd: string): string {
+export function writeResumeTaskArtifact(
+	name: string,
+	task: string,
+	sessionFile: string,
+	cwd: string,
+): string {
 	const header = readSessionHeaderArtifactContext(sessionFile);
 	return writeTaskArtifact(name, task, {
 		cwd: header.cwd ?? cwd,
@@ -64,7 +72,11 @@ export function writeResumeTaskArtifact(name: string, task: string, sessionFile:
 	});
 }
 
-export function writeSystemPromptArtifact(name: string, systemPrompt: string, ctx: ArtifactContext): string {
+export function writeSystemPromptArtifact(
+	name: string,
+	systemPrompt: string,
+	ctx: ArtifactContext,
+): string {
 	const artifactPath = getSubagentArtifactPath(name, ctx, "sysprompt");
 	mkdirSync(dirname(artifactPath), { recursive: true });
 	writeFileSync(artifactPath, systemPrompt, "utf8");

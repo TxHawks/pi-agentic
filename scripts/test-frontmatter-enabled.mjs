@@ -126,7 +126,9 @@ try {
 	}
 
 	verified = true;
-	console.log("frontmatter `enabled: false` ok: disabled agent was not launchable; enabled agent worked.");
+	console.log(
+		"frontmatter `enabled: false` ok: disabled agent was not launchable; enabled agent worked.",
+	);
 } finally {
 	ctx.cleanup();
 }

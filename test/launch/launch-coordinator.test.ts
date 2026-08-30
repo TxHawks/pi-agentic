@@ -80,7 +80,9 @@ describe("launch coordinator", () => {
 			"subagent_resume",
 		]);
 
-		const entries = getEntries(launch.prepared.subagentSessionFile) as Array<Record<string, unknown>>;
+		const entries = getEntries(launch.prepared.subagentSessionFile) as Array<
+			Record<string, unknown>
+		>;
 		assert.equal(entries[0].type, "session");
 		assert.equal(
 			entries.some((entry) => entry.customType === "subagent_boundary"),
@@ -104,7 +106,10 @@ describe("launch coordinator", () => {
 	it("persists the operator Zellij placement policy and immediate parent group", async () => {
 		const cwd = createTestDir();
 		mkdirSync(join(cwd, ".pi", "agents"), { recursive: true });
-		writeFileSync(join(cwd, ".pi", "agents", "scout.md"), "---\nname: scout\nmode: interactive\n---\nScout.");
+		writeFileSync(
+			join(cwd, ".pi", "agents", "scout.md"),
+			"---\nname: scout\nmode: interactive\n---\nScout.",
+		);
 		const parentSession = join(cwd, "parent-zellij.jsonl");
 		writeFileSync(parentSession, `${JSON.stringify(SESSION_HEADER)}\n`);
 		process.env.ZELLIJ_PANE_ID = "7";
@@ -267,9 +272,14 @@ describe("launch coordinator", () => {
 		mkdirSync(join(cwd, ".pi", "agents"), { recursive: true });
 		writeFileSync(
 			join(cwd, ".pi", "agents", "reviewer.md"),
-			["---", "name: reviewer", "mode: interactive", "env: PI_SUBAGENT_HERDR_PLACEMENT=tab", "---", "Review."].join(
-				"\n",
-			),
+			[
+				"---",
+				"name: reviewer",
+				"mode: interactive",
+				"env: PI_SUBAGENT_HERDR_PLACEMENT=tab",
+				"---",
+				"Review.",
+			].join("\n"),
 		);
 		const binDir = join(cwd, "bin");
 		mkdirSync(binDir, { recursive: true });
@@ -330,9 +340,14 @@ exit 1
 		writeExecutable(binDir, "tmux", "#!/bin/sh\nexit 0\n");
 		writeFileSync(
 			join(cwd, ".pi", "agents", "reviewer.md"),
-			["---", "name: reviewer", "mode: interactive", "env: PI_SUBAGENT_HERDR_PLACEMENT=bogus", "---", "Review."].join(
-				"\n",
-			),
+			[
+				"---",
+				"name: reviewer",
+				"mode: interactive",
+				"env: PI_SUBAGENT_HERDR_PLACEMENT=bogus",
+				"---",
+				"Review.",
+			].join("\n"),
 		);
 		const parentSession = join(cwd, "parent-forced-tmux.jsonl");
 		writeFileSync(parentSession, `${JSON.stringify(SESSION_HEADER)}\n`);
@@ -414,9 +429,9 @@ exit 1
 		assert.equal(launch.envVars.PI_SUBAGENT_APPEND_SYSTEM_PROMPT, "");
 		assert.equal(launch.envVars.PI_SUBAGENT_SESSION, launch.prepared.subagentSessionFile);
 
-		const metadataEntries = (getEntries(launch.prepared.subagentSessionFile) as Array<Record<string, unknown>>).filter(
-			(entry) => entry.customType === "pi-subagents_launch_metadata",
-		);
+		const metadataEntries = (
+			getEntries(launch.prepared.subagentSessionFile) as Array<Record<string, unknown>>
+		).filter((entry) => entry.customType === "pi-subagents_launch_metadata");
 		assert.equal(metadataEntries.length, 1);
 	});
 

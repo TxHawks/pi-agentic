@@ -132,7 +132,9 @@ async function main() {
 		}
 
 		verified = true;
-		console.log(`frontmatter \`spawning: false\` ok: child completed without subagent tool (${details.id})`);
+		console.log(
+			`frontmatter \`spawning: false\` ok: child completed without subagent tool (${details.id})`,
+		);
 	} finally {
 		ctx.cleanup();
 	}

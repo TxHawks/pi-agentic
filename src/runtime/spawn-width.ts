@@ -18,7 +18,9 @@ export function getEffectiveSpawnWidthLimit(configured?: number | null): number 
 	return Math.min(configured ?? Number.POSITIVE_INFINITY, MAX_SPAWN_WIDTH);
 }
 
-export function initializeSpawnWidthForSession(env: Record<string, string | undefined> = process.env): void {
+export function initializeSpawnWidthForSession(
+	env: Record<string, string | undefined> = process.env,
+): void {
 	const raw =
 		env.PI_SUBAGENT_AGENT?.trim() && env.PI_SUBAGENT_SPAWN_WIDTH_EFFECTIVE !== undefined
 			? env.PI_SUBAGENT_SPAWN_WIDTH_EFFECTIVE

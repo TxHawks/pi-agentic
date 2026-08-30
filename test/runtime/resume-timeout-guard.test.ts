@@ -3,9 +3,19 @@ import { describe, it } from "node:test";
 import { resumeSubagentSession } from "../../src/runtime/resume-service.ts";
 import type { PersistedSubagentLaunchMetadata } from "../../src/session/session-files.ts";
 import { writeSubagentLaunchMetadataEntry } from "../../src/session/session-files.ts";
-import { readSubagentTimeoutSidecar, writeSubagentTimeoutSidecar } from "../../src/session/timeout-sidecar.ts";
+import {
+	readSubagentTimeoutSidecar,
+	writeSubagentTimeoutSidecar,
+} from "../../src/session/timeout-sidecar.ts";
 import { registerSubagentResumeTool } from "../../src/tools/resume-tool.ts";
-import { assert, createTestDir, existsSync, readFileSync, writeExecutable, writeFileSync } from "../support/index.ts";
+import {
+	assert,
+	createTestDir,
+	existsSync,
+	readFileSync,
+	writeExecutable,
+	writeFileSync,
+} from "../support/index.ts";
 
 const SPAWN_GRANT_VARS = [
 	"PI_SUBAGENT_SPAWNABLE",
@@ -80,7 +90,10 @@ function createResumeRuntime() {
 }
 
 function registerResumeTool(runtime: ReturnType<typeof createResumeRuntime>) {
-	const tools = new Map<string, { execute: (id: string, params: unknown, signal?: AbortSignal) => Promise<unknown> }>();
+	const tools = new Map<
+		string,
+		{ execute: (id: string, params: unknown, signal?: AbortSignal) => Promise<unknown> }
+	>();
 	registerSubagentResumeTool(
 		{
 			registerTool(definition: { name: string }) {
@@ -120,7 +133,11 @@ describe("timeout resume guard", () => {
 				() => tool.execute("call-1", { sessionFile }, undefined),
 				/stopped this sub-agent because it went past its time limit[\s\S]*does not allow a resume[\s\S]*smaller task/,
 			);
-			assert.equal(existsSync(spawnMarker), false, "the guard must refuse before any child is started");
+			assert.equal(
+				existsSync(spawnMarker),
+				false,
+				"the guard must refuse before any child is started",
+			);
 		});
 	});
 
@@ -128,7 +145,9 @@ describe("timeout resume guard", () => {
 		const dir = createTestDir();
 		const bin = writeExecutable(dir, "quiet-pi", "#!/usr/bin/env bash\nexit 0\n");
 		await withFakePi(bin, async () => {
-			const sessionFile = writeTimedOutSession(dir, "recoverable-child.jsonl", { blocksResume: false });
+			const sessionFile = writeTimedOutSession(dir, "recoverable-child.jsonl", {
+				blocksResume: false,
+			});
 
 			const running = await withoutAmbientSpawnGrant(() =>
 				resumeSubagentSession({ sessionFile, mode: "background" }, createResumeRuntime() as never),

@@ -39,7 +39,10 @@ writeAgent(
 		tools: "bash",
 		env: "FOO=bar,BAZ=qux",
 	},
-	['Run exactly one bash command: echo "FOO=$FOO BAZ=$BAZ"', "Then reply with exactly `FM_ENV_OK`."].join("\n"),
+	[
+		'Run exactly one bash command: echo "FOO=$FOO BAZ=$BAZ"',
+		"Then reply with exactly `FM_ENV_OK`.",
+	].join("\n"),
 );
 
 const prompt = [
@@ -90,7 +93,9 @@ try {
 	console.log(`Child bash output contains env vars: ${JSON.stringify(envOutput.trim())}`);
 
 	// Check the child session launch metadata for the env field
-	const metadata = childEvents.find((e) => e.type === "custom" && e.customType === "pi-subagents_launch_metadata");
+	const metadata = childEvents.find(
+		(e) => e.type === "custom" && e.customType === "pi-subagents_launch_metadata",
+	);
 	if (!metadata) {
 		throw new Error("No launch metadata found in child session.");
 	}

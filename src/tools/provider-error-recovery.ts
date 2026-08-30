@@ -213,7 +213,11 @@ export function formatRecoveryExhaustedMessage(failureNumber: number, lastError:
  * Render the per-second countdown shown in the child pane while a recovery
  * window is armed. `failureNumber` is 1-based; the last window is the kill.
  */
-export function formatCountdown(failureNumber: number, secondsRemaining: number, totalAttempts: number): string {
+export function formatCountdown(
+	failureNumber: number,
+	secondsRemaining: number,
+	totalAttempts: number,
+): string {
 	const isFinal = failureNumber >= totalAttempts;
 	const action = isFinal ? "final recovery attempt" : "automatic retry";
 	return `Provider error — ${action} in ${secondsRemaining}s (${failureNumber}/${totalAttempts})`;

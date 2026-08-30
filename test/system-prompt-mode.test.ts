@@ -15,7 +15,12 @@ function parseFrontmatter(content: string) {
 	const body = content.replace(/^---\n[\s\S]*?\n---\n*/, "").trim();
 	const systemPromptMode = get("system-prompt");
 	return {
-		systemPromptMode: systemPromptMode === "replace" ? "replace" : systemPromptMode === "append" ? "append" : undefined,
+		systemPromptMode:
+			systemPromptMode === "replace"
+				? "replace"
+				: systemPromptMode === "append"
+					? "append"
+					: undefined,
 		body: body || undefined,
 	};
 }

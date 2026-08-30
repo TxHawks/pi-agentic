@@ -36,7 +36,12 @@ describe("subagent context reminders", () => {
 	});
 
 	it("includes current and maximum tokens in each progressive reminder", () => {
-		const first = selectContextReminder(80, 5, { tokens: 160_000, contextWindow: 200_000, percent: 80 }, new Set());
+		const first = selectContextReminder(
+			80,
+			5,
+			{ tokens: 160_000, contextWindow: 200_000, percent: 80 },
+			new Set(),
+		);
 		assert.equal(first?.threshold, 80);
 		assert.match(first?.message ?? "", /160K\/200K tokens \(80\.0%\)/);
 		assert.match(first?.message ?? "", /compaction is approaching/);
@@ -70,7 +75,12 @@ describe("subagent context reminders", () => {
 	});
 
 	it("uses the most urgent warning when usage jumps across levels", () => {
-		const reminder = selectContextReminder(80, 5, { tokens: 182_000, contextWindow: 200_000, percent: 91 }, new Set());
+		const reminder = selectContextReminder(
+			80,
+			5,
+			{ tokens: 182_000, contextWindow: 200_000, percent: 91 },
+			new Set(),
+		);
 		assert.equal(reminder?.threshold, 90);
 		assert.deepEqual(reminder?.sentThresholds, [80, 85, 90]);
 		assert.match(reminder?.message ?? "", /compaction is imminent/);
@@ -395,7 +405,10 @@ describe("subagent context reminders", () => {
 
 			// This is the whole point of the feature: the child that obeyed the
 			// final warning must say so on both channels the parent can read.
-			assert.equal(JSON.parse(readFileSync(`${sessionFile}.exit`, "utf8")).completionReason, "context-pressure");
+			assert.equal(
+				JSON.parse(readFileSync(`${sessionFile}.exit`, "utf8")).completionReason,
+				"context-pressure",
+			);
 			assert.deepEqual(entries.at(-1), {
 				type: "custom",
 				customType: "pi-subagent-completion",
@@ -532,7 +545,11 @@ describe("subagent context reminders", () => {
 			for (const handler of retryHandlers.get("agent_end") ?? []) {
 				handler({ messages: [{ role: "assistant", stopReason: "stop" }] }, ctx);
 			}
-			assert.equal(retrySent.length, 1, "an undelivered queued reminder must be retried after resume");
+			assert.equal(
+				retrySent.length,
+				1,
+				"an undelivered queued reminder must be retried after resume",
+			);
 			hasPendingMessages = false;
 			emit("message_end", {
 				message: {
@@ -574,7 +591,11 @@ describe("subagent context reminders", () => {
 			} as any);
 			emitResumed("session_start", {}, ctx);
 			emitResumed("agent_end", { messages: [{ role: "assistant", stopReason: "stop" }] }, ctx);
-			assert.equal(resumedSent.length, 0, "persisted levels must not repeat after resume or reload");
+			assert.equal(
+				resumedSent.length,
+				0,
+				"persisted levels must not repeat after resume or reload",
+			);
 
 			emit("agent_end", { messages: [{ role: "assistant", stopReason: "stop" }] }, ctx);
 			await sleep(0);

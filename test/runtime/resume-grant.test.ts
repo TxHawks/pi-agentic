@@ -30,7 +30,10 @@ function createSessionFile(): string {
 	return sessionFile;
 }
 
-function launchMetadata(sessionFile: string, spawnBudget: number | null | undefined): PersistedSubagentLaunchMetadata {
+function launchMetadata(
+	sessionFile: string,
+	spawnBudget: number | null | undefined,
+): PersistedSubagentLaunchMetadata {
 	const cwd = dirname(sessionFile);
 	return {
 		version: 1,
@@ -113,23 +116,27 @@ describe("resume spawn grant", () => {
 		};
 
 		assert.equal(narrowedGranted > 0, true);
-		assert.deepEqual(buildResumeSpawnEnv({ spawnableAgents: true }, narrowedGranted, null).denyToolsToAdd, []);
-		assert.deepEqual(await getPersistedSessionParityArgsForTest(metadata, "background", narrowedGranted > 0), [
-			"--tools",
-			"exec_command,caller_ping,subagent_done,subagent,subagent_resume,subagent_kill",
-			"--no-approve",
-		]);
+		assert.deepEqual(
+			buildResumeSpawnEnv({ spawnableAgents: true }, narrowedGranted, null).denyToolsToAdd,
+			[],
+		);
+		assert.deepEqual(
+			await getPersistedSessionParityArgsForTest(metadata, "background", narrowedGranted > 0),
+			[
+				"--tools",
+				"exec_command,caller_ping,subagent_done,subagent,subagent_resume,subagent_kill",
+				"--no-approve",
+			],
+		);
 
 		assert.equal(narrowedExhausted > 0, false);
-		assert.deepEqual(buildResumeSpawnEnv({ spawnableAgents: true }, narrowedExhausted, null).denyToolsToAdd, [
-			"subagent",
-			"subagent_resume",
-			"subagent_kill",
-		]);
-		assert.deepEqual(await getPersistedSessionParityArgsForTest(metadata, "background", narrowedExhausted > 0), [
-			"--tools",
-			"exec_command,caller_ping,subagent_done",
-			"--no-approve",
-		]);
+		assert.deepEqual(
+			buildResumeSpawnEnv({ spawnableAgents: true }, narrowedExhausted, null).denyToolsToAdd,
+			["subagent", "subagent_resume", "subagent_kill"],
+		);
+		assert.deepEqual(
+			await getPersistedSessionParityArgsForTest(metadata, "background", narrowedExhausted > 0),
+			["--tools", "exec_command,caller_ping,subagent_done", "--no-approve"],
+		);
 	});
 });

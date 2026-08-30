@@ -60,11 +60,13 @@ export function _loadAgentDefaultsForTest(agentName: string, cwdHint?: string | 
 		const extensionsRaw = get("extensions");
 		const modeRaw = get("mode");
 		return {
-			systemPromptMode: systemPromptRaw === "append" || systemPromptRaw === "replace" ? systemPromptRaw : undefined,
+			systemPromptMode:
+				systemPromptRaw === "append" || systemPromptRaw === "replace" ? systemPromptRaw : undefined,
 			cwd: get("cwd"),
 			cwdBase,
 			extensions: extensionsRaw,
-			noContextFiles: noContextFilesRaw === "true" ? true : noContextFilesRaw === "false" ? false : undefined,
+			noContextFiles:
+				noContextFilesRaw === "true" ? true : noContextFilesRaw === "false" ? false : undefined,
 			noSession: noSessionRaw === "true" ? true : noSessionRaw === "false" ? false : undefined,
 			mode: modeRaw === "background" || modeRaw === "interactive" ? modeRaw : undefined,
 		};
@@ -72,7 +74,10 @@ export function _loadAgentDefaultsForTest(agentName: string, cwdHint?: string | 
 	return null;
 }
 
-export function createForkSessionFileForTest(parentSessionFile: string, childSessionFile: string): void {
+export function createForkSessionFileForTest(
+	parentSessionFile: string,
+	childSessionFile: string,
+): void {
 	const entries = getEntries(parentSessionFile) as any[];
 	let truncateAt = entries.length;
 	for (let i = entries.length - 1; i >= 0; i--) {
@@ -92,7 +97,10 @@ export function createForkSessionFileForTest(parentSessionFile: string, childSes
 		cwd: process.cwd(),
 		parentSession: parentSessionFile,
 	};
-	writeFileSync(childSessionFile, `${[header, ...contentEntries].map((entry) => JSON.stringify(entry)).join("\n")}\n`);
+	writeFileSync(
+		childSessionFile,
+		`${[header, ...contentEntries].map((entry) => JSON.stringify(entry)).join("\n")}\n`,
+	);
 }
 
 export const SESSION_HEADER = { type: "session", id: "sess-001", version: 3 };

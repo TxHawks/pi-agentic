@@ -592,7 +592,10 @@ describe("subagents-view overlay", () => {
 			const overlay = createOverlay();
 			const lines = renderLines(overlay);
 			const text = lines.map(stripAnsi).join("\n");
-			assert.ok(text.includes("zai-messages/glm-5.1:high"), `Expected model ref in list row:\n${text}`);
+			assert.ok(
+				text.includes("zai-messages/glm-5.1:high"),
+				`Expected model ref in list row:\n${text}`,
+			);
 			overlay.dispose();
 		});
 
@@ -654,7 +657,9 @@ describe("subagents-view overlay", () => {
 			const items = await buildCompletedItems(overlayCtx);
 			const item = items.find((i) => i.name === "scout");
 			assert.ok(item, "expected recovered completed item");
-			const ctxField = item!.detailSections.flatMap((s) => s.fields).find((f) => f.label === "context tokens");
+			const ctxField = item!.detailSections
+				.flatMap((s) => s.fields)
+				.find((f) => f.label === "context tokens");
 			assert.equal(ctxField?.value, "150K");
 			assert.ok(
 				item!.stats.includes("150K ctx"),

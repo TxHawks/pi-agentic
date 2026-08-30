@@ -1,5 +1,8 @@
 import { existsSync } from "node:fs";
-import { SUBAGENT_COMPLETION_ENTRY, SUBAGENT_CONTEXT_PRESSURE_REASON } from "../tools/context-reminders.ts";
+import {
+	SUBAGENT_COMPLETION_ENTRY,
+	SUBAGENT_CONTEXT_PRESSURE_REASON,
+} from "../tools/context-reminders.ts";
 import { getEntries } from "./session.ts";
 
 /**
@@ -23,7 +26,9 @@ export function endedUnderContextPressure(sessionFile: string): boolean {
 		if (entries.length === 0) return false;
 		// Walk back from the active leaf. A marker on an abandoned branch
 		// describes a run this session no longer descends from.
-		const byId = new Map(entries.filter((entry) => entry.id).map((entry) => [entry.id as string, entry]));
+		const byId = new Map(
+			entries.filter((entry) => entry.id).map((entry) => [entry.id as string, entry]),
+		);
 		let current: (typeof entries)[number] | undefined = entries[entries.length - 1];
 		const seen = new Set<string>();
 		while (current) {

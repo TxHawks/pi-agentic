@@ -3,7 +3,12 @@ import { join, resolve } from "node:path";
 import type { AgentDefaults } from "../agents/definitions.ts";
 import { getAgentConfigDir } from "../agents/definitions.ts";
 import { parseTimeoutWarnThreshold } from "../tools/timeout-reminders.ts";
-import type { ParentClosePolicy, RunningSubagent, SubagentParamsInput, SubagentTimeoutBudget } from "../types.ts";
+import type {
+	ParentClosePolicy,
+	RunningSubagent,
+	SubagentParamsInput,
+	SubagentTimeoutBudget,
+} from "../types.ts";
 
 export function getSubagentAgentRequirementError(
 	params: Partial<SubagentParamsInput>,
@@ -35,7 +40,10 @@ export function getSubagentAgentRequirementError(
 	return null;
 }
 
-export function getSubagentAgentOverrideError(_params: Partial<SubagentParamsInput>, _agentDefs: AgentDefaults | null) {
+export function getSubagentAgentOverrideError(
+	_params: Partial<SubagentParamsInput>,
+	_agentDefs: AgentDefaults | null,
+) {
 	// Named-agent frontmatter is authoritative by default. Call-time model and
 	// thinking overrides are allowed unless the definition opts out with
 	// allow-model-override: false; other call-time runtime fields are ignored
@@ -50,7 +58,10 @@ export function resolveSubagentBlocking(
 	return agentDefs?.async === false;
 }
 
-function resolveSubagentAsync(params: Partial<SubagentParamsInput>, agentDefs: AgentDefaults | null): boolean {
+function resolveSubagentAsync(
+	params: Partial<SubagentParamsInput>,
+	agentDefs: AgentDefaults | null,
+): boolean {
 	return !resolveSubagentBlocking(params, agentDefs);
 }
 
@@ -114,11 +125,15 @@ export function resolveSubagentTimeoutState(
  * the transcript after the parent kills the first process, so persist only to
  * the existing temporary path and delete it when the run finally completes.
  */
-export function shouldPersistNoSessionForTimeoutWrapUp(source: SubagentTimeoutSource | null | undefined): boolean {
+export function shouldPersistNoSessionForTimeoutWrapUp(
+	source: SubagentTimeoutSource | null | undefined,
+): boolean {
 	return resolveSubagentTimeoutState(source).timeoutWarnThreshold !== undefined;
 }
 
-export function resolveSubagentParentClosePolicy(agentDefs: AgentDefaults | null): ParentClosePolicy {
+export function resolveSubagentParentClosePolicy(
+	agentDefs: AgentDefaults | null,
+): ParentClosePolicy {
 	return agentDefs?.parentClosePolicy ?? "terminate";
 }
 
@@ -165,7 +180,9 @@ export function enforceAgentFrontmatter(
 		title: params.title,
 		agent: params.agent,
 		...(agentDefs?.allowModelOverride !== false && params.model ? { model: params.model } : {}),
-		...(agentDefs?.allowModelOverride !== false && params.thinking ? { thinking: params.thinking } : {}),
+		...(agentDefs?.allowModelOverride !== false && params.thinking
+			? { thinking: params.thinking }
+			: {}),
 		async: resolveSubagentAsync(params, agentDefs),
 		blocking: resolveSubagentBlocking(params, agentDefs),
 	};

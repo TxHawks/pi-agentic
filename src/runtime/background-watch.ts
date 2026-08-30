@@ -2,9 +2,19 @@ import { existsSync, statSync } from "node:fs";
 import { getTerminalAssistantSummary, shouldReapStableTerminalSummary } from "../agents/titles.ts";
 import { consumeSubagentExitSignal } from "../mux.ts";
 import { hasSubagentExitSidecar } from "../session/exit-sidecar.ts";
-import { findLastSubagentOutputWithSource, getEntries, getEntryCount, getNewEntries } from "../session/session.ts";
+import {
+	findLastSubagentOutputWithSource,
+	getEntries,
+	getEntryCount,
+	getNewEntries,
+} from "../session/session.ts";
 import { writeSubagentTimeoutSidecar } from "../session/timeout-sidecar.ts";
-import type { RunningSubagent, SessionEntryLike, SubagentResult, SubagentSummarySource } from "../types.ts";
+import type {
+	RunningSubagent,
+	SessionEntryLike,
+	SubagentResult,
+	SubagentSummarySource,
+} from "../types.ts";
 import { resolveFinalContextUsage } from "./final-context-usage.ts";
 import {
 	checkSubagentTimeout,
@@ -81,11 +91,16 @@ async function terminateBackgroundGeneration(
 	if (isProcessGroupAlive(pid)) running.timeoutKillFailed = true;
 }
 
-function buildBackgroundRestartTimeoutResult(running: RunningSubagent, expiry: ExpiredTimeoutBudget): SubagentResult {
+function buildBackgroundRestartTimeoutResult(
+	running: RunningSubagent,
+	expiry: ExpiredTimeoutBudget,
+): SubagentResult {
 	let summary = "The report-only continuation could not start before the original hard deadline.";
 	let summarySource: SubagentSummarySource = "runtime";
 	if (existsSync(running.sessionFile)) {
-		const output = findLastSubagentOutputWithSource(getNewEntries(running.sessionFile, running.launchEntryCount ?? 0));
+		const output = findLastSubagentOutputWithSource(
+			getNewEntries(running.sessionFile, running.launchEntryCount ?? 0),
+		);
 		if (output) ({ summary, summarySource } = output);
 	}
 	if (!running.noSession) {
@@ -243,7 +258,8 @@ function watchBackgroundGeneration(
 			if (!due || running.timeoutWrapUpMode) return false;
 			if (hasSubagentExitSidecar(running.sessionFile)) return false;
 			running.timeoutWrapUp = due;
-			const baseline = due.kind === "timeout" ? running.startTime : (running.lastProgressAt ?? running.startTime);
+			const baseline =
+				due.kind === "timeout" ? running.startTime : (running.lastProgressAt ?? running.startTime);
 			running.timeoutWrapUpDeadlineAt = baseline + due.seconds * 1000;
 			beginKill();
 			return true;
@@ -261,7 +277,9 @@ function watchBackgroundGeneration(
 				const previousEntries = running.entries ?? 0;
 				const entries = getEntryCount(running.sessionFile);
 				const produced =
-					entries > previousEntries ? hasChildProgress(getNewEntries(running.sessionFile, previousEntries)) : false;
+					entries > previousEntries
+						? hasChildProgress(getNewEntries(running.sessionFile, previousEntries))
+						: false;
 				observeSubagentProgress(running, stat.size, now, produced);
 				running.entries = entries;
 				return !running.noSession || running.timeoutWarnThreshold !== undefined;
@@ -300,7 +318,9 @@ function watchBackgroundGeneration(
 			try {
 				if (!shouldReapStableTerminalSummary(running)) return;
 				const summary = getTerminalAssistantSummary(
-					(getEntries(running.sessionFile) as SessionEntryLike[]).slice(running.launchEntryCount ?? 0),
+					(getEntries(running.sessionFile) as SessionEntryLike[]).slice(
+						running.launchEntryCount ?? 0,
+					),
 				);
 				if (!summary) {
 					terminalSummary = null;
@@ -325,7 +345,10 @@ function watchBackgroundGeneration(
 				}
 			}, 5000);
 		};
-		const finalizeExit = (code: number | null, exitSignal: ReturnType<typeof consumeSubagentExitSignal>) => {
+		const finalizeExit = (
+			code: number | null,
+			exitSignal: ReturnType<typeof consumeSubagentExitSignal>,
+		) => {
 			if (
 				running.timeoutWrapUp &&
 				!running.timeoutWrapUpMode &&
@@ -339,7 +362,8 @@ function watchBackgroundGeneration(
 			const elapsed = Math.floor((Date.now() - running.startTime) / 1000);
 			// A ping is child-initiated and asks the parent for help, so it still
 			// outranks the kill. A `done` at this point does not: see above.
-			const timedOut = running.timeoutExpiry && exitSignal?.reason !== "ping" ? running.timeoutExpiry : undefined;
+			const timedOut =
+				running.timeoutExpiry && exitSignal?.reason !== "ping" ? running.timeoutExpiry : undefined;
 			// A child shut down by the runtime often exits cleanly. Reporting that
 			// as exit 0 would file a killed runaway as a success.
 			const exitCode = timedOut ? code || 1 : (exitSignal?.exitCode ?? code ?? 1);
@@ -349,7 +373,10 @@ function watchBackgroundGeneration(
 			const stdout = running.stdoutTail?.trim();
 			let summary = `Background agent exited with code ${exitCode}`;
 			let summarySource: SubagentSummarySource = "runtime";
-			if ((!running.noSession || running.timeoutWarnThreshold !== undefined) && existsSync(running.sessionFile)) {
+			if (
+				(!running.noSession || running.timeoutWarnThreshold !== undefined) &&
+				existsSync(running.sessionFile)
+			) {
 				const allEntries = getNewEntries(running.sessionFile, running.launchEntryCount ?? 0);
 				const output = findLastSubagentOutputWithSource(allEntries);
 				if (output) {
@@ -423,7 +450,12 @@ function watchBackgroundGeneration(
 			finalizeExit(code, exitSignal);
 		};
 		const onError = (error: Error) => {
-			if (running.timeoutWrapUp && !running.timeoutWrapUpMode && !running.timeoutExpiry && !signal.aborted) {
+			if (
+				running.timeoutWrapUp &&
+				!running.timeoutWrapUpMode &&
+				!running.timeoutExpiry &&
+				!signal.aborted
+			) {
 				finish({ kind: "restart" });
 				return;
 			}

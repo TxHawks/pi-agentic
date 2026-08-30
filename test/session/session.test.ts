@@ -93,9 +93,15 @@ describe("session.ts", () => {
 
 		it("reports the correct original line number for invalid new entries", () => {
 			const file = join(dir, "invalid-new-entries.jsonl");
-			writeFileSync(file, `${[JSON.stringify(SESSION_HEADER), JSON.stringify(MODEL_CHANGE), "not-json"].join("\n")}\n`);
+			writeFileSync(
+				file,
+				`${[JSON.stringify(SESSION_HEADER), JSON.stringify(MODEL_CHANGE), "not-json"].join("\n")}\n`,
+			);
 
-			assert.throws(() => getNewEntries(file, 2), /Invalid session JSONL at .*invalid-new-entries\.jsonl:3:/);
+			assert.throws(
+				() => getNewEntries(file, 2),
+				/Invalid session JSONL at .*invalid-new-entries\.jsonl:3:/,
+			);
 		});
 	});
 
@@ -181,7 +187,10 @@ describe("session.ts", () => {
 				},
 			};
 			const entries = [earlierGood, overloadError] as any[];
-			assert.equal(findLastAssistantMessage(entries), "Subagent error: Anthropic 529 Overloaded after 3 retries");
+			assert.equal(
+				findLastAssistantMessage(entries),
+				"Subagent error: Anthropic 529 Overloaded after 3 retries",
+			);
 		});
 
 		it("prefers text content even when error stopReason is set", () => {
@@ -327,7 +336,10 @@ describe("session.ts", () => {
 				},
 			] as any[];
 
-			assert.equal(findLastSubagentOutput(entries), "Subagent stopped before producing a result (stopReason: length)");
+			assert.equal(
+				findLastSubagentOutput(entries),
+				"Subagent stopped before producing a result (stopReason: length)",
+			);
 		});
 
 		it("uses a terminating tool result after a textless tool-use boundary", () => {
@@ -438,7 +450,10 @@ describe("session.ts", () => {
 				sourceFile,
 				`${[SESSION_HEADER, USER_MSG, ASSISTANT_MSG].map((e) => JSON.stringify(e)).join("\n")}\n`,
 			);
-			writeFileSync(targetFile, `${[SESSION_HEADER, USER_MSG].map((e) => JSON.stringify(e)).join("\n")}\n`);
+			writeFileSync(
+				targetFile,
+				`${[SESSION_HEADER, USER_MSG].map((e) => JSON.stringify(e)).join("\n")}\n`,
+			);
 
 			const merged = mergeNewEntries(sourceFile, targetFile, 2);
 			assert.equal(merged.length, 1);

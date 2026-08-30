@@ -105,7 +105,9 @@ const result = spawnSync(piBin, args, {
 	timeout: 540_000,
 });
 const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
-console.log(`[live-fork-compact] pi exited: status=${result.status} signal=${result.signal} elapsed=${elapsed}s`);
+console.log(
+	`[live-fork-compact] pi exited: status=${result.status} signal=${result.signal} elapsed=${elapsed}s`,
+);
 
 if (result.stderr) {
 	const tail = result.stderr.slice(-512);
@@ -132,7 +134,10 @@ for (const path of sessions) {
 	// Two ways to identify the child: `parentSession` (fork mode) or a
 	// session `name` set by the subagent launcher (standalone mode). The
 	// parent session never has either.
-	if (parsed?.parentSession || (typeof parsed?.name === "string" && parsed.name.includes("agent]"))) {
+	if (
+		parsed?.parentSession ||
+		(typeof parsed?.name === "string" && parsed.name.includes("agent]"))
+	) {
 		childSession = path;
 	}
 }
@@ -156,7 +161,9 @@ if (!childSession) {
 		.filter(Boolean);
 
 	const compactions = entries.filter((e) => e?.type === "compaction");
-	const assistants = entries.filter((e) => e?.type === "message" && e?.message?.role === "assistant");
+	const assistants = entries.filter(
+		(e) => e?.type === "message" && e?.message?.role === "assistant",
+	);
 	const usages = assistants.map((e) => e.message.usage?.input ?? 0).filter((v) => v > 0);
 	const maxUsage = usages.length > 0 ? Math.max(...usages) : 0;
 
@@ -169,7 +176,9 @@ if (!childSession) {
 		console.log("  FAIL zero compaction entries — pi-core compaction did not fire");
 		pass = false;
 	} else {
-		console.log(`  OK   ${compactions.length} compaction entries (pi-core compaction fired in child)`);
+		console.log(
+			`  OK   ${compactions.length} compaction entries (pi-core compaction fired in child)`,
+		);
 	}
 	// The compaction trigger requires the child to have actually crossed the
 	// threshold. If usage stayed below ~150K we have not really tested anything.

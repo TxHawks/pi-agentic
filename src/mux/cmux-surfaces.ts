@@ -39,7 +39,9 @@ function parseCmuxColumns(record: Record<string, unknown>): number | undefined {
 }
 
 function parseCmuxRows(record: Record<string, unknown>): number | undefined {
-	return positiveNumber(record.rows) ?? positiveNumber(record.height) ?? positiveNumber(record.pane_rows);
+	return (
+		positiveNumber(record.rows) ?? positiveNumber(record.height) ?? positiveNumber(record.pane_rows)
+	);
 }
 
 function parseCmuxFocusedSnapshot(value: unknown): CmuxFocusSnapshot | null {
@@ -186,17 +188,26 @@ function waitForCmuxFocusSettle(): void {
 	Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
 }
 
-function cmuxFocusMatchesChild(currentFocus: CmuxFocusSnapshot | null, child: CmuxCreatedSurface): boolean {
+function cmuxFocusMatchesChild(
+	currentFocus: CmuxFocusSnapshot | null,
+	child: CmuxCreatedSurface,
+): boolean {
 	if (!currentFocus) return false;
 	if (currentFocus.surfaceRef === child.surface) return true;
 	return !!currentFocus.paneRef && currentFocus.paneRef === child.paneRef;
 }
 
-function cmuxFocusMatchesSurfaceRef(currentFocus: CmuxFocusSnapshot | null, surfaceRef: string | undefined): boolean {
+function cmuxFocusMatchesSurfaceRef(
+	currentFocus: CmuxFocusSnapshot | null,
+	surfaceRef: string | undefined,
+): boolean {
 	return !!surfaceRef && currentFocus?.surfaceRef === surfaceRef;
 }
 
-function cmuxFocusMatchesPaneRef(currentFocus: CmuxFocusSnapshot | null, paneRef: string | undefined): boolean {
+function cmuxFocusMatchesPaneRef(
+	currentFocus: CmuxFocusSnapshot | null,
+	paneRef: string | undefined,
+): boolean {
 	return !!paneRef && currentFocus?.paneRef === paneRef;
 }
 
@@ -258,7 +269,8 @@ function createCmuxChildSurface(
 function canSplitCmuxPaneRight(snapshot: CmuxFocusSnapshot | null): boolean {
 	if (!snapshot?.columns || !snapshot.rows) return false;
 	return (
-		Math.floor(snapshot.columns / 2) >= DEFAULT_INTERACTIVE_MIN_COLUMNS && snapshot.rows >= DEFAULT_INTERACTIVE_MIN_ROWS
+		Math.floor(snapshot.columns / 2) >= DEFAULT_INTERACTIVE_MIN_COLUMNS &&
+		snapshot.rows >= DEFAULT_INTERACTIVE_MIN_ROWS
 	);
 }
 

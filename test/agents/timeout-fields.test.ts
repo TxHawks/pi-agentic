@@ -15,7 +15,10 @@ function loadDefinition(frontmatter: string) {
 	const dir = createTestDir();
 	const configDir = join(dir, "agent-root");
 	mkdirSync(join(configDir, "agents"), { recursive: true });
-	writeFileSync(join(configDir, "agents", "tester.md"), `---\nname: tester\n${frontmatter}\n---\n\nTester body.`);
+	writeFileSync(
+		join(configDir, "agents", "tester.md"),
+		`---\nname: tester\n${frontmatter}\n---\n\nTester body.`,
+	);
 	process.env.PI_CODING_AGENT_DIR = configDir;
 	return loadAgentDefaults("tester");
 }
@@ -43,8 +46,14 @@ describe("timeout agent fields", () => {
 
 	it("rejects a malformed budget instead of silently running unbounded", () => {
 		for (const bad of ["0", "-30", "30s", "5m", "1.5", "", "none"]) {
-			assert.throws(() => loadDefinition(`timeout: ${bad}`), /timeout must be a positive safe integer/);
-			assert.throws(() => loadDefinition(`idle-timeout: ${bad}`), /idle-timeout must be a positive safe integer/);
+			assert.throws(
+				() => loadDefinition(`timeout: ${bad}`),
+				/timeout must be a positive safe integer/,
+			);
+			assert.throws(
+				() => loadDefinition(`idle-timeout: ${bad}`),
+				/idle-timeout must be a positive safe integer/,
+			);
 		}
 	});
 
@@ -64,7 +73,10 @@ describe("timeout agent fields", () => {
 		// Failing open here would re-enable resume for exactly the agent that
 		// asked to be protected from a second partial run.
 		for (const bad of ["kill-parent", "block", "true", ""]) {
-			assert.throws(() => loadDefinition(`on-timeout: ${bad}`), /on-timeout must be "report" or "block-resume"/);
+			assert.throws(
+				() => loadDefinition(`on-timeout: ${bad}`),
+				/on-timeout must be "report" or "block-resume"/,
+			);
 		}
 	});
 });

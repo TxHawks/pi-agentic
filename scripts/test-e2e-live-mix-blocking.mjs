@@ -1,12 +1,24 @@
 #!/usr/bin/env node
 import { execFileSync, spawn } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+	copyFileSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	writeFileSync,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { installLiveTestCleanup } from "./live-test-cleanup.mjs";
-import { acquireLiveWindowLock, LIVE_TEST_MODEL, requireLiveWindowOptIn } from "./live-test-guard.mjs";
+import {
+	acquireLiveWindowLock,
+	LIVE_TEST_MODEL,
+	requireLiveWindowOptIn,
+} from "./live-test-guard.mjs";
 
 const piBin = process.env.PI_E2E_PI_BIN ?? "pi";
 
@@ -137,7 +149,9 @@ function findAssistantTextEvent(events, text) {
 		(event) =>
 			event.type === "message" &&
 			event.message?.role === "assistant" &&
-			(event.message.content ?? []).some((part) => part.type === "text" && part.text.trim() === text),
+			(event.message.content ?? []).some(
+				(part) => part.type === "text" && part.text.trim() === text,
+			),
 	);
 }
 
@@ -145,7 +159,9 @@ function findLastAssistantTextEvent(events) {
 	for (let i = events.length - 1; i >= 0; i--) {
 		const event = events[i];
 		if (event.type !== "message" || event.message?.role !== "assistant") continue;
-		const textPart = (event.message.content ?? []).find((part) => part.type === "text" && part.text.trim().length > 0);
+		const textPart = (event.message.content ?? []).find(
+			(part) => part.type === "text" && part.text.trim().length > 0,
+		);
 		if (textPart) return event;
 	}
 	return null;
@@ -155,7 +171,9 @@ function getSubagentResults(events) {
 	return events
 		.filter(
 			(event) =>
-				event.type === "message" && event.message?.role === "toolResult" && event.message.toolName === "subagent",
+				event.type === "message" &&
+				event.message?.role === "toolResult" &&
+				event.message.toolName === "subagent",
 		)
 		.map((event) => event.message);
 }
@@ -242,7 +260,11 @@ const ghostty = spawn("ghostty", ["-e", "bash", "-lc", launchCommand], {
 	env: (() => {
 		const env = { ...process.env };
 		for (const key of Object.keys(env)) {
-			if (key.startsWith("PI_SUBAGENT_") || key === "PI_DENY_TOOLS" || key === "PI_ARTIFACT_PROJECT_ROOT") {
+			if (
+				key.startsWith("PI_SUBAGENT_") ||
+				key === "PI_DENY_TOOLS" ||
+				key === "PI_ARTIFACT_PROJECT_ROOT"
+			) {
 				delete env[key];
 			}
 		}
@@ -287,7 +309,9 @@ try {
 		const subagentResults = getSubagentResults(parent.events);
 		const asyncA = subagentResults.find((message) => message.details?.name === "mix-async-a");
 		const asyncB = subagentResults.find((message) => message.details?.name === "mix-async-b");
-		const blocking = subagentResults.find((message) => message.details?.name === "mix-blocking-child");
+		const blocking = subagentResults.find(
+			(message) => message.details?.name === "mix-blocking-child",
+		);
 		if (!asyncA || !asyncB || !blocking || !assistantTexts.includes("LIVE_E2E_MIX_OK")) {
 			await sleep(500);
 			continue;
@@ -333,7 +357,9 @@ try {
 				event.message?.role === "assistant" &&
 				(event.message.content ?? []).some(
 					(part) =>
-						part.type === "toolCall" && part.name === "subagent" && part.arguments?.name === "mix-blocking-child",
+						part.type === "toolCall" &&
+						part.name === "subagent" &&
+						part.arguments?.name === "mix-blocking-child",
 				),
 		);
 		const blockingResultEvent = parent.events.find(
@@ -358,7 +384,13 @@ try {
 				event.message.details?.name === "mix-async-b",
 		);
 		const parentFinalEvent = findAssistantTextEvent(parent.events, "LIVE_E2E_MIX_OK");
-		if (!blockingLaunchEvent || !blockingResultEvent || !asyncAResultEvent || !asyncBResultEvent || !parentFinalEvent) {
+		if (
+			!blockingLaunchEvent ||
+			!blockingResultEvent ||
+			!asyncAResultEvent ||
+			!asyncBResultEvent ||
+			!parentFinalEvent
+		) {
 			throw new Error("Missing mixed launch/result/final parent events.");
 		}
 
@@ -387,9 +419,11 @@ try {
 			const asyncAEvents = parseJsonl(asyncADetails.sessionFile);
 			const asyncBEvents = parseJsonl(asyncBDetails.sessionFile);
 			const doneA =
-				!!findAssistantTextEvent(asyncAEvents, "LIVE_MIX_ASYNC_A_OK") || !!findLastAssistantTextEvent(asyncAEvents);
+				!!findAssistantTextEvent(asyncAEvents, "LIVE_MIX_ASYNC_A_OK") ||
+				!!findLastAssistantTextEvent(asyncAEvents);
 			const doneB =
-				!!findAssistantTextEvent(asyncBEvents, "LIVE_MIX_ASYNC_B_OK") || !!findLastAssistantTextEvent(asyncBEvents);
+				!!findAssistantTextEvent(asyncBEvents, "LIVE_MIX_ASYNC_B_OK") ||
+				!!findLastAssistantTextEvent(asyncBEvents);
 			if (doneA && doneB) break;
 			await sleep(500);
 		}
@@ -397,9 +431,11 @@ try {
 		const finalAsyncAEvents = parseJsonl(asyncADetails.sessionFile);
 		const finalAsyncBEvents = parseJsonl(asyncBDetails.sessionFile);
 		const asyncAFinalEvent =
-			findAssistantTextEvent(finalAsyncAEvents, "LIVE_MIX_ASYNC_A_OK") ?? findLastAssistantTextEvent(finalAsyncAEvents);
+			findAssistantTextEvent(finalAsyncAEvents, "LIVE_MIX_ASYNC_A_OK") ??
+			findLastAssistantTextEvent(finalAsyncAEvents);
 		const asyncBFinalEvent =
-			findAssistantTextEvent(finalAsyncBEvents, "LIVE_MIX_ASYNC_B_OK") ?? findLastAssistantTextEvent(finalAsyncBEvents);
+			findAssistantTextEvent(finalAsyncBEvents, "LIVE_MIX_ASYNC_B_OK") ??
+			findLastAssistantTextEvent(finalAsyncBEvents);
 		if (!asyncAFinalEvent) {
 			throw new Error("Async child A never finished.");
 		}

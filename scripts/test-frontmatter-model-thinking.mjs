@@ -155,14 +155,18 @@ try {
 		// Individual results
 		for (const sr of subagentResults) {
 			const d = sr.details ?? {};
-			if (d.status !== "completed") throw new Error(`${d.name ?? "child"}: expected completed, got ${d.status}.`);
+			if (d.status !== "completed")
+				throw new Error(`${d.name ?? "child"}: expected completed, got ${d.status}.`);
 			if (d.blocking !== true) throw new Error(`${d.name}: expected blocking true.`);
-			if (!d.sessionFile || !existsSync(d.sessionFile)) throw new Error(`${d.name}: missing sessionFile.`);
+			if (!d.sessionFile || !existsSync(d.sessionFile))
+				throw new Error(`${d.name}: missing sessionFile.`);
 			if (d.name === "FM Model Child") modelResult = d;
 			if (d.name === "FM Thinking Child") thinkingResult = d;
 		}
 	} else {
-		throw new Error(`Expected subagent results in batch or individual format, got ${subagentResults.length} results.`);
+		throw new Error(
+			`Expected subagent results in batch or individual format, got ${subagentResults.length} results.`,
+		);
 	}
 
 	if (!modelResult || !thinkingResult) {
@@ -202,7 +206,9 @@ try {
 	}
 
 	verified = true;
-	console.log(`frontmatter \`model\` ok: model child completed with model ${baseModel} (${modelResult.id ?? "batch"})`);
+	console.log(
+		`frontmatter \`model\` ok: model child completed with model ${baseModel} (${modelResult.id ?? "batch"})`,
+	);
 	console.log(
 		`frontmatter \`thinking\` ok: thinking child completed with thinking ${childThinking} (${thinkingResult.id ?? "batch"})`,
 	);

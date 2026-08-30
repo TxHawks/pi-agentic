@@ -1,5 +1,13 @@
 import { buildChildLaunchPlan } from "../../src/launch/child-launch-plan.ts";
-import { assert, createTestDir, describe, it, join, mkdirSync, writeFileSync } from "../support/index.ts";
+import {
+	assert,
+	createTestDir,
+	describe,
+	it,
+	join,
+	mkdirSync,
+	writeFileSync,
+} from "../support/index.ts";
 
 /**
  * The child launch plan is the foundation seam for agent definition and launch
@@ -57,7 +65,12 @@ describe("child launch plan", () => {
 		assert.equal(plan.capability.skills, "none");
 		assert.equal(plan.capability.injectSkills, undefined);
 		assert.deepEqual(plan.capability.extensions, []);
-		assert.deepEqual([...plan.capability.denySet].sort(), ["bash", "subagent", "subagent_kill", "subagent_resume"]);
+		assert.deepEqual([...plan.capability.denySet].sort(), [
+			"bash",
+			"subagent",
+			"subagent_kill",
+			"subagent_resume",
+		]);
 		assert.deepEqual(plan.capability.skillLaunchPlan.launchArgs, ["--no-skills"]);
 	});
 
@@ -149,7 +162,10 @@ describe("child launch plan", () => {
 				packages: ["git:github.com/example/footer-extension@v2"],
 			}),
 		);
-		writeFileSync(join(packageRoot, "package.json"), JSON.stringify({ name: "footer-extension", version: "2.0.0" }));
+		writeFileSync(
+			join(packageRoot, "package.json"),
+			JSON.stringify({ name: "footer-extension", version: "2.0.0" }),
+		);
 
 		const plan = await buildChildLaunchPlan({
 			params: {
@@ -174,7 +190,10 @@ describe("child launch plan", () => {
 		const cwd = createTestDir();
 		const agentDir = join(cwd, "agent-root");
 		mkdirSync(agentDir, { recursive: true });
-		writeFileSync(join(agentDir, "settings.json"), JSON.stringify({ packages: ["npm:missing-footer"] }));
+		writeFileSync(
+			join(agentDir, "settings.json"),
+			JSON.stringify({ packages: ["npm:missing-footer"] }),
+		);
 
 		const plan = await buildChildLaunchPlan({
 			params: {
@@ -202,7 +221,10 @@ describe("child launch plan", () => {
 		mkdirSync(projectPackageRoot, { recursive: true });
 		mkdirSync(agentDir, { recursive: true });
 		writeFileSync(join(agentDir, "settings.json"), "{}");
-		writeFileSync(join(cwd, ".pi", "settings.json"), JSON.stringify({ packages: ["npm:project-footer"] }));
+		writeFileSync(
+			join(cwd, ".pi", "settings.json"),
+			JSON.stringify({ packages: ["npm:project-footer"] }),
+		);
 		writeFileSync(
 			join(projectPackageRoot, "package.json"),
 			JSON.stringify({ name: "project-footer", version: "1.0.0" }),
@@ -244,7 +266,10 @@ describe("child launch plan", () => {
 		mkdirSync(projectPackageRoot, { recursive: true });
 		mkdirSync(agentDir, { recursive: true });
 		writeFileSync(join(agentDir, "settings.json"), "{}");
-		writeFileSync(join(cwd, ".pi", "settings.json"), JSON.stringify({ packages: ["npm:project-footer"] }));
+		writeFileSync(
+			join(cwd, ".pi", "settings.json"),
+			JSON.stringify({ packages: ["npm:project-footer"] }),
+		);
 		writeFileSync(
 			join(projectPackageRoot, "package.json"),
 			JSON.stringify({ name: "project-footer", version: "1.0.0" }),
@@ -275,8 +300,14 @@ describe("child launch plan", () => {
 		const agentDir = join(cwd, "agent-root");
 		const packageRoot = join(agentDir, "npm", "node_modules", "pi-fancy-footer");
 		mkdirSync(packageRoot, { recursive: true });
-		writeFileSync(join(agentDir, "settings.json"), JSON.stringify({ packages: ["npm:pi-fancy-footer"] }));
-		writeFileSync(join(packageRoot, "package.json"), JSON.stringify({ name: "pi-fancy-footer", version: "1.4.0" }));
+		writeFileSync(
+			join(agentDir, "settings.json"),
+			JSON.stringify({ packages: ["npm:pi-fancy-footer"] }),
+		);
+		writeFileSync(
+			join(packageRoot, "package.json"),
+			JSON.stringify({ name: "pi-fancy-footer", version: "1.4.0" }),
+		);
 
 		const plan = await buildChildLaunchPlan({
 			params: {

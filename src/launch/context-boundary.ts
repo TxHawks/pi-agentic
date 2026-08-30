@@ -27,7 +27,9 @@ export function buildChildContextBoundary(options: ChildContextBoundaryOptions):
 						? "any agent"
 						: `only these agents: ${(options.spawnableAgents ?? []).join(", ") || "(none)"}`
 				}. Remaining nested spawn budget: ${options.spawnBudget}. Max concurrent children: ${
-					options.spawnWidth === null || options.spawnWidth === undefined ? "unlimited" : options.spawnWidth
+					options.spawnWidth === null || options.spawnWidth === undefined
+						? "unlimited"
+						: options.spawnWidth
 				}.`
 			: undefined;
 	return [

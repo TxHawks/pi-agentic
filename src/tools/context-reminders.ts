@@ -56,8 +56,8 @@ export function parseContextWarnStep(raw: string | undefined): number {
 }
 
 export function getContextReminderThresholds(startingThreshold: number, step: number): number[] {
-	const scheduled = [startingThreshold, startingThreshold + step, startingThreshold + 2 * step].map((threshold) =>
-		Math.min(threshold, 99),
+	const scheduled = [startingThreshold, startingThreshold + step, startingThreshold + 2 * step].map(
+		(threshold) => Math.min(threshold, 99),
 	);
 	const unique: number[] = [];
 	for (const threshold of scheduled) {
@@ -73,8 +73,13 @@ export function getContextReminderThresholds(startingThreshold: number, step: nu
  * without warnings. Returns the remaining held thresholds, or `null` when
  * nothing was rearmed.
  */
-export function rearmContextThresholds(percent: number, sentThresholds: ReadonlySet<number>): number[] | null {
-	const held = [...sentThresholds].filter((threshold) => percent >= threshold).sort((a, b) => a - b);
+export function rearmContextThresholds(
+	percent: number,
+	sentThresholds: ReadonlySet<number>,
+): number[] | null {
+	const held = [...sentThresholds]
+		.filter((threshold) => percent >= threshold)
+		.sort((a, b) => a - b);
 	return held.length === sentThresholds.size ? null : held;
 }
 
@@ -127,7 +132,9 @@ export function selectContextReminder(
 ): SelectedContextReminder | null {
 	if (startingThreshold === null) return null;
 	const thresholds = getContextReminderThresholds(startingThreshold, step);
-	const crossed = thresholds.filter((threshold) => usage.percent >= threshold && !sentThresholds.has(threshold));
+	const crossed = thresholds.filter(
+		(threshold) => usage.percent >= threshold && !sentThresholds.has(threshold),
+	);
 	if (crossed.length === 0) return null;
 
 	const threshold = crossed.at(-1)!;
@@ -155,7 +162,9 @@ export interface SubagentContextReminderState {
 
 /** Install the context monitor inside the child Pi process. */
 export function installSubagentContextReminders(pi: ExtensionAPI): SubagentContextReminderState {
-	const startingThreshold = parseContextWarnThreshold(process.env[PI_SUBAGENT_CONTEXT_WARN_THRESHOLD]);
+	const startingThreshold = parseContextWarnThreshold(
+		process.env[PI_SUBAGENT_CONTEXT_WARN_THRESHOLD],
+	);
 	const step = parseContextWarnStep(process.env[PI_SUBAGENT_CONTEXT_WARN_STEP]);
 	const sentThresholds = new Set<number>();
 	const pendingThresholds = new Set<number>();
@@ -264,9 +273,9 @@ export function installSubagentContextReminders(pi: ExtensionAPI): SubagentConte
 	});
 
 	pi.on("agent_end", (event, ctx) => {
-		const assistant = [...event.messages].reverse().find((message) => message.role === "assistant") as
-			| { stopReason?: unknown }
-			| undefined;
+		const assistant = [...event.messages]
+			.reverse()
+			.find((message) => message.role === "assistant") as { stopReason?: unknown } | undefined;
 		if (assistant?.stopReason === "error" || assistant?.stopReason === "aborted") {
 			pendingThresholds.clear();
 			pendingMessages.clear();
@@ -281,7 +290,8 @@ export function installSubagentContextReminders(pi: ExtensionAPI): SubagentConte
 	// Only a three-stage schedule reaches the "stop taking new actions" message.
 	// Clamping at 99% can collapse the schedule, and a mild warning must never
 	// be mistaken for an instruction to stop.
-	const scheduled = startingThreshold === null ? [] : getContextReminderThresholds(startingThreshold, step);
+	const scheduled =
+		startingThreshold === null ? [] : getContextReminderThresholds(startingThreshold, step);
 	const finalThreshold = scheduled.length === 3 ? scheduled[2] : null;
 	return {
 		hasDeliveredFinalWarning: () => finalThreshold !== null && sentThresholds.has(finalThreshold),

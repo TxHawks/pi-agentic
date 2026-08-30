@@ -11,7 +11,10 @@ import {
 	type SubagentSessionMode,
 } from "../session/session-files.ts";
 import { parseSpawnEnv, resolveSpawnPolicy, type SpawnPolicyResult } from "../spawn/policy.ts";
-import { PI_SUBAGENT_CONTEXT_WARN_STEP, PI_SUBAGENT_CONTEXT_WARN_THRESHOLD } from "../tools/context-reminders.ts";
+import {
+	PI_SUBAGENT_CONTEXT_WARN_STEP,
+	PI_SUBAGENT_CONTEXT_WARN_THRESHOLD,
+} from "../tools/context-reminders.ts";
 import { getSubagentToolLaunchArgs } from "../tools/policy.ts";
 import {
 	PI_SUBAGENT_IDLE_TIMEOUT,
@@ -90,7 +93,10 @@ function loadAgentDefaults(
 	return loadAgentDefaultsFromDefinitions(agentName, cwdHint, baseCwd, resolveSubagentCwd);
 }
 
-function resolvePreparedSpawnPolicy(params: SubagentParamsInput, agentDefs: AgentDefaults | null): SpawnPolicyResult {
+function resolvePreparedSpawnPolicy(
+	params: SubagentParamsInput,
+	agentDefs: AgentDefaults | null,
+): SpawnPolicyResult {
 	const callerEnv = parseSpawnEnv(process.env);
 	return resolveSpawnPolicy({
 		callerAgent: callerEnv.callerAgent,
@@ -126,7 +132,8 @@ export async function prepareSubagentLaunch(
 	// no-session children can still launch with a tmpdir fallback.
 	// Lineage-tracked children (lineage-only / fork) will fail later in
 	// seedSubagentSessionFile with a clear error.
-	const parentSessionDir = sessionFile !== null ? dirname(sessionFile) : join(tmpdir(), "pi-subagents", "parentless");
+	const parentSessionDir =
+		sessionFile !== null ? dirname(sessionFile) : join(tmpdir(), "pi-subagents", "parentless");
 	const childLaunchPlan = await buildChildLaunchPlan({
 		params,
 		agentDefs,
@@ -137,8 +144,14 @@ export async function prepareSubagentLaunch(
 		parentThinking: ctx.parentThinking,
 		mode,
 	});
-	const { effectiveModel, effectiveThinking, effectiveModelRef, runtimePaths, subagentSessionFile, sessionTitle } =
-		childLaunchPlan;
+	const {
+		effectiveModel,
+		effectiveThinking,
+		effectiveModelRef,
+		runtimePaths,
+		subagentSessionFile,
+		sessionTitle,
+	} = childLaunchPlan;
 	const {
 		tools: effectiveTools,
 		skills: effectiveSkills,
@@ -233,7 +246,11 @@ export function getExtensionLaunchArgs(
 	// `spawning` promised. Load it after the child's selected extensions so a
 	// later extension cannot replace the active tool set and silently drop the
 	// spawning tools that this extension registers.
-	if (spawningAllowed && extensionSpecs !== undefined && !includesSubagentsExtension(extensionSpecs)) {
+	if (
+		spawningAllowed &&
+		extensionSpecs !== undefined &&
+		!includesSubagentsExtension(extensionSpecs)
+	) {
 		args.push("-e", getSubagentsExtensionPath());
 	}
 	return args;
@@ -275,7 +292,8 @@ export function getPreparedSessionLaunchArgs(
 	prepared: Pick<PreparedSubagentLaunch, "agentDefs" | "subagentSessionFile" | "sessionTitle">,
 ): string[] {
 	const useInMemorySession =
-		resolveSubagentNoSession(prepared.agentDefs) && !shouldPersistNoSessionForTimeoutWrapUp(prepared.agentDefs);
+		resolveSubagentNoSession(prepared.agentDefs) &&
+		!shouldPersistNoSessionForTimeoutWrapUp(prepared.agentDefs);
 	const args = useInMemorySession
 		? ["--session", prepared.subagentSessionFile, "--no-session"]
 		: ["--session", prepared.subagentSessionFile];
@@ -283,12 +301,16 @@ export function getPreparedSessionLaunchArgs(
 	return args;
 }
 
-export function getPersistedPromptLaunchArgs(metadata: PersistedSubagentLaunchMetadata | undefined): string[] {
+export function getPersistedPromptLaunchArgs(
+	metadata: PersistedSubagentLaunchMetadata | undefined,
+): string[] {
 	return buildAppendSystemInheritancePlan({
 		inheritAppendSystem: metadata?.inheritAppendSystem === true,
 		systemPromptMode: metadata?.systemPromptMode,
 		systemPrompt: metadata?.systemPrompt,
-		boundarySystemPrompt: metadata?.boundarySystemPrompt ? CHILD_CONTEXT_BOUNDARY_SYSTEM_PROMPT : undefined,
+		boundarySystemPrompt: metadata?.boundarySystemPrompt
+			? CHILD_CONTEXT_BOUNDARY_SYSTEM_PROMPT
+			: undefined,
 	}).promptArgs;
 }
 
@@ -301,10 +323,18 @@ export async function getPersistedSessionParityArgs(
 	if (!metadata) return args;
 	if (metadata.modelRef) args.push("--model", metadata.modelRef);
 	if (metadata.noContextFiles) args.push("--no-context-files");
-	args.push(...getSubagentToolLaunchArgs(metadata.tools, new Set(metadata.denyTools), spawningAllowed));
+	args.push(
+		...getSubagentToolLaunchArgs(metadata.tools, new Set(metadata.denyTools), spawningAllowed),
+	);
 	args.push(
 		...(
-			await buildSkillLaunchPlan(metadata.skills, undefined, metadata.cwd, metadata.agentConfigDir, metadata.extensions)
+			await buildSkillLaunchPlan(
+				metadata.skills,
+				undefined,
+				metadata.cwd,
+				metadata.agentConfigDir,
+				metadata.extensions,
+			)
 		).launchArgs,
 	);
 	args.push(...getPersistedApprovalLaunchArgs(metadata, modeOverride ?? metadata.mode));
@@ -312,7 +342,9 @@ export async function getPersistedSessionParityArgs(
 	return args;
 }
 
-export function cleanupNoSessionSessionFile(running: Pick<RunningSubagent, "noSession" | "sessionFile">): void {
+export function cleanupNoSessionSessionFile(
+	running: Pick<RunningSubagent, "noSession" | "sessionFile">,
+): void {
 	if (!running.noSession || !existsSync(running.sessionFile)) return;
 	try {
 		rmSync(running.sessionFile, { force: true });
@@ -363,7 +395,9 @@ export function buildPersistedSubagentLaunchMetadata(
 		...(prepared.effectiveModelRef ? { modelRef: prepared.effectiveModelRef } : {}),
 		...(prepared.agentDefs?.model ? { definitionModel: prepared.agentDefs.model } : {}),
 		...(prepared.agentDefs?.thinking ? { definitionThinking: prepared.agentDefs.thinking } : {}),
-		...(prepared.agentDefs?.allowedModels ? { allowedModels: prepared.agentDefs.allowedModels } : {}),
+		...(prepared.agentDefs?.allowedModels
+			? { allowedModels: prepared.agentDefs.allowedModels }
+			: {}),
 		allowModelOverride,
 		...(modelSource ? { modelSource } : {}),
 		...(params.model ? { requestedModelOverride: params.model } : {}),
@@ -378,17 +412,23 @@ export function buildPersistedSubagentLaunchMetadata(
 					spawnBudget: prepared.spawnPolicy.childBudget,
 				}
 			: {}),
-		...(prepared.effectiveExtensions !== undefined ? { extensions: prepared.effectiveExtensions } : {}),
+		...(prepared.effectiveExtensions !== undefined
+			? { extensions: prepared.effectiveExtensions }
+			: {}),
 		noContextFiles: resolveSubagentNoContextFiles(prepared.agentDefs),
 		inheritAppendSystem: prepared.agentDefs?.inheritAppendSystem === true,
 		noSession: resolveSubagentNoSession(prepared.agentDefs),
 		trustProject: prepared.agentDefs?.trustProject === true,
 		agentConfigDir: prepared.runtimePaths.effectiveAgentConfigDir,
 		cwd: prepared.runtimePaths.targetCwdForSession,
-		...(prepared.agentDefs?.systemPromptMode ? { systemPromptMode: prepared.agentDefs.systemPromptMode } : {}),
+		...(prepared.agentDefs?.systemPromptMode
+			? { systemPromptMode: prepared.agentDefs.systemPromptMode }
+			: {}),
 		...(systemPrompt ? { systemPrompt } : {}),
 		boundarySystemPrompt,
-		...(prepared.agentDefs?.taskExpansion ? { taskExpansion: prepared.agentDefs.taskExpansion } : {}),
+		...(prepared.agentDefs?.taskExpansion
+			? { taskExpansion: prepared.agentDefs.taskExpansion }
+			: {}),
 		...(prepared.agentDefs?.timeout ? { timeout: prepared.agentDefs.timeout } : {}),
 		...(prepared.agentDefs?.idleTimeout ? { idleTimeout: prepared.agentDefs.idleTimeout } : {}),
 		...(prepared.agentDefs?.timeoutWarnThreshold
@@ -398,12 +438,20 @@ export function buildPersistedSubagentLaunchMetadata(
 		...(prepared.agentDefs?.contextWarnThreshold
 			? {
 					contextWarnThreshold: prepared.agentDefs.contextWarnThreshold,
-					...(prepared.agentDefs.contextWarnStep ? { contextWarnStep: prepared.agentDefs.contextWarnStep } : {}),
+					...(prepared.agentDefs.contextWarnStep
+						? { contextWarnStep: prepared.agentDefs.contextWarnStep }
+						: {}),
 				}
 			: {}),
-		...(placement?.herdrPlacementPolicy ? { herdrPlacementPolicy: placement.herdrPlacementPolicy } : {}),
-		...(placement?.zellijPlacementPolicy ? { zellijPlacementPolicy: placement.zellijPlacementPolicy } : {}),
-		...(placement?.zellijPlacementGroupKey ? { zellijPlacementGroupKey: placement.zellijPlacementGroupKey } : {}),
+		...(placement?.herdrPlacementPolicy
+			? { herdrPlacementPolicy: placement.herdrPlacementPolicy }
+			: {}),
+		...(placement?.zellijPlacementPolicy
+			? { zellijPlacementPolicy: placement.zellijPlacementPolicy }
+			: {}),
+		...(placement?.zellijPlacementGroupKey
+			? { zellijPlacementGroupKey: placement.zellijPlacementGroupKey }
+			: {}),
 
 		...(prepared.agentDefs?.flags ? { flags: prepared.agentDefs.flags } : {}),
 		...(prepared.agentDefs?.env ? { env: prepared.agentDefs.env } : {}),
@@ -413,7 +461,10 @@ export function buildPersistedSubagentLaunchMetadata(
 export function getBaseSubagentEnvVars(
 	prepared: PreparedSubagentLaunch,
 	params: SubagentParamsInput,
-	resolveEffectiveSessionMode: (params: SubagentParamsInput, agentDefs: AgentDefaults | null) => SubagentSessionMode,
+	resolveEffectiveSessionMode: (
+		params: SubagentParamsInput,
+		agentDefs: AgentDefaults | null,
+	) => SubagentSessionMode,
 ): Record<string, string> {
 	const envVars: Record<string, string> = { PI_PACKAGE_DIR: "" };
 	// Merge user-configured env vars from frontmatter first,
@@ -444,23 +495,30 @@ export function getBaseSubagentEnvVars(
 	}
 	envVars[PI_SUBAGENT_CONTEXT_WARN_THRESHOLD] = prepared.agentDefs?.contextWarnThreshold ?? "";
 	envVars[PI_SUBAGENT_CONTEXT_WARN_STEP] = prepared.agentDefs?.contextWarnStep ?? "";
-	envVars[PI_SUBAGENT_TIMEOUT] = prepared.agentDefs?.timeout ? String(prepared.agentDefs.timeout) : "";
-	envVars[PI_SUBAGENT_IDLE_TIMEOUT] = prepared.agentDefs?.idleTimeout ? String(prepared.agentDefs.idleTimeout) : "";
+	envVars[PI_SUBAGENT_TIMEOUT] = prepared.agentDefs?.timeout
+		? String(prepared.agentDefs.timeout)
+		: "";
+	envVars[PI_SUBAGENT_IDLE_TIMEOUT] = prepared.agentDefs?.idleTimeout
+		? String(prepared.agentDefs.idleTimeout)
+		: "";
 	envVars[PI_SUBAGENT_TIMEOUT_WARN_THRESHOLD] = prepared.agentDefs?.timeoutWarnThreshold ?? "";
 	envVars.PI_SUBAGENT_NAME = params.name;
 	if (params.agent) envVars.PI_SUBAGENT_AGENT = params.agent;
-	const spawnPolicy = prepared.spawnPolicy ?? resolvePreparedSpawnPolicy(params, prepared.agentDefs);
+	const spawnPolicy =
+		prepared.spawnPolicy ?? resolvePreparedSpawnPolicy(params, prepared.agentDefs);
 	envVars.PI_SUBAGENT_SPAWN_BUDGET = String(spawnPolicy.childBudget ?? 0);
 	envVars.PI_SUBAGENT_SPAWN_WIDTH_EFFECTIVE =
 		spawnPolicy.effectiveWidth === null ? "" : String(spawnPolicy.effectiveWidth);
-	envVars.PI_SUBAGENT_SPAWNABLE = spawnPolicy.spawnableAgents === true ? "true" : spawnPolicy.spawnableAgents.join(",");
+	envVars.PI_SUBAGENT_SPAWNABLE =
+		spawnPolicy.spawnableAgents === true ? "true" : spawnPolicy.spawnableAgents.join(",");
 	const deniedTools = new Set(prepared.denySet);
 	if (spawnPolicy.childBudget === null) {
 		for (const toolName of SPAWNING_TOOL_NAMES) deniedTools.add(toolName);
 	}
 	if (deniedTools.size > 0) envVars.PI_DENY_TOOLS = [...deniedTools].join(",");
 	const sessionMode = resolveEffectiveSessionMode(params, prepared.agentDefs);
-	if (sessionMode !== "standalone") if (prepared.sessionFile) envVars.PI_SUBAGENT_PARENT_SESSION = prepared.sessionFile;
+	if (sessionMode !== "standalone")
+		if (prepared.sessionFile) envVars.PI_SUBAGENT_PARENT_SESSION = prepared.sessionFile;
 	envVars.PI_ARTIFACT_PROJECT_ROOT = getArtifactStorageRoot();
 	return envVars;
 }

@@ -43,14 +43,29 @@ describe("zellij placement", () => {
 		assert.equal(resolveZellijPlacementPolicy("down-stack"), "down-stack");
 		assert.equal(resolveZellijPlacementPolicy("floating"), "floating");
 		assert.equal(resolveZellijPlacementPolicy("tab-stack"), "tab-stack");
-		assert.throws(() => resolveZellijPlacementPolicy("largest-pane"), /PI_SUBAGENT_ZELLIJ_PLACEMENT.*largest-pane/);
+		assert.throws(
+			() => resolveZellijPlacementPolicy("largest-pane"),
+			/PI_SUBAGENT_ZELLIJ_PLACEMENT.*largest-pane/,
+		);
 	});
 
 	it("checks explicit split directions against Pi's usable minimum", () => {
-		assert.equal(canSplitZellijPaneInDirection(pane({ pane_rows: 20, pane_columns: 100 }), "right", 50, 10), true);
-		assert.equal(canSplitZellijPaneInDirection(pane({ pane_rows: 20, pane_columns: 99 }), "right", 50, 10), false);
-		assert.equal(canSplitZellijPaneInDirection(pane({ pane_rows: 20, pane_columns: 50 }), "down", 50, 10), true);
-		assert.equal(canSplitZellijPaneInDirection(pane({ pane_rows: 19, pane_columns: 50 }), "down", 50, 10), false);
+		assert.equal(
+			canSplitZellijPaneInDirection(pane({ pane_rows: 20, pane_columns: 100 }), "right", 50, 10),
+			true,
+		);
+		assert.equal(
+			canSplitZellijPaneInDirection(pane({ pane_rows: 20, pane_columns: 99 }), "right", 50, 10),
+			false,
+		);
+		assert.equal(
+			canSplitZellijPaneInDirection(pane({ pane_rows: 20, pane_columns: 50 }), "down", 50, 10),
+			true,
+		);
+		assert.equal(
+			canSplitZellijPaneInDirection(pane({ pane_rows: 19, pane_columns: 50 }), "down", 50, 10),
+			false,
+		);
 	});
 
 	it("places the first right-stack child beside the parent, never a foreign pane", () => {

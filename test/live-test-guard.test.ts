@@ -40,7 +40,10 @@ describe("live-test-guard", () => {
 
 	it("refuses live window scripts unless explicitly opted in", () => {
 		delete process.env.PI_SUBAGENT_ALLOW_LIVE_WINDOWS;
-		assert.throws(() => requireLiveWindowOptIn("test-e2e-live"), /PI_SUBAGENT_ALLOW_LIVE_WINDOWS=1/);
+		assert.throws(
+			() => requireLiveWindowOptIn("test-e2e-live"),
+			/PI_SUBAGENT_ALLOW_LIVE_WINDOWS=1/,
+		);
 
 		process.env.PI_SUBAGENT_ALLOW_LIVE_WINDOWS = "1";
 		assert.doesNotThrow(() => requireLiveWindowOptIn("test-e2e-live"));
@@ -51,7 +54,10 @@ describe("live-test-guard", () => {
 		const release = acquireLiveWindowLock("first-test");
 		releases.push(release);
 
-		assert.throws(() => acquireLiveWindowLock("second-test"), /Refusing to spawn another live terminal window/);
+		assert.throws(
+			() => acquireLiveWindowLock("second-test"),
+			/Refusing to spawn another live terminal window/,
+		);
 	});
 
 	it("allows reacquiring the lock after release", () => {

@@ -299,7 +299,10 @@ describe("result router", () => {
 		assert.match(sent[0].message.content, /Last output before the failure/);
 		assert.match(sent[0].message.content, /Completed the requested implementation\./);
 		assert.doesNotMatch(sent[0].message.content, /did not produce a result/);
-		assert.match(sent[0].message.content, /Sub-agent context: 145K\/200K tokens \(72%\) used at finish\.$/);
+		assert.match(
+			sent[0].message.content,
+			/Sub-agent context: 145K\/200K tokens \(72%\) used at finish\.$/,
+		);
 	});
 
 	it("does not present runtime diagnostics as salvaged child output", () => {

@@ -171,7 +171,11 @@ esac
 
 			const log = readFileSync(tmuxLog, "utf8");
 			assert.match(log, /new-window/);
-			assert.match(log, /kill-pane -t %42/, "a partially created wrap-up pane must be closed on launch failure");
+			assert.match(
+				log,
+				/kill-pane -t %42/,
+				"a partially created wrap-up pane must be closed on launch failure",
+			);
 		} finally {
 			if (originalPath === undefined) delete process.env.PATH;
 			else process.env.PATH = originalPath;

@@ -32,7 +32,10 @@ function getSubagentTimeoutSidecarPath(sessionFile: string): string {
 	return `${sessionFile}.timeout`;
 }
 
-export function writeSubagentTimeoutSidecar(sessionFile: string, verdict: SubagentTimeoutVerdict): void {
+export function writeSubagentTimeoutSidecar(
+	sessionFile: string,
+	verdict: SubagentTimeoutVerdict,
+): void {
 	try {
 		writeFileSync(getSubagentTimeoutSidecarPath(sessionFile), JSON.stringify(verdict), "utf8");
 	} catch {}
@@ -52,7 +55,9 @@ export function readSubagentTimeoutSidecar(sessionFile: string): SubagentTimeout
 		const idleTimeoutSeconds = parsed.budget?.idleTimeoutSeconds;
 		const budget: SubagentTimeoutBudget = {
 			...(typeof timeoutSeconds === "number" && timeoutSeconds > 0 ? { timeoutSeconds } : {}),
-			...(typeof idleTimeoutSeconds === "number" && idleTimeoutSeconds > 0 ? { idleTimeoutSeconds } : {}),
+			...(typeof idleTimeoutSeconds === "number" && idleTimeoutSeconds > 0
+				? { idleTimeoutSeconds }
+				: {}),
 		};
 		return {
 			kind: parsed.kind,

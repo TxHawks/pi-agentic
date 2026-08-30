@@ -91,7 +91,14 @@ for (const probe of probes) {
 			.filter((pattern) => new RegExp(pattern, "i").test(text))
 			.map((pattern) => `mustNotMatch hit: ${pattern}`);
 		const passed = events !== null && missed.length === 0 && violated.length === 0;
-		results.push({ label: probe.label, question: probe.question, answer: text, passed, missed, violated });
+		results.push({
+			label: probe.label,
+			question: probe.question,
+			answer: text,
+			passed,
+			missed,
+			violated,
+		});
 		console.error(`${passed ? "PASS" : "FAIL"}: ${probe.label}`);
 		if (!passed) console.error(`  answer: ${text.slice(0, 300)}`);
 		for (const problem of [...missed, ...violated]) console.error(`  ${problem}`);
@@ -102,6 +109,11 @@ for (const probe of probes) {
 
 const passedCount = results.filter((r) => r.passed).length;
 const accuracy = Math.round((passedCount / results.length) * 100);
-const summary = { model: process.env.PI_SUBAGENT_LIVE_MODEL, total: results.length, passed: passedCount, accuracy };
+const summary = {
+	model: process.env.PI_SUBAGENT_LIVE_MODEL,
+	total: results.length,
+	passed: passedCount,
+	accuracy,
+};
 writeFileSync(resultsPath, JSON.stringify({ summary, results }, null, 2), "utf8");
 console.error(`accuracy: ${passedCount}/${results.length} (${accuracy}%)`);

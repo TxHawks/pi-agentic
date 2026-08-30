@@ -70,7 +70,9 @@ describe("subagent_resume coordinator-only-turn", () => {
 		// the resume tool must agree with the runtime that the parent should
 		// wait. shouldAwaitSubagentLaunch is the shared predicate both the
 		// subagent and subagent_resume tools route through.
-		const { shouldAwaitSubagentLaunchForTest, markSubagentBatchBlockingForTest } = await import("../support/index.ts");
+		const { shouldAwaitSubagentLaunchForTest, markSubagentBatchBlockingForTest } = await import(
+			"../support/index.ts"
+		);
 		const asyncRunning = { blocking: false, async: true };
 
 		// Without the blocking flag, an async resume should not await.
@@ -126,7 +128,10 @@ describe("subagent_resume approval args", () => {
 				}) + "\n",
 			);
 
-			const running = await resumeSubagentSession({ sessionFile, mode: "background" }, createResumeRuntime());
+			const running = await resumeSubagentSession(
+				{ sessionFile, mode: "background" },
+				createResumeRuntime(),
+			);
 
 			assert.equal(running.childProcess?.spawnargs.includes("--no-approve"), true);
 		} finally {
@@ -265,7 +270,9 @@ describe("subagent_resume approval args", () => {
 
 			const running = await resumeSubagentSession({ sessionFile }, createResumeRuntime());
 			const approvalArgs =
-				running.childProcess?.spawnargs.filter((arg) => arg === "--approve" || arg === "--no-approve") ?? [];
+				running.childProcess?.spawnargs.filter(
+					(arg) => arg === "--approve" || arg === "--no-approve",
+				) ?? [];
 
 			assert.deepEqual(approvalArgs, ["--no-approve"]);
 		} finally {
@@ -311,9 +318,14 @@ describe("subagent_resume approval args", () => {
 
 			// Persisted metadata (background) wins over the explicit interactive
 			// mode argument, so the resume stays background and uses --no-approve.
-			const running = await resumeSubagentSession({ sessionFile, mode: "interactive" }, createResumeRuntime());
+			const running = await resumeSubagentSession(
+				{ sessionFile, mode: "interactive" },
+				createResumeRuntime(),
+			);
 			const approvalArgs =
-				running.childProcess?.spawnargs.filter((arg) => arg === "--approve" || arg === "--no-approve") ?? [];
+				running.childProcess?.spawnargs.filter(
+					(arg) => arg === "--approve" || arg === "--no-approve",
+				) ?? [];
 
 			assert.equal(running.mode, "background");
 			assert.deepEqual(approvalArgs, ["--no-approve"]);
@@ -411,7 +423,10 @@ describe("subagent_resume extension parity", () => {
 				}) + "\n",
 			);
 
-			const running = await resumeSubagentSession({ sessionFile, mode: "background" }, createResumeRuntime());
+			const running = await resumeSubagentSession(
+				{ sessionFile, mode: "background" },
+				createResumeRuntime(),
+			);
 
 			assert.equal(running.childProcess?.spawnargs.includes("--no-extensions"), true);
 		} finally {
@@ -954,7 +969,11 @@ describe("subagent_resume same-session guard", () => {
 		assert.ok(guardResult, "Guard should have triggered");
 		assert.equal(guardResult!.name, "magician");
 		assert.equal(guardResult!.id, existingId);
-		assert.match(guardResult!.content, /existing-001/, "Should reference the existing running subagent id");
+		assert.match(
+			guardResult!.content,
+			/existing-001/,
+			"Should reference the existing running subagent id",
+		);
 	});
 
 	it("does not trigger guard when sessionFile differs", () => {

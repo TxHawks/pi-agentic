@@ -53,7 +53,8 @@ export function findLatestAssistantError(messages: any[] | undefined): SubagentE
 		if (msg?.role !== "assistant") continue;
 		if (msg.stopReason !== "error") return null;
 		const raw = typeof msg.errorMessage === "string" ? msg.errorMessage.trim() : "";
-		const errorMessage = raw || "Subagent agent loop ended with stopReason=error (no errorMessage field).";
+		const errorMessage =
+			raw || "Subagent agent loop ended with stopReason=error (no errorMessage field).";
 		const recoveryKind: SubagentErrorRecoveryKind =
 			raw && shouldDeferErrorForPiRecovery(msg)
 				? "pi"
@@ -72,7 +73,10 @@ export function findLatestAssistantError(messages: any[] | undefined): SubagentE
 
 export type InputStreamingBehavior = "steer" | "followUp" | undefined;
 
-export function shouldMarkUserTookOver(agentStarted: boolean, streamingBehavior?: InputStreamingBehavior): boolean {
+export function shouldMarkUserTookOver(
+	agentStarted: boolean,
+	streamingBehavior?: InputStreamingBehavior,
+): boolean {
 	return agentStarted || streamingBehavior === "steer" || streamingBehavior === "followUp";
 }
 

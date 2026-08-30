@@ -84,7 +84,12 @@ function renderSectionTitle(title: string, theme: Theme, width: number): string 
 	return theme.fg("accent", `${"─".repeat(side)}${label}${"─".repeat(side)}`);
 }
 
-function renderField(field: DetailField, labelWidth: number, valueWidth: number, theme: Theme): string[] {
+function renderField(
+	field: DetailField,
+	labelWidth: number,
+	valueWidth: number,
+	theme: Theme,
+): string[] {
 	if (!field.label) {
 		return wrapPlainText(field.value, labelWidth + valueWidth + 2, Number.MAX_SAFE_INTEGER).map(
 			(line) => `   ${theme.fg("muted", line)}`,

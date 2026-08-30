@@ -160,7 +160,10 @@ describe("Herdr owned placement", () => {
 
 		const log = readFileSync(logFile, "utf8");
 		assert.doesNotMatch(log, /pane split/);
-		assert.match(log, /tab create --workspace w1 --cwd .* --label \[scout\] Small window --no-focus/);
+		assert.match(
+			log,
+			/tab create --workspace w1 --cwd .* --label \[scout\] Small window --no-focus/,
+		);
 		assert.match(log, /pane rename w1:p9 \[scout\] Small window/);
 		assert.match(log, /tab rename w1:t2 \[scout\] Small window/);
 	});
@@ -235,7 +238,10 @@ describe("Herdr owned placement", () => {
 		const logFile = useFakeHerdr();
 		process.env.PI_SUBAGENT_HERDR_PLACEMENT = "sideways";
 
-		await assert.rejects(() => createSurface("[reviewer] Invalid placement"), /Invalid PI_SUBAGENT_HERDR_PLACEMENT/);
+		await assert.rejects(
+			() => createSurface("[reviewer] Invalid placement"),
+			/Invalid PI_SUBAGENT_HERDR_PLACEMENT/,
+		);
 
 		const log = readFileSync(logFile, "utf8");
 		assert.doesNotMatch(log, /pane layout|pane split|tab create/);

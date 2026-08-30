@@ -3,7 +3,13 @@ import { describe, it } from "node:test";
 import { resumeSubagentSession } from "../../src/runtime/resume-service.ts";
 import { SUBAGENT_COMPLETION_ENTRY } from "../../src/tools/context-reminders.ts";
 import { registerSubagentResumeTool } from "../../src/tools/resume-tool.ts";
-import { assert, createTestDir, existsSync, writeExecutable, writeFileSync } from "../support/index.ts";
+import {
+	assert,
+	createTestDir,
+	existsSync,
+	writeExecutable,
+	writeFileSync,
+} from "../support/index.ts";
 
 const SPAWN_GRANT_VARS = [
 	"PI_SUBAGENT_SPAWNABLE",
@@ -99,7 +105,11 @@ describe("context-exhausted resume guard", () => {
 				() => tool.execute("call-1", { sessionFile }, undefined),
 				/stopped early as instructed by its context-warning policy[\s\S]*fresh sub-agent/,
 			);
-			assert.equal(existsSync(spawnMarker), false, "the guard must refuse before any child is started");
+			assert.equal(
+				existsSync(spawnMarker),
+				false,
+				"the guard must refuse before any child is started",
+			);
 		} finally {
 			if (originalCommand == null) delete process.env.PI_SUBAGENT_PI_COMMAND;
 			else process.env.PI_SUBAGENT_PI_COMMAND = originalCommand;
