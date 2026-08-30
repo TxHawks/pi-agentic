@@ -6,28 +6,38 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 
 let releases: Array<() => void> = [];
 let testDir = "";
+let importCount = 0;
 let acquireLiveWindowLock: (scriptName: string) => () => void;
 let requireLiveWindowOptIn: (scriptName: string) => void;
 
-beforeEach(async () => {
-	testDir = mkdtempSync(join(tmpdir(), "live-test-guard-"));
-	process.env.PI_SUBAGENT_LIVE_LOCK_PATH = join(testDir, "window.lock");
-	({ acquireLiveWindowLock, requireLiveWindowOptIn } = await import(`../scripts/live-test-guard.mjs?ts=${Date.now()}`));
-});
-
-afterEach(() => {
-	for (const release of releases.reverse()) {
-		try {
-			release();
-		} catch {}
-	}
-	releases = [];
-	delete process.env.PI_SUBAGENT_LIVE_LOCK_PATH;
-	if (testDir) rmSync(testDir, { recursive: true, force: true });
-	testDir = "";
-});
-
 describe("live-test-guard", () => {
+	// The hooks live inside the describe so they scope to this suite only:
+	// the shared test entry point runs every suite in one process, and a
+	// top-level hook there would wrap every test in the whole run.
+	beforeEach(async () => {
+		testDir = mkdtempSync(join(tmpdir(), "live-test-guard-"));
+		process.env.PI_SUBAGENT_LIVE_LOCK_PATH = join(testDir, "window.lock");
+		// A counter keeps every import URL unique. A time-based buster can
+		// repeat within one millisecond and hand back a cached module that
+		// still points at the previous, already deleted, lock directory.
+		importCount += 1;
+		({ acquireLiveWindowLock, requireLiveWindowOptIn } = await import(
+			`../scripts/live-test-guard.mjs?instance=${importCount}`
+		));
+	});
+
+	afterEach(() => {
+		for (const release of releases.reverse()) {
+			try {
+				release();
+			} catch {}
+		}
+		releases = [];
+		delete process.env.PI_SUBAGENT_LIVE_LOCK_PATH;
+		if (testDir) rmSync(testDir, { recursive: true, force: true });
+		testDir = "";
+	});
+
 	it("refuses live window scripts unless explicitly opted in", () => {
 		delete process.env.PI_SUBAGENT_ALLOW_LIVE_WINDOWS;
 		assert.throws(() => requireLiveWindowOptIn("test-e2e-live"), /PI_SUBAGENT_ALLOW_LIVE_WINDOWS=1/);

@@ -40,12 +40,14 @@ function loaderForAgent(defs: AgentDefaults | null) {
 	return (_agent: string | undefined): AgentDefaults | null => defs;
 }
 
-beforeEach(() => {
-	resetSubagentBatchStopRequest();
-	delete process.env.PI_SUBAGENT_DISABLE_COORDINATOR_ONLY_TURN;
-});
-
 describe("classifyAssistantMessageForMixedBatch", () => {
+	// Inside the describe so the hook scopes to this suite only; the shared
+	// test entry point runs every suite in one process.
+	beforeEach(() => {
+		resetSubagentBatchStopRequest();
+		delete process.env.PI_SUBAGENT_DISABLE_COORDINATOR_ONLY_TURN;
+	});
+
 	it("does not mark a pure async subagent batch as blocking", () => {
 		const msg = message(call("subagent", { agent: "scout" }));
 
