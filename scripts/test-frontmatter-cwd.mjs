@@ -58,7 +58,7 @@ writeAgent(
 	[
 		"First run: `pwd`",
 		"Then write the pwd output to a file at this path: /tmp/fm-cwd-pwd-result.txt",
-		"Then use bash to write a marker to the path: echo 'fm-cwd-ok' > " + markerFile,
+		`Then use bash to write a marker to the path: echo 'fm-cwd-ok' > ${markerFile}`,
 		"Then reply with exactly `FM_CWD_OK`.",
 	].join("\n"),
 );
@@ -134,7 +134,7 @@ try {
 	}
 
 	verified = true;
-	console.log(`frontmatter ` + "`cwd`" + ` ok: child started in ${workDir} (${details.id})`);
+	console.log(`frontmatter \`cwd\` ok: child started in ${workDir} (${details.id})`);
 } finally {
 	// Clean up /tmp artifacts from child
 	try {

@@ -71,7 +71,9 @@ export function resolveSubagentReportContextUsage(agentDefs: AgentDefaults | nul
  * opt-in: an agent that configures neither runs unbounded, which is the
  * default for every agent.
  */
-function resolveSubagentTimeoutBudget(source: SubagentTimeoutSource | null | undefined): SubagentTimeoutBudget | undefined {
+function resolveSubagentTimeoutBudget(
+	source: SubagentTimeoutSource | null | undefined,
+): SubagentTimeoutBudget | undefined {
 	const timeoutSeconds = source?.timeout;
 	const idleTimeoutSeconds = source?.idleTimeout;
 	if (!timeoutSeconds && !idleTimeoutSeconds) return undefined;

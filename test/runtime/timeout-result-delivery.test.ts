@@ -1,7 +1,14 @@
-import { routeSubagentOutcome } from "../../src/runtime/result-router.ts";
 import { formatSessionRef } from "../../src/runtime/final-context-usage.ts";
+import { routeSubagentOutcome } from "../../src/runtime/result-router.ts";
 import type { RunningSubagent, SubagentResult } from "../../src/types.ts";
-import { afterEach, assert, describe, it, resetSubagentStateForTest, setRunningSubagentForTest } from "../support/index.ts";
+import {
+	afterEach,
+	assert,
+	describe,
+	it,
+	resetSubagentStateForTest,
+	setRunningSubagentForTest,
+} from "../support/index.ts";
 
 function makeRunning(overrides: Partial<RunningSubagent> = {}): RunningSubagent {
 	return {
@@ -53,10 +60,7 @@ describe("timeout result delivery", () => {
 	afterEach(() => resetSubagentStateForTest());
 
 	it("explains the kill instead of reporting a bare non-zero exit", () => {
-		const content = deliver(
-			makeRunning(),
-			makeResult({ timedOut: "timeout", timedOutAfter: 900 }),
-		);
+		const content = deliver(makeRunning(), makeResult({ timedOut: "timeout", timedOutAfter: 900 }));
 
 		assert.match(content, /ran out of time, so the system stopped it after 900s/);
 		assert.match(content, /It produced no output before it stopped/);

@@ -1,10 +1,10 @@
 import { routeSubagentOutcome } from "../../src/runtime/result-router.ts";
 import {
-	MAX_SPAWN_WIDTH,
 	claimSpawnWidthSlot,
 	getEffectiveSpawnWidthLimit,
 	getLiveSlotCount,
 	initializeSpawnWidthForSession,
+	MAX_SPAWN_WIDTH,
 	releaseSlots,
 	tryAcquireSlots,
 } from "../../src/runtime/spawn-width.ts";

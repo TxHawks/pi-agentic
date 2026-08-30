@@ -1,12 +1,12 @@
 import type { AgentToolResult, ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { endedUnderContextPressure } from "../session/completion-reason.ts";
-import { readSubagentTimeoutSidecar } from "../session/timeout-sidecar.ts";
 import { type ResumeServiceRuntime, resumeSubagentSession } from "../runtime/resume-service.ts";
 import { shouldAwaitSubagentLaunch } from "../runtime/running-registry.ts";
 import { getSubagentBatchStopMetadata, requestSubagentBatchStop } from "../runtime/state.ts";
+import { endedUnderContextPressure } from "../session/completion-reason.ts";
 import { readSubagentLaunchMetadata } from "../session/session-files.ts";
+import { readSubagentTimeoutSidecar } from "../session/timeout-sidecar.ts";
 import type { RunningSubagent, SubagentResult } from "../types.ts";
 import { formatTaskPreview, renderSubagentCompletionText } from "./message-renderers.ts";
 import { SUBAGENT_RESUME_TOOL_NAME } from "./tool-names.ts";

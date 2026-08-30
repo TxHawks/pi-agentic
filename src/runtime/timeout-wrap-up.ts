@@ -7,16 +7,12 @@ import { getPiInvocation, getPiShellParts, getSubagentChildProcessEnv } from "..
 import { CHILD_CONTEXT_BOUNDARY_SYSTEM_PROMPT } from "../launch/context-boundary.ts";
 import { parseEnvString } from "../launch/env.ts";
 import { buildInteractiveSentinelShellCommands } from "../launch/interactive-sentinel.ts";
-import {
-	getExtensionLaunchArgs,
-	getPersistedPromptLaunchArgs,
-	getPersistedSessionParityArgs,
-} from "../launch/prep.ts";
+import { getExtensionLaunchArgs, getPersistedPromptLaunchArgs, getPersistedSessionParityArgs } from "../launch/prep.ts";
 import { writeResumeTaskArtifact } from "../launch/prompt-artifacts.ts";
 import { buildResumePiArgs, buildShellChangeDirectoryPrefix, getResumeCwd } from "../launch/resume.ts";
+import { closeSurfaceAsync } from "../mux/io.ts";
 import { createZellijCommandSurface } from "../mux/zellij-placement.ts";
 import { getZellijShellCommand, resolveZellijTarget } from "../mux/zellij-runtime.ts";
-import { closeSurfaceAsync } from "../mux/io.ts";
 import { createSurface, getMuxBackend, sendShellCommand, shellEscape } from "../mux.ts";
 import { clearSubagentExitSidecar } from "../session/exit-sidecar.ts";
 import { getDoneSentinelFile } from "../session/session-files.ts";
@@ -77,7 +73,10 @@ function getWrapUpPrompt(running: RunningSubagent): string {
 	);
 }
 
-async function getWrapUpLaunchParts(running: RunningSubagent, signal?: AbortSignal): Promise<{
+async function getWrapUpLaunchParts(
+	running: RunningSubagent,
+	signal?: AbortSignal,
+): Promise<{
 	args: string[];
 	env: Record<string, string>;
 	cwd: string | undefined;
@@ -116,15 +115,11 @@ async function getWrapUpLaunchParts(running: RunningSubagent, signal?: AbortSign
 	if (deniedTools.size > 0) env.PI_DENY_TOOLS = [...deniedTools].join(",");
 	env[PI_SUBAGENT_CONTEXT_WARN_THRESHOLD] = "";
 	env[PI_SUBAGENT_CONTEXT_WARN_STEP] = "";
-	env[PI_SUBAGENT_TIMEOUT] = running.timeoutBudget?.timeoutSeconds
-		? String(running.timeoutBudget.timeoutSeconds)
-		: "";
+	env[PI_SUBAGENT_TIMEOUT] = running.timeoutBudget?.timeoutSeconds ? String(running.timeoutBudget.timeoutSeconds) : "";
 	env[PI_SUBAGENT_IDLE_TIMEOUT] = running.timeoutBudget?.idleTimeoutSeconds
 		? String(running.timeoutBudget.idleTimeoutSeconds)
 		: "";
-	env[PI_SUBAGENT_TIMEOUT_WARN_THRESHOLD] = running.timeoutWarnThreshold
-		? String(running.timeoutWarnThreshold)
-		: "";
+	env[PI_SUBAGENT_TIMEOUT_WARN_THRESHOLD] = running.timeoutWarnThreshold ? String(running.timeoutWarnThreshold) : "";
 	env[PI_SUBAGENT_TIMEOUT_STARTED_AT] = String(running.startTime);
 	env[PI_SUBAGENT_TIMEOUT_WRAP_UP] = "1";
 	env.PI_SUBAGENT_NAME = running.name;
@@ -158,10 +153,7 @@ export async function restartSubagentForTimeoutWrapUp(
 	running.timeoutKillFailed = undefined;
 
 	if (running.mode === "background") {
-		const invocation = getPiInvocation([
-			...buildResumePiArgs(running.sessionFile, "background"),
-			...launch.args,
-		]);
+		const invocation = getPiInvocation([...buildResumePiArgs(running.sessionFile, "background"), ...launch.args]);
 		throwIfAborted(signal);
 		const child = spawn(invocation.command, invocation.args, {
 			...(launch.cwd ? { cwd: launch.cwd } : {}),

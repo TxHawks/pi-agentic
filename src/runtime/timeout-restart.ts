@@ -1,5 +1,5 @@
 import type { RunningSubagent } from "../types.ts";
-import { checkSubagentTimeout, getSubagentHardDeadlineAt, type ExpiredTimeoutBudget } from "./timeout-budget.ts";
+import { checkSubagentTimeout, type ExpiredTimeoutBudget, getSubagentHardDeadlineAt } from "./timeout-budget.ts";
 
 export type TimeoutRestartOutcome =
 	| { kind: "started" }

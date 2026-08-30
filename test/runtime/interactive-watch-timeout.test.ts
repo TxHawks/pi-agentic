@@ -231,11 +231,7 @@ describe("interactive watcher timeout outcome", () => {
 					];
 					for (const entry of entries) appendFileSync(sessionFile, `${JSON.stringify(entry)}\n`);
 				},
-				async pollForExit(
-					_surface: string,
-					_signal: AbortSignal,
-					options: { onTick?: () => void },
-				) {
+				async pollForExit(_surface: string, _signal: AbortSignal, options: { onTick?: () => void }) {
 					generation += 1;
 					if (generation === 1) {
 						await sleep(1050);

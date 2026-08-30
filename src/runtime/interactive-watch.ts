@@ -67,10 +67,7 @@ async function closeTimedOutSurface(
 	return false;
 }
 
-function buildInteractiveRestartTimeoutResult(
-	running: RunningSubagent,
-	expiry: ExpiredTimeoutBudget,
-): SubagentResult {
+function buildInteractiveRestartTimeoutResult(running: RunningSubagent, expiry: ExpiredTimeoutBudget): SubagentResult {
 	const { summary, summarySource } = getSummary(running, { reason: "error", exitCode: 1 });
 	const timeoutFields = recordTimeoutOutcome(running);
 	return {
@@ -222,8 +219,7 @@ async function watchInteractiveGeneration(
 		const wrapUp = checkSubagentTimeoutWrapUp(running, now);
 		if (wrapUp && !running.timeoutWrapUpMode && !hasSubagentExitSidecar(running.sessionFile)) {
 			running.timeoutWrapUp = wrapUp;
-			const baseline =
-				wrapUp.kind === "timeout" ? running.startTime : (running.lastProgressAt ?? running.startTime);
+			const baseline = wrapUp.kind === "timeout" ? running.startTime : (running.lastProgressAt ?? running.startTime);
 			running.timeoutWrapUpDeadlineAt = baseline + wrapUp.seconds * 1000;
 			void closeTimedOutSurface(running, runtime, false);
 		}
@@ -237,10 +233,13 @@ async function watchInteractiveGeneration(
 			deadlineTimer = undefined;
 			return;
 		}
-		deadlineTimer = setTimeout(() => {
-			deadlineTimer = undefined;
-			updateStats();
-		}, Math.max(1, deadlineAt - Date.now()));
+		deadlineTimer = setTimeout(
+			() => {
+				deadlineTimer = undefined;
+				updateStats();
+			},
+			Math.max(1, deadlineAt - Date.now()),
+		);
 		deadlineTimer.unref?.();
 	};
 	armDeadlineTimer();

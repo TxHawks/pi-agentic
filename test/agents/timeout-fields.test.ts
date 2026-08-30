@@ -64,10 +64,7 @@ describe("timeout agent fields", () => {
 		// Failing open here would re-enable resume for exactly the agent that
 		// asked to be protected from a second partial run.
 		for (const bad of ["kill-parent", "block", "true", ""]) {
-			assert.throws(
-				() => loadDefinition(`on-timeout: ${bad}`),
-				/on-timeout must be "report" or "block-resume"/,
-			);
+			assert.throws(() => loadDefinition(`on-timeout: ${bad}`), /on-timeout must be "report" or "block-resume"/);
 		}
 	});
 });

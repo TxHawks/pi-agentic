@@ -1,3 +1,4 @@
+import { resolveSubagentTimeoutState } from "../../src/launch/policy.ts";
 import {
 	checkSubagentTimeout,
 	checkSubagentTimeoutWrapUp,
@@ -7,7 +8,6 @@ import {
 	formatTimeoutSeconds,
 	observeSubagentProgress,
 } from "../../src/runtime/timeout-budget.ts";
-import { resolveSubagentTimeoutState } from "../../src/launch/policy.ts";
 import type { RunningSubagent } from "../../src/types.ts";
 import { assert, describe, it } from "../support/index.ts";
 

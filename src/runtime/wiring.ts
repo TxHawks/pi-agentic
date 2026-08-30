@@ -46,8 +46,8 @@ import {
 	widgetManager,
 	withSubagentBatchStop,
 } from "./state.ts";
-import { type WaitRuntime, waitForSubagentResult as waitForSubagentResultWithRuntime } from "./wait.ts";
 import { restartSubagentForTimeoutWrapUp } from "./timeout-wrap-up.ts";
+import { type WaitRuntime, waitForSubagentResult as waitForSubagentResultWithRuntime } from "./wait.ts";
 
 export {
 	getWatcherSignal,

@@ -90,13 +90,13 @@ function formatTimeoutLaunchInstruction(
 		const hardStopAt = new Date(startedAt + timeoutSeconds * 1000).toISOString();
 		limits.push(
 			`The whole-run limit is ${timeoutSeconds}s. The parent runtime will interrupt active work at ${threshold}% ` +
-			`(${warningAt}) and hard-stop this invocation at ${hardStopAt}.`,
+				`(${warningAt}) and hard-stop this invocation at ${hardStopAt}.`,
 		);
 	}
 	if (idleTimeoutSeconds) {
 		limits.push(
 			`The no-output limit is ${idleTimeoutSeconds}s. Each message from you or completed tool result restarts it. ` +
-			`The parent runtime will interrupt active work at ${threshold}% of any quiet interval.`,
+				`The parent runtime will interrupt active work at ${threshold}% of any quiet interval.`,
 		);
 	}
 	return [

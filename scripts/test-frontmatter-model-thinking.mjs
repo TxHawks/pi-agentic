@@ -202,13 +202,9 @@ try {
 	}
 
 	verified = true;
+	console.log(`frontmatter \`model\` ok: model child completed with model ${baseModel} (${modelResult.id ?? "batch"})`);
 	console.log(
-		`frontmatter ` + "`model`" + ` ok: model child completed with model ${baseModel} (${modelResult.id ?? "batch"})`,
-	);
-	console.log(
-		`frontmatter ` +
-			"`thinking`" +
-			` ok: thinking child completed with thinking ${childThinking} (${thinkingResult.id ?? "batch"})`,
+		`frontmatter \`thinking\` ok: thinking child completed with thinking ${childThinking} (${thinkingResult.id ?? "batch"})`,
 	);
 } finally {
 	ctx.cleanup();

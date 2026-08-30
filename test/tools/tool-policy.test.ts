@@ -3,15 +3,15 @@ import {
 	describe,
 	filterToolNames,
 	getDeniedToolNames,
+	getExtensionLaunchArgsForTest,
+	getSubagentsExtensionPathForTest,
 	getSubagentToolAllowlistForTest,
 	getSubagentToolDeniedNamesForTest,
 	getSubagentToolLaunchArgsForTest,
 	getSubagentToolsWarningForTest,
-	getExtensionLaunchArgsForTest,
-	getSubagentsExtensionPathForTest,
 	installDeniedToolGuards,
-	it,
 	isPreparedChildSpawningAllowedForTest,
+	it,
 	withToolWarningForTest,
 } from "../support/index.ts";
 

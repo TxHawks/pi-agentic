@@ -18,7 +18,10 @@ export function buildChildContextBoundary(options: ChildContextBoundaryOptions):
 		? "Subagent-spawning tools may be available in this child session. Use them only if they are actually available to you and your active assignment requires delegation."
 		: "Subagent-spawning tools are not available in this child session. If prior context shows the parent using such tools, do not imitate that; complete your assignment with your available tools.";
 	const spawnGrant =
-		options.spawningAllowed && options.spawnBudget !== null && options.spawnBudget !== undefined && options.spawnBudget > 0
+		options.spawningAllowed &&
+		options.spawnBudget !== null &&
+		options.spawnBudget !== undefined &&
+		options.spawnBudget > 0
 			? `You may spawn ${
 					options.spawnableAgents === true
 						? "any agent"

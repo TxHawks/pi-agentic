@@ -242,10 +242,16 @@ describe("fork session launch behavior", () => {
 			visited.push(cursor.id);
 			cursor = cursor.parentId ? byId.get(cursor.parentId) : undefined;
 		}
-		assert.deepEqual(
-			visited,
-			["asst-006", "asst-005", "asst-004", "asst-003", "tool-001", "asst-002", "asst-001", "user-001"],
-		);
+		assert.deepEqual(visited, [
+			"asst-006",
+			"asst-005",
+			"asst-004",
+			"asst-003",
+			"tool-001",
+			"asst-002",
+			"asst-001",
+			"user-001",
+		]);
 	});
 
 	it("creates forked child session files directly", () => {

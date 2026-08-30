@@ -8,15 +8,8 @@ import {
 	resolveSubagentBlocking,
 } from "../launch/policy.ts";
 import type { SubagentLaunchContext } from "../launch/prep.ts";
-import { parseSpawnEnv, resolveSpawnPolicy } from "../spawn/policy.ts";
 import { isMuxAvailable } from "../mux.ts";
 import { findRunningSubagent } from "../runtime/running-registry.ts";
-import {
-	asSubagentToolResult,
-	getCoordinatorOnlyTurnPrompt,
-	getSubagentBatchStopMetadata,
-	markSubagentBatchBlocking,
-} from "../runtime/state.ts";
 import {
 	claimSpawnWidthSlot,
 	getLiveSlotCount,
@@ -25,6 +18,13 @@ import {
 	releaseSpawnWidthSlotOnCompletion,
 	tryAcquireSlots,
 } from "../runtime/spawn-width.ts";
+import {
+	asSubagentToolResult,
+	getCoordinatorOnlyTurnPrompt,
+	getSubagentBatchStopMetadata,
+	markSubagentBatchBlocking,
+} from "../runtime/state.ts";
+import { parseSpawnEnv, resolveSpawnPolicy } from "../spawn/policy.ts";
 import type { RunningSubagent, SubagentParamsInput, SubagentResult } from "../types.ts";
 
 import { formatSubagentBatchLines, formatTaskPreview, renderSubagentCompletionText } from "./message-renderers.ts";
@@ -251,7 +251,7 @@ async function launchOneSubagent(
 		running.abortController = watcherAbort;
 		running.completionPromise = releaseSpawnWidthSlotOnCompletion(
 			running,
-		runtime.watchSubagent(running, runtime.getWatcherSignal(running, watcherAbort)),
+			runtime.watchSubagent(running, runtime.getWatcherSignal(running, watcherAbort)),
 		);
 	} else {
 		running = await runtime.launchBackgroundSubagent(effectiveParams, launchCtx);
@@ -260,7 +260,7 @@ async function launchOneSubagent(
 		running.abortController = watcherAbort;
 		running.completionPromise = releaseSpawnWidthSlotOnCompletion(
 			running,
-		runtime.watchBackgroundSubagent(running, runtime.getWatcherSignal(running, watcherAbort)),
+			runtime.watchBackgroundSubagent(running, runtime.getWatcherSignal(running, watcherAbort)),
 		);
 	}
 	return running;

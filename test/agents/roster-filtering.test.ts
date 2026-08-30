@@ -1,5 +1,5 @@
 import { getAgentListEntries, getAgentListSignature, renderAgentListReminder } from "../../src/agents/agent-list.ts";
-import { getEffectiveAgentDefinitions } from "../../src/agents/definitions.ts";
+import type { getEffectiveAgentDefinitions } from "../../src/agents/definitions.ts";
 import subagentsExtension from "../../src/subagents.ts";
 import {
 	afterEach,

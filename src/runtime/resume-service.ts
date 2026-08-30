@@ -25,8 +25,8 @@ import {
 	getResumeCwd,
 	resolveResumeLaunchMetadata,
 } from "../launch/resume.ts";
-import { expandSubagentTask } from "../launch/task-expansion.ts";
 import { resolveSubagentCwd } from "../launch/runtime-paths.ts";
+import { expandSubagentTask } from "../launch/task-expansion.ts";
 import { createZellijCommandSurface } from "../mux/zellij-placement.ts";
 import { getZellijShellCommand, resolveZellijTarget } from "../mux/zellij-runtime.ts";
 import {
@@ -39,7 +39,6 @@ import {
 	shellEscape,
 } from "../mux.ts";
 import { clearSubagentExitSidecar } from "../session/exit-sidecar.ts";
-import { clearSubagentTimeoutSidecar, readSubagentTimeoutSidecar } from "../session/timeout-sidecar.ts";
 import { getEntryCount } from "../session/session.ts";
 import {
 	getDoneSentinelFile,
@@ -50,12 +49,8 @@ import {
 	writeSubagentLaunchMetadataEntry,
 	writeSubagentModelStateEntries,
 } from "../session/session-files.ts";
-import {
-	buildResumeSpawnEnv,
-	narrowSpawnBudget,
-	parseSpawnEnv,
-	resolveSpawnPolicy,
-} from "../spawn/policy.ts";
+import { clearSubagentTimeoutSidecar, readSubagentTimeoutSidecar } from "../session/timeout-sidecar.ts";
+import { buildResumeSpawnEnv, narrowSpawnBudget, parseSpawnEnv, resolveSpawnPolicy } from "../spawn/policy.ts";
 import { PI_SUBAGENT_CONTEXT_WARN_STEP, PI_SUBAGENT_CONTEXT_WARN_THRESHOLD } from "../tools/context-reminders.ts";
 import {
 	PI_SUBAGENT_IDLE_TIMEOUT,
@@ -264,8 +259,7 @@ async function resumeSubagentSessionWithoutWidth(
 		? loadAgentDefaultsFromDefinitions(targetAgent, undefined, targetCwd, resolveSubagentCwd)
 		: null;
 	const callerEnv = parseSpawnEnv(process.env);
-	const targetSpawning =
-		launchMetadata?.spawnableAgents === true ? true : (launchMetadata?.spawnableAgents ?? false);
+	const targetSpawning = launchMetadata?.spawnableAgents === true ? true : (launchMetadata?.spawnableAgents ?? false);
 	const spawnPolicy = resolveSpawnPolicy({
 		callerAgent: callerEnv.callerAgent,
 		targetAgent: targetAgent ?? "",
@@ -281,11 +275,7 @@ async function resumeSubagentSessionWithoutWidth(
 	if (!spawnPolicy.allowed) {
 		throw new Error(`Error: ${spawnPolicy.reason ?? "Spawn policy denied this target."}`);
 	}
-	const narrowedSpawnBudget = narrowSpawnBudget(
-		launchMetadata,
-		callerEnv.callerBudget,
-		callerEnv.envDepthCeiling,
-	);
+	const narrowedSpawnBudget = narrowSpawnBudget(launchMetadata, callerEnv.callerBudget, callerEnv.envDepthCeiling);
 	const resumeSpawnEnv = buildResumeSpawnEnv(launchMetadata, narrowedSpawnBudget, spawnPolicy.effectiveWidth);
 	const name = invocationMetadata?.name ?? metadata.name ?? input.name ?? "Resume";
 	const displayName = input.name ?? name;
@@ -372,7 +362,9 @@ async function resumeSubagentSessionWithoutWidth(
 	if (launchMetadata?.denyTools?.length) {
 		for (const toolName of launchMetadata.denyTools) denyTools.add(toolName);
 	} else if (process.env.PI_DENY_TOOLS) {
-		for (const toolName of process.env.PI_DENY_TOOLS.split(",").map((name) => name.trim()).filter(Boolean)) {
+		for (const toolName of process.env.PI_DENY_TOOLS.split(",")
+			.map((name) => name.trim())
+			.filter(Boolean)) {
 			denyTools.add(toolName);
 		}
 	}

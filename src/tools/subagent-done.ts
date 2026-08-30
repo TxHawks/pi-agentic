@@ -10,11 +10,11 @@ import { PI_SUBAGENT_APPEND_SYSTEM_PROMPT } from "../launch/append-system.ts";
 import { getPublishedRunningSubagentCount } from "../runtime/nested-lifecycle.ts";
 import { installSubagentContextReminders } from "./context-reminders.ts";
 import { createExitSignalWriter } from "./exit-signal.ts";
-import { installSubagentTimeoutReminders } from "./timeout-reminders.ts";
 import { type FinalContextSnapshot, getFinalContextSnapshot } from "./final-context-snapshot.ts";
 import { isMissingOptionalDependency, optionalRequire } from "./optional-dependency.ts";
 import { ProviderErrorRecoveryController, resolveProviderRecoveryDelaysMs } from "./provider-error-recovery.ts";
 import { registerSetTabTitleTool, shouldRegisterSetTabTitleTool } from "./set-tab-title.ts";
+import { installSubagentTimeoutReminders } from "./timeout-reminders.ts";
 import { CALLER_PING_TOOL_NAME, SUBAGENT_DONE_TOOL_NAME, SUBAGENT_LAUNCH_TOOL_NAMES } from "./tool-names.ts";
 
 const TOOL_BOUNDARY_RECOVERY_NUDGE = "continue";
@@ -345,9 +345,9 @@ export default function (pi: ExtensionAPI) {
 		// no input event). Notifying at the disable moment — not from an agent_end
 		// branch gated on operatorInputQueuedThisRun, which a follow-up/idle prompt's
 		// new agent_start clears — keeps follow-ups and idle prompts from going silent.
-		const disableAutoExitByOperator = (
-			ctx: { ui: { setStatus(key: string, message?: string): void; notify(message: string, tone?: string): void } },
-		) => {
+		const disableAutoExitByOperator = (ctx: {
+			ui: { setStatus(key: string, message?: string): void; notify(message: string, tone?: string): void };
+		}) => {
 			const alreadyDisabled = autoExitDisabledByOperator;
 			autoExitDisabledByOperator = true;
 			if (alreadyDisabled) return;
@@ -431,8 +431,7 @@ export default function (pi: ExtensionAPI) {
 			// bound the retries so a persistently broken provider cannot loop forever.
 			const intentionallyTerminatedToolBatch =
 				toolExecutionsThisTurn > 0 && toolExecutionsThisTurn === terminatingToolExecutionsThisTurn;
-			const coordinatorOnlyTurnStop =
-				intentionallyTerminatedToolBatch && terminatingSubagentLaunchesThisTurn > 0;
+			const coordinatorOnlyTurnStop = intentionallyTerminatedToolBatch && terminatingSubagentLaunchesThisTurn > 0;
 			if (endedAtToolUseBoundary(messages) && coordinatorOnlyTurnStop) {
 				pendingProviderError = null;
 				providerErrorRecovery.cancelPendingRecovery();

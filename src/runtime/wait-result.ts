@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import type { CompletedSubagentResult, DeliveryState, RunningSubagent, SubagentResult, WaitParams } from "../types.ts";
 import { formatContextExitNotice, formatFinalContextUsage, formatSessionRef } from "./final-context-usage.ts";
 import { hasRealSubagentOutput } from "./state.ts";
-import type { WaitRuntime } from "./wait.ts";
 import { formatTimeoutOutcome, formatTimeoutWrapUpOutcome, getTimeoutResultDetails } from "./timeout-budget.ts";
+import type { WaitRuntime } from "./wait.ts";
 import { formatElapsed } from "./wiring.ts";
 
 function getSubagentWaitPingResult(running: RunningSubagent, result: SubagentResult, deliveryState: DeliveryState) {

@@ -1,8 +1,8 @@
 import { existsSync } from "node:fs";
 import { splitModelRef } from "../agents/model-refs.ts";
 import type { PollResult } from "../mux/poll.ts";
-import { findLatestAssistantContextSnapshot, getNewEntries } from "../session/session.ts";
 import { endedUnderContextPressure } from "../session/completion-reason.ts";
+import { findLatestAssistantContextSnapshot, getNewEntries } from "../session/session.ts";
 import type { RunningSubagent } from "../types.ts";
 
 export interface FinalContextUsage {
@@ -101,9 +101,7 @@ export function resolveFinalContextUsage(
 	// The exit sidecar is authoritative: a `--no-session` child persists nothing,
 	// so its session entries can never carry this.
 	const warned: { contextWarned?: true } =
-		exitSignal?.completionReason === "context-pressure"
-			? { contextWarned: true }
-			: wasContextWarned(running);
+		exitSignal?.completionReason === "context-pressure" ? { contextWarned: true } : wasContextWarned(running);
 	const exhausted: { contextExhausted?: true } =
 		exitSignal?.completionReason === "context-pressure-failure" ? { contextExhausted: true } : {};
 	if (typeof exitSignal?.contextTokens === "number" && typeof exitSignal.contextWindow === "number") {

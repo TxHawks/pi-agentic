@@ -7,6 +7,7 @@ import { createSurface, getMuxBackend, sendShellCommand, shellEscape } from "../
 import { clearSubagentExitSidecar } from "../session/exit-sidecar.ts";
 import { buildPiPromptArgs, getDoneSentinelFile } from "../session/session-files.ts";
 import { getSubagentToolLaunchArgs } from "../tools/policy.ts";
+import { PI_SUBAGENT_TIMEOUT_STARTED_AT } from "../tools/timeout-reminders.ts";
 import { SET_TAB_TITLE_TOOL_NAME } from "../tools/tool-names.ts";
 import type { RunningSubagent, SubagentParamsInput } from "../types.ts";
 import { buildAppendSystemInheritancePlan } from "./append-system.ts";
@@ -14,7 +15,6 @@ import { getPiShellParts } from "./child-command.ts";
 import { CHILD_CONTEXT_BOUNDARY_SYSTEM_PROMPT } from "./context-boundary.ts";
 import { buildInteractiveSentinelShellCommands } from "./interactive-sentinel.ts";
 import { coordinateSubagentLaunch } from "./launch-coordinator.ts";
-import { PI_SUBAGENT_TIMEOUT_STARTED_AT } from "../tools/timeout-reminders.ts";
 import {
 	resolveSubagentNoContextFiles,
 	resolveSubagentParentClosePolicy,

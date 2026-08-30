@@ -18,8 +18,8 @@ import {
 } from "./launch/policy.ts";
 import { resolveSubagentCwd } from "./launch/runtime-paths.ts";
 import { getNoSessionSeedMode } from "./launch/seed-child-session.ts";
-import { initializeSpawnWidthForSession } from "./runtime/spawn-width.ts";
 import { publishRunningSubagentCount } from "./runtime/nested-lifecycle.ts";
+import { initializeSpawnWidthForSession } from "./runtime/spawn-width.ts";
 import { parseSpawnEnv } from "./spawn/policy.ts";
 
 export { resolveSubagentConfigDir } from "./launch/runtime-paths.ts";

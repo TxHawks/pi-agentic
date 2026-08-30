@@ -1,3 +1,4 @@
+import { withoutAmbientSpawnGrant } from "../support/ambient-spawn-grant.ts";
 import {
 	afterEach,
 	assert,
@@ -29,7 +30,6 @@ import {
 	writeFileSync,
 	writeSystemPromptArtifactForTest,
 } from "../support/index.ts";
-import { withoutAmbientSpawnGrant } from "../support/ambient-spawn-grant.ts";
 
 describe("ambient agents and runtime paths", () => {
 	afterEach(() => {
@@ -237,8 +237,7 @@ describe("ambient agents and runtime paths", () => {
 
 			const tool = tools.get("subagent");
 			assert.ok(tool);
-			const executeWithoutAmbientSpawnGrant = (...args: any[]) =>
-				withoutAmbientSpawnGrant(() => tool.execute(...args));
+			const executeWithoutAmbientSpawnGrant = (...args: any[]) => withoutAmbientSpawnGrant(() => tool.execute(...args));
 			await assert.rejects(
 				() =>
 					executeWithoutAmbientSpawnGrant(

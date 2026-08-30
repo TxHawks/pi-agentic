@@ -7,7 +7,8 @@ import { SubagentWidgetManager } from "../../src/runtime/widget.ts";
 import type { RunningSubagent } from "../../src/types.ts";
 
 function stripAnsi(text: string): string {
-	return text.replace(new RegExp("\\x1b\\[[0-9;]*m", "g"), "");
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: the escape character is the ANSI marker this helper strips
+	return text.replace(/\x1b\[[0-9;]*m/g, "");
 }
 
 function makeRunningSubagent(index: number): RunningSubagent {

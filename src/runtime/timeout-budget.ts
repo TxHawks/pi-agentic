@@ -55,10 +55,7 @@ export function findDueTimeoutWrapUp(
 	if (budget.timeoutSeconds && now - startedAt >= (budget.timeoutSeconds * 1000 * threshold) / 100) {
 		return { kind: "timeout", seconds: budget.timeoutSeconds, threshold };
 	}
-	if (
-		budget.idleTimeoutSeconds &&
-		now - lastProgressAt >= (budget.idleTimeoutSeconds * 1000 * threshold) / 100
-	) {
+	if (budget.idleTimeoutSeconds && now - lastProgressAt >= (budget.idleTimeoutSeconds * 1000 * threshold) / 100) {
 		return { kind: "idle-timeout", seconds: budget.idleTimeoutSeconds, threshold };
 	}
 	return null;
@@ -99,10 +96,7 @@ export function observeSubagentProgress(
  */
 export function checkSubagentTimeout(running: RunningSubagent, now: number): ExpiredTimeoutBudget | null {
 	if (!running.timeoutBudget || running.timeoutExpiry) return null;
-	if (
-		running.timeoutBudget.timeoutSeconds &&
-		now - running.startTime >= running.timeoutBudget.timeoutSeconds * 1000
-	) {
+	if (running.timeoutBudget.timeoutSeconds && now - running.startTime >= running.timeoutBudget.timeoutSeconds * 1000) {
 		return { kind: "timeout", seconds: running.timeoutBudget.timeoutSeconds };
 	}
 	if (running.timeoutWrapUp?.kind === "idle-timeout" && running.timeoutWrapUpDeadlineAt !== undefined) {
@@ -160,8 +154,7 @@ export function getSubagentNextDeadlineAt(running: RunningSubagent): number | un
 	if (running.timeoutWarnThreshold && !running.timeoutWrapUp) {
 		if (running.timeoutBudget.timeoutSeconds) {
 			deadlines.push(
-				running.startTime +
-					(running.timeoutBudget.timeoutSeconds * 1000 * running.timeoutWarnThreshold) / 100,
+				running.startTime + (running.timeoutBudget.timeoutSeconds * 1000 * running.timeoutWarnThreshold) / 100,
 			);
 		}
 		if (running.timeoutBudget.idleTimeoutSeconds) {
@@ -258,6 +251,7 @@ export function formatTimeoutOutcome(
 		: "";
 	return `${headline}\n\n${body}\n\n${guidance}${killWarning}`;
 }
+
 import type { SessionEntry } from "../session/session.ts";
 
 /**

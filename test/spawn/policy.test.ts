@@ -1,8 +1,8 @@
-import { afterEach, assert, describe, it, resetSubagentStateForTest } from "../support/index.ts";
-import { getBaseSubagentEnvVars } from "../../src/launch/prep.ts";
-import { parseSpawnEnv, resolveSpawnPolicy, type SpawnPolicyInput } from "../../src/spawn/policy.ts";
 import type { AgentDefaults } from "../../src/agents/definitions.ts";
 import type { PreparedSubagentLaunch } from "../../src/launch/prep.ts";
+import { getBaseSubagentEnvVars } from "../../src/launch/prep.ts";
+import { parseSpawnEnv, resolveSpawnPolicy, type SpawnPolicyInput } from "../../src/spawn/policy.ts";
+import { afterEach, assert, describe, it, resetSubagentStateForTest } from "../support/index.ts";
 
 function resolvePolicy(overrides: Partial<SpawnPolicyInput> = {}) {
 	return resolveSpawnPolicy({

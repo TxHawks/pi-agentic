@@ -48,7 +48,9 @@ describe("subagent message renderers", () => {
 			const renderer = renderers.get(type)!;
 			const unpadded = renderer(message, { expanded: true, outputPad: 0 }, theme).render(40);
 			const padded = renderer(message, { expanded: true, outputPad: 1 }, theme).render(40);
-			const unpaddedContent = unpadded.find((line: string) => line.trim().startsWith(type === "subagent_ping" ? "?" : "✓"));
+			const unpaddedContent = unpadded.find((line: string) =>
+				line.trim().startsWith(type === "subagent_ping" ? "?" : "✓"),
+			);
 			const paddedContent = padded.find((line: string) => line.trim().startsWith(type === "subagent_ping" ? "?" : "✓"));
 
 			assert.ok(unpaddedContent);

@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { CompletedSubagentResult, RunningSubagent, StartedSubagentToolDetails, SubagentResult } from "../types.ts";
 import { deliverCompletedSubagentResult, routeSubagentOutcome } from "./result-router.ts";
+import { releaseSpawnWidthSlot } from "./spawn-width.ts";
 import {
 	clearSubagentShutdownTimer,
 	completedSubagentResults,
@@ -9,7 +10,6 @@ import {
 	requestSubagentBatchStop,
 	runningSubagents,
 } from "./state.ts";
-import { releaseSpawnWidthSlot } from "./spawn-width.ts";
 
 export interface RunningRegistryRuntime {
 	formatElapsed(elapsed: number): string;

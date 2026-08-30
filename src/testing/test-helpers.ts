@@ -59,10 +59,7 @@ import {
 } from "../launch/resume.ts";
 import { resolveSubagentRuntimePaths } from "../launch/runtime-paths.ts";
 import { getNoSessionSeedMode } from "../launch/seed-child-session.ts";
-import {
-	clearPublishedRunningSubagentCountForTest,
-	publishRunningSubagentCount,
-} from "../runtime/nested-lifecycle.ts";
+import { clearPublishedRunningSubagentCountForTest, publishRunningSubagentCount } from "../runtime/nested-lifecycle.ts";
 import { resolveResumeLaunchMetadataForInvocation } from "../runtime/resume-service.ts";
 import { ChildSessionStorage } from "../session/child-session-storage.ts";
 import {
@@ -410,7 +407,9 @@ export function parseEnvStringForTest(env: string | undefined) {
 
 export function isPreparedChildSpawningAllowedForTest(childBudget: number | null | undefined) {
 	return isPreparedChildSpawningAllowed({
-		...(childBudget === undefined ? {} : { spawnPolicy: { allowed: true, childBudget, spawnableAgents: true, effectiveWidth: null } }),
+		...(childBudget === undefined
+			? {}
+			: { spawnPolicy: { allowed: true, childBudget, spawnableAgents: true, effectiveWidth: null } }),
 	} as PreparedSubagentLaunch);
 }
 

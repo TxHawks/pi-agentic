@@ -1,13 +1,13 @@
 import {
 	formatTimeoutWarning,
 	installSubagentTimeoutReminders,
-	parseTimeoutSeconds,
-	parseTimeoutWarnThreshold,
 	PI_SUBAGENT_IDLE_TIMEOUT,
 	PI_SUBAGENT_TIMEOUT,
 	PI_SUBAGENT_TIMEOUT_STARTED_AT,
-	PI_SUBAGENT_TIMEOUT_WRAP_UP,
 	PI_SUBAGENT_TIMEOUT_WARN_THRESHOLD,
+	PI_SUBAGENT_TIMEOUT_WRAP_UP,
+	parseTimeoutSeconds,
+	parseTimeoutWarnThreshold,
 } from "../../src/tools/timeout-reminders.ts";
 import { afterEach, assert, describe, it, sleep } from "../support/index.ts";
 

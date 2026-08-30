@@ -146,8 +146,9 @@ try {
 	if (session) {
 		const answer = getAssistantTexts(session.events).join("\n").replace(/[*_]/g, "");
 		console.error(`run 2 answer: ${answer}`);
-		const rejectsFailure =
-			/not\s+a\s+failure|is\s+no\s+failure|isn'?t\s+a\s+failure|no,?\s+it\s+is\s+not/i.test(answer);
+		const rejectsFailure = /not\s+a\s+failure|is\s+no\s+failure|isn'?t\s+a\s+failure|no,?\s+it\s+is\s+not/i.test(
+			answer,
+		);
 		const pointsToResult = /result|report/i.test(answer);
 		check("run 2: answer does not call the stop a failure", rejectsFailure, answer.slice(0, 200));
 		check("run 2: answer points to the result text", pointsToResult, answer.slice(0, 200));

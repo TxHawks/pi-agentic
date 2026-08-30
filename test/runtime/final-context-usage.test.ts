@@ -1,5 +1,5 @@
-import { join } from "node:path";
 import { rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it } from "node:test";
 import { resolveFinalContextUsage } from "../../src/runtime/final-context-usage.ts";
 import { SUBAGENT_COMPLETION_ENTRY } from "../../src/tools/context-reminders.ts";
@@ -155,5 +155,4 @@ describe("final context usage", () => {
 			rmSync(dir, { recursive: true, force: true });
 		}
 	});
-
 });

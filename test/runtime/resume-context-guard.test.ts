@@ -84,7 +84,11 @@ describe("context-exhausted resume guard", () => {
 	it("refuses an agent-initiated resume and never starts the child", async () => {
 		const dir = createTestDir();
 		const spawnMarker = join(dir, "child-started.txt");
-		const bin = writeExecutable(dir, "marker-pi", `#!/usr/bin/env bash\nprintf started > ${JSON.stringify(spawnMarker)}\n`);
+		const bin = writeExecutable(
+			dir,
+			"marker-pi",
+			`#!/usr/bin/env bash\nprintf started > ${JSON.stringify(spawnMarker)}\n`,
+		);
 		const originalCommand = process.env.PI_SUBAGENT_PI_COMMAND;
 		process.env.PI_SUBAGENT_PI_COMMAND = bin;
 		try {

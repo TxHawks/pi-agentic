@@ -326,18 +326,11 @@ async function runLive(ctx, model) {
 	writeProbe(ctx, agentName);
 
 	try {
-		const created = herdrResult("tab create", [
-			"tab",
-			"create",
-			"--cwd",
-			ctx.workDir,
-			"--label",
-			marker,
-			"--no-focus",
-		]);
+		const created = herdrResult("tab create", ["tab", "create", "--cwd", ctx.workDir, "--label", marker, "--no-focus"]);
 		parentPane = created.root_pane?.pane_id ?? created.pane?.pane_id ?? "";
 		parentTab = created.tab?.tab_id ?? "";
-		if (!parentPane || !parentTab) throw new Error(`Herdr did not create the parent surface: ${JSON.stringify(created)}`);
+		if (!parentPane || !parentTab)
+			throw new Error(`Herdr did not create the parent surface: ${JSON.stringify(created)}`);
 
 		const command = buildParentCommand(ctx, model, join(ctx.tmpRoot, "trace.log"));
 		runHerdr(["pane", "run", parentPane, command]);
@@ -392,7 +385,8 @@ async function runLive(ctx, model) {
 			throw new Error(`Expected the blocked pane and a replacement wrap-up pane, observed ${[...observedChildPanes]}`);
 		}
 		const child = findChildSession(ctx.sessionDir, childName);
-		if (!child || child.file !== details.sessionFile) throw new Error("The replacement did not continue the same session.");
+		if (!child || child.file !== details.sessionFile)
+			throw new Error("The replacement did not continue the same session.");
 		const userText = getText(child.events, "user");
 		if (!userText.includes("interrupted your previous active operation")) {
 			throw new Error("The replacement pane never received the report-only prompt.");
@@ -408,7 +402,7 @@ async function runLive(ctx, model) {
 		}
 		console.log(
 			`live Herdr timeout wrap-up ok: closed blocked pane, opened report pane, and completed in ${details.elapsed}s ` +
-			`inside the original 60s clock (${model})`,
+				`inside the original 60s clock (${model})`,
 		);
 	} finally {
 		sweepTabs(labels);

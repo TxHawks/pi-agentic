@@ -1,5 +1,5 @@
-import { SPAWNING_TOOL_NAMES } from "../tools/tool-names.ts";
 import { MAX_SPAWN_WIDTH } from "../runtime/spawn-width.ts";
+import { SPAWNING_TOOL_NAMES } from "../tools/tool-names.ts";
 
 export interface SpawnPolicyInput {
 	callerAgent: string | null;
@@ -106,11 +106,7 @@ function getEffectiveWidth(input: SpawnPolicyInput): number | null {
 export function resolveSpawnPolicy(input: SpawnPolicyInput): SpawnPolicyResult {
 	const childBudget = getChildBudget(input);
 	const spawnableAgents =
-		input.targetSpawning === false
-			? []
-			: input.targetSpawning === true
-				? true
-				: [...input.targetSpawning];
+		input.targetSpawning === false ? [] : input.targetSpawning === true ? true : [...input.targetSpawning];
 	const effectiveWidth = getEffectiveWidth(input);
 
 	if (!isCallerAllowedToSpawn(input.callerSpawnable, input.targetAgent)) {
@@ -187,8 +183,7 @@ export function buildResumeSpawnEnv(
 ): ResumeSpawnEnv {
 	return {
 		PI_SUBAGENT_SPAWN_BUDGET: String(narrowedBudget > 0 ? narrowedBudget : 0),
-		PI_SUBAGENT_SPAWNABLE:
-			persisted?.spawnableAgents === true ? "true" : (persisted?.spawnableAgents ?? []).join(","),
+		PI_SUBAGENT_SPAWNABLE: persisted?.spawnableAgents === true ? "true" : (persisted?.spawnableAgents ?? []).join(","),
 		// Like the budget and spawnable grant, width is serialized unconditionally so the
 		// resumed child enforces its own frontmatter width instead of inheriting the
 		// resumer's (or falling back to the MAX_SPAWN_WIDTH default).

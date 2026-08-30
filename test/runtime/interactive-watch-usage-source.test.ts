@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
-import { pickFinalUsageSource } from "../../src/runtime/interactive-watch.ts";
 import type { PollResult } from "../../src/mux/poll.ts";
+import { pickFinalUsageSource } from "../../src/runtime/interactive-watch.ts";
 import { assert } from "../support/index.ts";
 
 describe("interactive watch final usage source", () => {

@@ -145,7 +145,10 @@ describe("auto-exit operator-takeover notification", () => {
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());
 			await sleep(0);
 			assert.equal(h.disabledNotifies().length, 1, "repeat input while already disabled must not spam");
-			assert.equal(h.statusSets.filter((s) => s.msg === "Auto-exit disabled — close manually or /auto-exit to re-enable").length, 1);
+			assert.equal(
+				h.statusSets.filter((s) => s.msg === "Auto-exit disabled — close manually or /auto-exit to re-enable").length,
+				1,
+			);
 		} finally {
 			h.restore();
 		}
@@ -278,7 +281,10 @@ describe("auto-exit operator-takeover notification", () => {
 			{ name: "steer then re-arm", inputs: [{ streamingBehavior: "steer" }] },
 			{ name: "follow-up then re-arm", inputs: [{ streamingBehavior: "followUp" }] },
 			{ name: "idle prompt then re-arm", inputs: [{ source: "interactive" }] },
-			{ name: "steer then follow-up then re-arm", inputs: [{ streamingBehavior: "steer" }, { streamingBehavior: "followUp" }] },
+			{
+				name: "steer then follow-up then re-arm",
+				inputs: [{ streamingBehavior: "steer" }, { streamingBehavior: "followUp" }],
+			},
 		];
 
 		for (const c of cases) {

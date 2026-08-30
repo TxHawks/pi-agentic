@@ -72,7 +72,8 @@ function renderLines(overlay: SubagentsOverlay, width = 80): string[] {
 }
 
 function stripAnsi(str: string): string {
-	return str.replace(new RegExp("\\x1b\\[[0-9;]*[a-zA-Z]", "g"), "");
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: the escape character is the ANSI marker this helper strips
+	return str.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "");
 }
 
 // ── Helpers to avoid direct key imports ────────────────────────────

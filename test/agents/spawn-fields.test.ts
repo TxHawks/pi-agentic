@@ -3,12 +3,12 @@ import {
 	assert,
 	createTestDir,
 	describe,
+	it,
 	join,
 	loadAgentDefaults,
 	mkdirSync,
 	resetSubagentStateForTest,
 	resolveDenyToolsForTest,
-	it,
 	writeFileSync,
 } from "../support/index.ts";
 
@@ -16,10 +16,7 @@ function loadDefinition(frontmatter: string) {
 	const dir = createTestDir();
 	const configDir = join(dir, "agent-root");
 	mkdirSync(join(configDir, "agents"), { recursive: true });
-	writeFileSync(
-		join(configDir, "agents", "tester.md"),
-		`---\nname: tester\n${frontmatter}\n---\n\nTester body.`,
-	);
+	writeFileSync(join(configDir, "agents", "tester.md"), `---\nname: tester\n${frontmatter}\n---\n\nTester body.`);
 	process.env.PI_CODING_AGENT_DIR = configDir;
 	return loadAgentDefaults("tester");
 }

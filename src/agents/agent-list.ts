@@ -1,12 +1,12 @@
-import type { ResolvedAgentDefinition } from "./definitions.ts";
-import { getEffectiveAgentDefinitions } from "./definitions.ts";
-import { buildModelRef, parseAllowedModels } from "./model-refs.ts";
 import { formatTimeoutSeconds } from "../runtime/timeout-budget.ts";
 import {
 	getContextReminderThresholds,
 	parseContextWarnStep,
 	parseContextWarnThreshold,
 } from "../tools/context-reminders.ts";
+import type { ResolvedAgentDefinition } from "./definitions.ts";
+import { getEffectiveAgentDefinitions } from "./definitions.ts";
+import { buildModelRef, parseAllowedModels } from "./model-refs.ts";
 
 type SubagentSessionMode = "standalone" | "lineage-only" | "fork";
 
@@ -245,7 +245,7 @@ export function getAgentListSignature(entries: AgentListEntry[]): string {
 			spawnWidth: entry.spawnWidth,
 			timeout: entry.timeout,
 			idleTimeout: entry.idleTimeout,
-			contextWarn: entry.contextWarnThreshold !== undefined ? getContextWarnPercent(entry) ?? null : undefined,
+			contextWarn: entry.contextWarnThreshold !== undefined ? (getContextWarnPercent(entry) ?? null) : undefined,
 			reportContextUsage: entry.reportContextUsage,
 			visibleTo: entry.visibleTo,
 		})),

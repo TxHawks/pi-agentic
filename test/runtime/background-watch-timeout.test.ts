@@ -7,16 +7,7 @@ import { stopRunningSubagent } from "../../src/runtime/running-registry.ts";
 import { hasSubagentExitSidecar, writeSubagentExitSidecar } from "../../src/session/exit-sidecar.ts";
 import { readSubagentTimeoutSidecar } from "../../src/session/timeout-sidecar.ts";
 import type { RunningSubagent, SubagentTimeoutBudget } from "../../src/types.ts";
-import {
-	afterEach,
-	assert,
-	createSessionFile,
-	createTestDir,
-	describe,
-	it,
-	rmSync,
-	sleep,
-} from "../support/index.ts";
+import { afterEach, assert, createSessionFile, createTestDir, describe, it, rmSync, sleep } from "../support/index.ts";
 
 const dirs: string[] = [];
 const spawnedGroups: number[] = [];
@@ -349,12 +340,9 @@ describe("background watcher timeout budgets", () => {
 		const wrapUpChild = new EventEmitter() as ChildProcess;
 		const signals: Array<NodeJS.Signals> = [];
 		let restarts = 0;
-		const running = makeRunning(
-			sessionFile,
-			firstChild,
-			{ timeoutSeconds: 2 },
-			{ timeoutWarnThreshold: 50 } as Partial<RunningSubagent>,
-		);
+		const running = makeRunning(sessionFile, firstChild, { timeoutSeconds: 2 }, {
+			timeoutWarnThreshold: 50,
+		} as Partial<RunningSubagent>);
 
 		const result = await settleWithin(
 			watchBackgroundSubagent(
@@ -386,12 +374,9 @@ describe("background watcher timeout budgets", () => {
 		const sessionFile = makeSession();
 		const firstChild = new EventEmitter() as ChildProcess;
 		const wrapUpChild = new EventEmitter() as ChildProcess;
-		const running = makeRunning(
-			sessionFile,
-			firstChild,
-			{ timeoutSeconds: 1 },
-			{ timeoutWarnThreshold: 50 } as Partial<RunningSubagent>,
-		);
+		const running = makeRunning(sessionFile, firstChild, { timeoutSeconds: 1 }, {
+			timeoutWarnThreshold: 50,
+		} as Partial<RunningSubagent>);
 
 		const result = await settleWithin(
 			watchBackgroundSubagent(
@@ -421,12 +406,9 @@ describe("background watcher timeout budgets", () => {
 		const wrapUpChild = new EventEmitter() as ChildProcess;
 		const signals: Array<NodeJS.Signals> = [];
 		let groupAliveAtRestart = true;
-		const running = makeRunning(
-			sessionFile,
-			firstChild,
-			{ timeoutSeconds: 2 },
-			{ timeoutWarnThreshold: 50 } as Partial<RunningSubagent>,
-		);
+		const running = makeRunning(sessionFile, firstChild, { timeoutSeconds: 2 }, {
+			timeoutWarnThreshold: 50,
+		} as Partial<RunningSubagent>);
 
 		const result = await settleWithin(
 			watchBackgroundSubagent(
@@ -464,12 +446,9 @@ describe("background watcher timeout budgets", () => {
 		const firstChild = new EventEmitter() as ChildProcess;
 		const wrapUpChild = new EventEmitter() as ChildProcess;
 		const signals: Array<NodeJS.Signals> = [];
-		const running = makeRunning(
-			sessionFile,
-			firstChild,
-			{ timeoutSeconds: 2 },
-			{ timeoutWarnThreshold: 50 } as Partial<RunningSubagent>,
-		);
+		const running = makeRunning(sessionFile, firstChild, { timeoutSeconds: 2 }, {
+			timeoutWarnThreshold: 50,
+		} as Partial<RunningSubagent>);
 
 		const result = await settleWithin(
 			watchBackgroundSubagent(
@@ -513,12 +492,10 @@ describe("background watcher timeout budgets", () => {
 		const entered = new Promise<void>((resolve) => {
 			restartEntered = resolve;
 		});
-		const running = makeRunning(
-			sessionFile,
-			firstChild,
-			{ timeoutSeconds: 4 },
-			{ timeoutWarnThreshold: 25, abortController: controller } as Partial<RunningSubagent>,
-		);
+		const running = makeRunning(sessionFile, firstChild, { timeoutSeconds: 4 }, {
+			timeoutWarnThreshold: 25,
+			abortController: controller,
+		} as Partial<RunningSubagent>);
 
 		const resultPromise = watchBackgroundSubagent(
 			running,

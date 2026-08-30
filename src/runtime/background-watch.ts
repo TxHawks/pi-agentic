@@ -7,13 +7,13 @@ import { writeSubagentTimeoutSidecar } from "../session/timeout-sidecar.ts";
 import type { RunningSubagent, SessionEntryLike, SubagentResult, SubagentSummarySource } from "../types.ts";
 import { resolveFinalContextUsage } from "./final-context-usage.ts";
 import {
-	TIMEOUT_KILL_ESCALATION_MS,
 	checkSubagentTimeout,
 	checkSubagentTimeoutWrapUp,
 	type ExpiredTimeoutBudget,
 	getSubagentNextDeadlineAt,
 	hasChildProgress,
 	observeSubagentProgress,
+	TIMEOUT_KILL_ESCALATION_MS,
 } from "./timeout-budget.ts";
 import { startTimeoutWrapUpWithinDeadline } from "./timeout-restart.ts";
 
@@ -81,16 +81,11 @@ async function terminateBackgroundGeneration(
 	if (isProcessGroupAlive(pid)) running.timeoutKillFailed = true;
 }
 
-function buildBackgroundRestartTimeoutResult(
-	running: RunningSubagent,
-	expiry: ExpiredTimeoutBudget,
-): SubagentResult {
+function buildBackgroundRestartTimeoutResult(running: RunningSubagent, expiry: ExpiredTimeoutBudget): SubagentResult {
 	let summary = "The report-only continuation could not start before the original hard deadline.";
 	let summarySource: SubagentSummarySource = "runtime";
 	if (existsSync(running.sessionFile)) {
-		const output = findLastSubagentOutputWithSource(
-			getNewEntries(running.sessionFile, running.launchEntryCount ?? 0),
-		);
+		const output = findLastSubagentOutputWithSource(getNewEntries(running.sessionFile, running.launchEntryCount ?? 0));
 		if (output) ({ summary, summarySource } = output);
 	}
 	if (!running.noSession) {
@@ -282,13 +277,16 @@ function watchBackgroundGeneration(
 				deadlineTimer = undefined;
 				return;
 			}
-			deadlineTimer = setTimeout(() => {
-				deadlineTimer = undefined;
-				const now = Date.now();
-				observeSession(now);
-				checkTimeoutDeadlines(now);
-				armDeadlineTimer();
-			}, Math.max(1, deadlineAt - Date.now()));
+			deadlineTimer = setTimeout(
+				() => {
+					deadlineTimer = undefined;
+					const now = Date.now();
+					observeSession(now);
+					checkTimeoutDeadlines(now);
+					armDeadlineTimer();
+				},
+				Math.max(1, deadlineAt - Date.now()),
+			);
 			deadlineTimer.unref?.();
 		};
 
@@ -327,10 +325,7 @@ function watchBackgroundGeneration(
 				}
 			}, 5000);
 		};
-		const finalizeExit = (
-			code: number | null,
-			exitSignal: ReturnType<typeof consumeSubagentExitSignal>,
-		) => {
+		const finalizeExit = (code: number | null, exitSignal: ReturnType<typeof consumeSubagentExitSignal>) => {
 			if (
 				running.timeoutWrapUp &&
 				!running.timeoutWrapUpMode &&
@@ -347,7 +342,7 @@ function watchBackgroundGeneration(
 			const timedOut = running.timeoutExpiry && exitSignal?.reason !== "ping" ? running.timeoutExpiry : undefined;
 			// A child shut down by the runtime often exits cleanly. Reporting that
 			// as exit 0 would file a killed runaway as a success.
-			const exitCode = timedOut ? (code || 1) : (exitSignal?.exitCode ?? code ?? 1);
+			const exitCode = timedOut ? code || 1 : (exitSignal?.exitCode ?? code ?? 1);
 			const errorMessage = exitSignal?.reason === "error" ? exitSignal.errorMessage : undefined;
 			const finalContextUsage = resolveFinalContextUsage(running, exitSignal);
 			const stderr = running.stderrTail?.trim();
@@ -385,25 +380,25 @@ function watchBackgroundGeneration(
 			finish({
 				kind: "result",
 				result: {
-				name: running.name,
-				task: running.task,
-				summary,
-				summarySource,
-				sessionFile: running.noSession ? undefined : running.sessionFile,
-				exitCode,
-				elapsed,
-				outputTokens: exitSignal?.outputTokens,
-				...finalContextUsage,
-				...(timedOut
-					? {
-							timedOut: timedOut.kind,
-							timedOutAfter: timedOut.seconds,
-							...(running.timeoutBlocksResume === true ? { timeoutBlocksResume: true } : {}),
-						}
-					: {}),
-				...(running.timeoutWrapUp ? { timeoutWrapUp: running.timeoutWrapUp } : {}),
-				ping: exitSignal?.ping,
-				errorMessage,
+					name: running.name,
+					task: running.task,
+					summary,
+					summarySource,
+					sessionFile: running.noSession ? undefined : running.sessionFile,
+					exitCode,
+					elapsed,
+					outputTokens: exitSignal?.outputTokens,
+					...finalContextUsage,
+					...(timedOut
+						? {
+								timedOut: timedOut.kind,
+								timedOutAfter: timedOut.seconds,
+								...(running.timeoutBlocksResume === true ? { timeoutBlocksResume: true } : {}),
+							}
+						: {}),
+					...(running.timeoutWrapUp ? { timeoutWrapUp: running.timeoutWrapUp } : {}),
+					ping: exitSignal?.ping,
+					errorMessage,
 				},
 			});
 		};
@@ -435,15 +430,15 @@ function watchBackgroundGeneration(
 			finish({
 				kind: "result",
 				result: {
-				name: running.name,
-				task: running.task,
-				summary: `Background agent failed to start: ${error.message}`,
-				summarySource: "runtime",
-				sessionFile: running.noSession ? undefined : running.sessionFile,
-				exitCode: 1,
-				elapsed: Math.floor((Date.now() - running.startTime) / 1000),
-				error: error.message,
-				...(running.timeoutWrapUp ? { timeoutWrapUp: running.timeoutWrapUp } : {}),
+					name: running.name,
+					task: running.task,
+					summary: `Background agent failed to start: ${error.message}`,
+					summarySource: "runtime",
+					sessionFile: running.noSession ? undefined : running.sessionFile,
+					exitCode: 1,
+					elapsed: Math.floor((Date.now() - running.startTime) / 1000),
+					error: error.message,
+					...(running.timeoutWrapUp ? { timeoutWrapUp: running.timeoutWrapUp } : {}),
 				},
 			});
 		};

@@ -115,7 +115,10 @@ describe("child session storage", () => {
 
 		new ChildSessionStorage(child).seed("fork", parent, dir, { activeLeafId: "m3" });
 
-		const entries = readFileSync(child, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+		const entries = readFileSync(child, "utf8")
+			.trim()
+			.split("\n")
+			.map((l) => JSON.parse(l));
 		const byId = new Map(entries.filter((e) => e.id).map((e) => [e.id, e]));
 		assert.ok(!byId.has("r1"), "roster stripped");
 		// m2 must be re-pointed at m1 (not the dropped r1), m3 at m2 — the walk reaches m1.
