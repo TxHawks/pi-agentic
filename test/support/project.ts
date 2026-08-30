@@ -129,10 +129,12 @@ export {
 	writeSystemPromptArtifactForTest,
 } from "../../src/subagents.ts";
 export {
-	default as subagentDoneExtension,
 	filterToolNames,
 	getDeniedToolNames,
 	installDeniedToolGuards,
-	isMissingOptionalDependencyForTest,
 	shouldRegisterSubagentDone,
+} from "../../src/tools/denied-tools.ts";
+export {
+	default as subagentDoneExtension,
+	isMissingOptionalDependencyForTest,
 } from "../../src/tools/subagent-done.ts";
