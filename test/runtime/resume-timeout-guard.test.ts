@@ -12,6 +12,7 @@ import {
 	assert,
 	createTestDir,
 	existsSync,
+	fakePiCommand,
 	readFileSync,
 	writeExecutable,
 	writeFileSync,
@@ -109,7 +110,7 @@ function registerResumeTool(runtime: ReturnType<typeof createResumeRuntime>) {
 
 function withFakePi<T>(bin: string, run: () => Promise<T>): Promise<T> {
 	const original = process.env.PI_SUBAGENT_PI_COMMAND;
-	process.env.PI_SUBAGENT_PI_COMMAND = bin;
+	process.env.PI_SUBAGENT_PI_COMMAND = fakePiCommand(bin);
 	return run().finally(() => {
 		if (original == null) delete process.env.PI_SUBAGENT_PI_COMMAND;
 		else process.env.PI_SUBAGENT_PI_COMMAND = original;

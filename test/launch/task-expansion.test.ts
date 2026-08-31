@@ -4,6 +4,7 @@ import {
 	createTestDir,
 	describe,
 	existsSync,
+	fakePiCommand,
 	it,
 	join,
 	mkdirSync,
@@ -63,7 +64,7 @@ async function launchAndReadTaskArtifact(options: {
 printf '%s\n' "$*" > '${childLog}'
 `,
 	);
-	process.env.PI_SUBAGENT_PI_COMMAND = fakeBin;
+	process.env.PI_SUBAGENT_PI_COMMAND = fakePiCommand(fakeBin);
 
 	await launchBackgroundSubagent(
 		{

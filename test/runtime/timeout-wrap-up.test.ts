@@ -8,6 +8,7 @@ import {
 	createTestDir,
 	describe,
 	existsSync,
+	fakePiCommand,
 	it,
 	join,
 	readFileSync,
@@ -97,7 +98,7 @@ printf '%s\n' "$@" > "${argvFile}"
 cat > "${stdinFile}"
 `,
 		);
-		process.env.PI_SUBAGENT_PI_COMMAND = pi;
+		process.env.PI_SUBAGENT_PI_COMMAND = fakePiCommand(pi);
 
 		const sessionFile = join(dir, "child.jsonl");
 		writeFileSync(

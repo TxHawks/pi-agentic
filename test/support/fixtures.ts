@@ -25,6 +25,33 @@ export function writeExecutable(dir: string, name: string, content: string): str
 	return file;
 }
 
+/**
+ * Wait until a spawned fake process has written the file, then return its
+ * content. Bounded poll; throws with the last content when the budget ends.
+ */
+export async function readNonEmptyFileEventually(path: string): Promise<string> {
+	let lastText = "";
+	for (let attempt = 0; attempt < 50; attempt++) {
+		if (existsSync(path)) {
+			lastText = readFileSync(path, "utf8");
+			if (lastText.length > 0) return lastText;
+		}
+		await sleep(10);
+	}
+	throw new Error(`Timed out waiting for ${path}; last content: ${lastText}`);
+}
+
+/**
+ * Command string for PI_SUBAGENT_PI_COMMAND that runs a fake pi script
+ * through /bin/bash. Running a fresh script file directly makes macOS
+ * check the new executable on its first start (~300ms, seconds under
+ * load), which pushes short test waits past their budget. /bin/bash is
+ * a known binary, so that check never runs.
+ */
+export function fakePiCommand(scriptPath: string): string {
+	return `/bin/bash '${scriptPath}'`;
+}
+
 export function getAgentConfigDirForTest(): string {
 	return process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
 }

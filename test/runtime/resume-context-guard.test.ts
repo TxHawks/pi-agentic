@@ -7,6 +7,7 @@ import {
 	assert,
 	createTestDir,
 	existsSync,
+	fakePiCommand,
 	writeExecutable,
 	writeFileSync,
 } from "../support/index.ts";
@@ -96,7 +97,7 @@ describe("context-exhausted resume guard", () => {
 			`#!/usr/bin/env bash\nprintf started > ${JSON.stringify(spawnMarker)}\n`,
 		);
 		const originalCommand = process.env.PI_SUBAGENT_PI_COMMAND;
-		process.env.PI_SUBAGENT_PI_COMMAND = bin;
+		process.env.PI_SUBAGENT_PI_COMMAND = fakePiCommand(bin);
 		try {
 			const sessionFile = writeExhaustedSession(dir, "exhausted-child.jsonl");
 			const tool = registerResumeTool(createResumeRuntime());
@@ -120,7 +121,7 @@ describe("context-exhausted resume guard", () => {
 		const dir = createTestDir();
 		const bin = writeExecutable(dir, "quiet-pi", `#!/usr/bin/env bash\nexit 0\n`);
 		const originalCommand = process.env.PI_SUBAGENT_PI_COMMAND;
-		process.env.PI_SUBAGENT_PI_COMMAND = bin;
+		process.env.PI_SUBAGENT_PI_COMMAND = fakePiCommand(bin);
 		try {
 			const sessionFile = writeExhaustedSession(dir, "overlay-child.jsonl");
 
@@ -141,7 +142,7 @@ describe("context-exhausted resume guard", () => {
 		const dir = createTestDir();
 		const bin = writeExecutable(dir, "plain-pi", `#!/usr/bin/env bash\nexit 0\n`);
 		const originalCommand = process.env.PI_SUBAGENT_PI_COMMAND;
-		process.env.PI_SUBAGENT_PI_COMMAND = bin;
+		process.env.PI_SUBAGENT_PI_COMMAND = fakePiCommand(bin);
 		try {
 			const sessionFile = join(dir, "plain-child.jsonl");
 			writeFileSync(

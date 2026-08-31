@@ -10,6 +10,7 @@ import {
 	describe,
 	enforceAgentFrontmatterForTest,
 	existsSync,
+	fakePiCommand,
 	it,
 	join,
 	loadAgentDefaults,
@@ -191,7 +192,7 @@ describe("Herdr interactive launch parity", () => {
 				].join("\n"),
 			);
 			const fakePi = writeExecutable(dir, "fake-pi", "#!/bin/sh\nexit 42\n");
-			process.env.PI_SUBAGENT_PI_COMMAND = fakePi;
+			process.env.PI_SUBAGENT_PI_COMMAND = fakePiCommand(fakePi);
 			const parentSession = writeParentSession(cwd);
 
 			const running = await launchInteractiveSubagent(
@@ -632,7 +633,7 @@ describe("Herdr interactive launch parity", () => {
 } >> "${childLogFile}"
 `,
 		);
-		process.env.PI_SUBAGENT_PI_COMMAND = fakePi;
+		process.env.PI_SUBAGENT_PI_COMMAND = fakePiCommand(fakePi);
 
 		const running = await launchBackgroundSubagent(
 			{

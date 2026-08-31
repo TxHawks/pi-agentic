@@ -54,6 +54,7 @@ import "./launch/fork-session.test.ts";
 import "./runtime/wait.test.ts";
 import "./runtime/shutdown-policy.test.ts";
 import "./runtime/resume-tool.test.ts";
+import "./runtime/resume-prompt-delivery.test.ts";
 import "./runtime/resume-placement.test.ts";
 import "./runtime/resume-context-guard.test.ts";
 import "./runtime/resume-timeout-guard.test.ts";
