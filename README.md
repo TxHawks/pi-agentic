@@ -551,7 +551,7 @@ After a pure async launch, the parent should get out of the way unless it has se
 
 By default, a successful async launch ends the parent turn after the current tool batch. The children keep running. Their results come back later.
 
-Leave `PI_SUBAGENT_DISABLE_COORDINATOR_ONLY_TURN` unset, or set it to `0`, to keep that guard. Set it to `1` when you want the parent model to keep going after async launches.
+A parent without a durable turn cannot receive a later steer, so it waits for every launch instead: `pi -p`, `--mode json`, `--mode rpc`, and any session without a UI. Every `mode: background` child is a `pi -p` process, so a background child that has `spawning` always receives its children's reports as tool results, its roster shows `tool_return: wait_here` for every agent, and the turn continues. The stop above applies only to parents that can receive the later report. A `subagent_resume` from such a parent waits the same way.
 
 ```bash
 PI_SUBAGENT_DISABLE_COORDINATOR_ONLY_TURN=1 pi

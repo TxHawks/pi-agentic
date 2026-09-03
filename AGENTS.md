@@ -55,9 +55,11 @@ npm test
 For structure/cleanup changes, also run the one-off checks:
 
 ```bash
-bunx biome check .
+bunx @biomejs/biome check .
 bunx knip
 ```
+
+`bunx biome` resolves an unrelated npm package named `biome` and exits 0 without checking anything; always use the scoped `@biomejs/biome`. The repo has no `biome.json`, so real Biome reports default-formatting findings across untouched files; compare the touched files against a stash of the baseline rather than expecting a clean run.
 
 Before handoff after structural work, verify file sizes:
 

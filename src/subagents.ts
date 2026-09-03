@@ -76,7 +76,11 @@ import {
 } from "./runtime/state.ts";
 import { registerSubagentMessageRenderers } from "./tools/message-renderers.ts";
 import { registerSubagentResumeTool } from "./tools/resume-tool.ts";
-import { markInitialPromptLaunchComplete, registerSubagentCoreTools } from "./tools/subagent-tools.ts";
+import {
+	isHeadlessLaunchSession,
+	markInitialPromptLaunchComplete,
+	registerSubagentCoreTools,
+} from "./tools/subagent-tools.ts";
 import { registerSubagentsView } from "./tools/subagents-view.ts";
 import { ORCHESTRATOR_ALLOWED_TOOL_NAMES, SUBAGENT_TOOL_NAME } from "./tools/tool-names.ts";
 import { adoptVerifiedRuns } from "./vf/run/adopt.ts";
@@ -215,6 +219,9 @@ export default function subagentsExtension(pi: ExtensionAPI) {
 
 		const entries = getAgentListEntries(ctx.cwd);
 		const signature = getAgentListSignature(entries);
+		// A headless parent awaits every launch, so the roster must not promise
+		// a later report the model would otherwise plan around.
+		const rosterOptions = { awaitAllLaunches: isHeadlessLaunchSession(ctx.hasUI) };
 		if (entries.length === 0) {
 			const hasDescribedAgents = getEffectiveAgentDefinitions(ctx.cwd).some((agent) => agent.description?.trim());
 			if (!hasDescribedAgents && lastAmbientRosterSignature === null) {
@@ -227,7 +234,7 @@ export default function subagentsExtension(pi: ExtensionAPI) {
 			}
 			pendingAmbientRoster = {
 				signature,
-				content: renderAgentListReminder(entries),
+				content: renderAgentListReminder(entries, rosterOptions),
 				entries,
 				supersedes: true,
 			};
@@ -241,7 +248,7 @@ export default function subagentsExtension(pi: ExtensionAPI) {
 
 		pendingAmbientRoster = {
 			signature,
-			content: renderAgentListReminder(entries),
+			content: renderAgentListReminder(entries, rosterOptions),
 			entries,
 			supersedes: event.reason === "reload" ? true : undefined,
 		};

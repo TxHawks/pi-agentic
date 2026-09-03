@@ -1,5 +1,6 @@
 import {
 	type AgentListEntry,
+	type AgentListRenderOptions,
 	getAgentListEntries,
 	getAgentListSignature,
 	renderAgentListReminder,
@@ -105,8 +106,8 @@ export function getAgentListEntriesForTest(baseCwd = process.cwd()) {
 	);
 }
 
-export function renderAgentListReminderForTest(entries: AgentListEntry[]) {
-	return renderAgentListReminder(entries);
+export function renderAgentListReminderForTest(entries: AgentListEntry[], options?: AgentListRenderOptions) {
+	return renderAgentListReminder(entries, options);
 }
 
 export function getAgentListSignatureForTest(entries: AgentListEntry[]) {
