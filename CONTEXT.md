@@ -112,8 +112,12 @@ The durable log of one run's events.
 **Log ceiling**:
 The size limit of one observation log. The extension stops a run whose log passes the ceiling. The ceiling protects the disk, not the model's context window.
 
+**Launch wrapper**:
+The small shell process that starts a background run's child in its own process group, records the child's identity token, waits, and writes the exit record. The launch wrapper lives exactly as long as the run.
+_Avoid_: supervisor, keeper
+
 **Exit record**:
-The durable record of one run's process end: the exit code, the signal if one ended the process, and the end time.
+The durable record of one run's process end: the raw wait status, and the end time. The raw wait status carries the exit code, or 128 plus the signal number when a signal ended the process.
 
 **Run artifacts**:
 All durable files of one run: the run record, the owner marker, the intent records, the exit record, the outcome record, the delivered marker, the observation log, and prompt and task files. Run artifacts never include the child's Pi session transcript.

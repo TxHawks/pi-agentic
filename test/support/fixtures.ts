@@ -41,6 +41,16 @@ export async function readNonEmptyFileEventually(path: string): Promise<string> 
 	throw new Error(`Timed out waiting for ${path}; last content: ${lastText}`);
 }
 
+/** Poll a read until it answers non-null. Bounded; throws when the budget ends. */
+export async function waitForValue<T>(read: () => T | null, what: string): Promise<T> {
+	for (let attempt = 0; attempt < 400; attempt++) {
+		const value = read();
+		if (value !== null) return value;
+		await sleep(10);
+	}
+	throw new Error(`Timed out waiting for ${what}`);
+}
+
 /**
  * Command string for PI_SUBAGENT_PI_COMMAND that runs a fake pi script
  * through /bin/bash. Running a fresh script file directly makes macOS

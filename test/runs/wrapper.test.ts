@@ -20,7 +20,7 @@ import {
 	mkdirSync,
 	readFileSync,
 	rmSync,
-	sleep,
+	waitForValue,
 } from "../support/index.ts";
 
 // The wrapper's real signal behavior against a real Pi child is proven only
@@ -61,20 +61,11 @@ describe("launch wrapper script", () => {
 		}
 	}
 
-	async function waitFor<T>(read: () => T | null, what: string): Promise<T> {
-		for (let attempt = 0; attempt < 400; attempt++) {
-			const value = read();
-			if (value !== null) return value;
-			await sleep(10);
-		}
-		throw new Error(`Timed out waiting for ${what}`);
-	}
-
 	it("records the child identity token and the exit record for a clean exit", async () => {
 		const runDir = freshRunDir();
 		// The child must live past the identity capture; a real Pi child always
 		// does. An instant exit is the no-identity case, tested further down.
-		const wrapper = startWrapper(runDir, "/bin/sh", ["-c", "sleep 0.3; exit 0"]);
+		const wrapper = startWrapper(runDir, "/bin/sh", ["-c", "sleep 0.6; exit 0"]);
 		await once(wrapper, "exit");
 
 		const identity = readChildIdentity(runDir);
@@ -94,7 +85,7 @@ describe("launch wrapper script", () => {
 
 	it("leaves no temp file behind: both records appear whole or not at all", async () => {
 		const runDir = freshRunDir();
-		const wrapper = startWrapper(runDir, "/bin/sh", ["-c", "sleep 0.3; exit 0"]);
+		const wrapper = startWrapper(runDir, "/bin/sh", ["-c", "sleep 0.6; exit 0"]);
 		await once(wrapper, "exit");
 
 		assert.deepEqual(readdirSync(runDir).sort(), [
@@ -126,7 +117,7 @@ describe("launch wrapper script", () => {
 		const runDir = freshRunDir();
 		const wrapper = startWrapper(runDir, "/bin/sh", ["-c", "sleep 30"]);
 
-		const identity = await waitFor(() => readChildIdentity(runDir), CHILD_IDENTITY_NAME);
+		const identity = await waitForValue(() => readChildIdentity(runDir), CHILD_IDENTITY_NAME);
 		assert.deepEqual(checkLiveness(identity.child), { verdict: "confirmed-live" });
 
 		// The child must not inherit the wrapper's ignored SIGTERM, so a
@@ -140,8 +131,8 @@ describe("launch wrapper script", () => {
 
 	it("ignores a SIGTERM aimed at the wrapper and still writes the exit record", async () => {
 		const runDir = freshRunDir();
-		const wrapper = startWrapper(runDir, "/bin/sh", ["-c", "sleep 0.4; exit 5"]);
-		await waitFor(() => readChildIdentity(runDir), CHILD_IDENTITY_NAME);
+		const wrapper = startWrapper(runDir, "/bin/sh", ["-c", "sleep 0.6; exit 5"]);
+		await waitForValue(() => readChildIdentity(runDir), CHILD_IDENTITY_NAME);
 
 		assert.ok(wrapper.pid);
 		process.kill(wrapper.pid, "SIGTERM");
@@ -155,7 +146,7 @@ describe("launch wrapper script", () => {
 		const wrapper = startWrapper(runDir, join(runDir, "no-such-command"), []);
 		await once(wrapper, "exit");
 
-		const exit = await waitFor(() => readExitRecord(runDir), EXIT_RECORD_NAME);
+		const exit = await waitForValue(() => readExitRecord(runDir), EXIT_RECORD_NAME);
 		assert.notEqual(exit.waitStatus, 0);
 	});
 

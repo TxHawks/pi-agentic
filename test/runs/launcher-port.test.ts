@@ -16,7 +16,7 @@ import {
 	mkdirSync,
 	readFileSync,
 	rmSync,
-	sleep,
+	waitForValue,
 } from "../support/index.ts";
 
 function requestFactory() {
@@ -47,16 +47,12 @@ describe("production process launcher", () => {
 	const launcher = createProcessLauncher();
 	const freshRequest = requestFactory();
 
-	async function waitForExitRecord(runDir: string): Promise<void> {
-		for (let attempt = 0; attempt < 400; attempt++) {
-			if (readExitRecord(runDir) !== null) return;
-			await sleep(10);
-		}
-		throw new Error(`Timed out waiting for ${EXIT_RECORD_NAME} in ${runDir}`);
+	function waitForExitRecord(runDir: string) {
+		return waitForValue(() => readExitRecord(runDir), EXIT_RECORD_NAME);
 	}
 
 	it("spawns the wrapper detached and redirects output into the log by file descriptor", async () => {
-		const request = freshRequest("/bin/sh", ["-c", "echo from-child; sleep 0.3"]);
+		const request = freshRequest("/bin/sh", ["-c", "echo from-child; sleep 0.6"]);
 
 		const handle = launcher.spawn(request);
 
@@ -178,7 +174,7 @@ describe("scripted fake process launcher", () => {
 		clock.advance(1);
 		assert.deepEqual(readExitRecord(request.runDir), {
 			waitStatus: 17,
-			endedAt: new Date(300).toISOString(),
+			endedAt: "1970-01-01T00:00:00Z",
 		});
 	});
 

@@ -143,7 +143,8 @@ export class FakeProcessLauncher implements ProcessLauncherPort {
 		if (run.exited) return;
 		run.exited = true;
 		if (run.wrapperKilled) return;
-		const endedAt = new Date(this.clock.now()).toISOString();
+		// Whole seconds, the same precision as the real wrapper's `date -u`.
+		const endedAt = `${new Date(this.clock.now()).toISOString().slice(0, 19)}Z`;
 		writeFrozenFile(
 			join(run.request.runDir, EXIT_RECORD_NAME),
 			`${JSON.stringify({ waitStatus, endedAt })}\n`,

@@ -12,6 +12,11 @@ Model and provider refs are part of each user's own Pi config. Another contribut
 
 ## Load-bearing live probes
 
+The release proof has three tiers (decided on issue #16). Tier A is the
+automated gates that run on every change. Tier B is the live gate: scripted
+probes that launch a real Pi child, assert on run artifacts, and write a
+pass receipt. Tier C is the scheduled Pi-release drift job.
+
 The launch wrapper's real signal behavior is proven only by the Tier B live
 probes: the wrapper's TERM trap, the Pi child's clean SIGTERM exit (wait
 status 143), and the exit-record write after a parent death. The unit tests

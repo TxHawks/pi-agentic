@@ -50,8 +50,11 @@ export interface ExitRecord {
 /**
  * The wrapper script. Invoked as `sh -c <script> <name> <runDir> <command>
  * [args...]`, so no argument ever passes through shell quoting. It writes
- * the child identity record and the exit record with temp-file-plus-rename,
- * the same atomicity rule as every frozen run artifact.
+ * the child identity record and the exit record with a temp file plus a
+ * hard link — the same atomic, no-overwrite rule as the frozen-write
+ * primitive in artifacts.ts. The shell cannot fsync, so durability after a
+ * power loss is weaker than the TS primitive; visibility is still whole
+ * content or nothing.
  *
  * The identity capture must produce the exact same strings as the probe in
  * identity.ts: on Linux the raw tick count from /proc/<pid>/stat field 22
@@ -84,6 +87,15 @@ const LAUNCH_WRAPPER_SCRIPT = [
 	'\tprintf \'{"pid":%d,"startTime":"%s","command":"%s"}\' "$pid" "$(json_escape "$start_time")" "$(json_escape "$command_name")"',
 	"}",
 	"",
+	// Mirror of writeFrozenFile: link the temp file to the final name, so
+	// a second writer can never replace a record; then drop the temp name.
+	"write_frozen() {",
+	'\tln "$1" "$2" 2>/dev/null',
+	"\tfrozen_status=$?",
+	'\trm -f "$1"',
+	'\treturn "$frozen_status"',
+	"}",
+	"",
 	'"$@" &',
 	"child_pid=$!",
 	"",
@@ -92,12 +104,30 @@ const LAUNCH_WRAPPER_SCRIPT = [
 	// with SIGTERM ignored, and interrupt and stop would never reach it.
 	"trap '' TERM",
 	"",
-	'child_identity=$(identity_json "$child_pid") || child_identity=',
+	// The command name is fork-stale until the child execs, so one early
+	// read could record the shell's own name and every later liveness
+	// check would answer command-mismatch. Two matching reads with a gap
+	// make a pre-exec capture practically impossible.
+	"child_identity=",
+	"previous=",
+	"tries=0",
+	'while [ "$tries" -lt 20 ]; do',
+	'\tcurrent=$(identity_json "$child_pid") || current=',
+	'\tif [ -n "$current" ] && [ "$current" = "$previous" ]; then',
+	"\t\tchild_identity=$current",
+	"\t\tbreak",
+	"\tfi",
+	"\tprevious=$current",
+	"\ttries=$((tries + 1))",
+	'\tkill -0 "$child_pid" 2>/dev/null || break',
+	"\tsleep 0.05",
+	"done",
+	"",
 	'wrapper_identity=$(identity_json "$$") || wrapper_identity=',
 	'if [ -n "$child_identity" ]; then',
 	'\ttmp="$run_dir/.tmp-wrapper-$$-child"',
 	'\tprintf \'{"child":%s,"wrapper":%s}\\n\' "$child_identity" "${wrapper_identity:-null}" > "$tmp"',
-	'\tmv "$tmp" "$run_dir/child.json"',
+	'\twrite_frozen "$tmp" "$run_dir/child.json"',
 	"fi",
 	"",
 	'wait "$child_pid"',
@@ -105,7 +135,7 @@ const LAUNCH_WRAPPER_SCRIPT = [
 	"",
 	'tmp="$run_dir/.tmp-wrapper-$$-exit"',
 	'printf \'{"waitStatus":%d,"endedAt":"%s"}\\n\' "$wait_status" "$(date -u \'+%Y-%m-%dT%H:%M:%SZ\')" > "$tmp"',
-	'mv "$tmp" "$run_dir/exit.json"',
+	'write_frozen "$tmp" "$run_dir/exit.json"',
 	'exit "$wait_status"',
 ].join("\n");
 
