@@ -22,6 +22,7 @@ Source layout:
 - `src/subagents.ts` — extension wiring only: event hooks, tool registration, and thin glue.
 - `src/agents/` — agent definitions, catalog messaging, and titles.
 - `src/launch/` — child launch preparation, launch policy, child command construction, resume args, prompt artifacts, runtime path resolution, and session seeding.
+- `src/runs/` — the run store: durable run artifacts, the atomic write rules, the run record, and process identity.
 - `src/runtime/` — running state, wait/join, shutdown, background/interactive watchers, result routing, and widgets.
 - `src/session/` — JSONL session helpers and trimmed fork-session logic.
 - `src/settings/` — user configuration: the `pi-agentic.jsonc` loader and the typed settings object.

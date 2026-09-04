@@ -2,6 +2,7 @@ export {
 	getArtifactProjectName,
 	getArtifactStorageRoot,
 	getProjectArtifactsDir,
+	getRunArtifactRoot,
 	getSessionArtifactDir,
 	resolveArtifactProjectRoot,
 	resolveSessionArtifactPath,

@@ -11,6 +11,7 @@ import {
 	getArtifactProjectName,
 	getArtifactStorageRoot,
 	getProjectArtifactsDir,
+	getRunArtifactRoot,
 	getSessionArtifactDir,
 	homedir,
 	it,
@@ -108,6 +109,10 @@ describe("artifact storage", () => {
 				"context/notes.md",
 			),
 		);
+	});
+
+	it("places the run artifact root under the artifact storage root", () => {
+		assert.equal(getRunArtifactRoot("/data/pi-history"), join("/data/pi-history", "runs"));
 	});
 
 	it("keeps the repo-derived project name when PI_ARTIFACT_PROJECT_ROOT is set", () => {
