@@ -10,6 +10,15 @@ Model and provider refs are part of each user's own Pi config. Another contribut
 - Prefer `thinking high` for non-trivial orchestration changes.
 - A single-model pass is not proof. Test with at least two models from different families the user has available.
 
+## Load-bearing live probes
+
+The launch wrapper's real signal behavior is proven only by the Tier B live
+probes: the wrapper's TERM trap, the Pi child's clean SIGTERM exit (wait
+status 143), and the exit-record write after a parent death. The unit tests
+run on the scripted fake launcher and on plain `sh` children; they cannot
+prove Pi's signal handling. The Tier B probes are load-bearing and must
+never be weakened.
+
 ## Temporary live-test agents
 
 This repo does not commit fixed smoke agents (`.pi/` is gitignored). For each live repro, create a temporary agent file shaped for the behavior under test, either under `.pi/agents/` or under a temp root pointed at by `PI_CODING_AGENT_DIR`. Remove it (or set `enabled: false`) once the repro is done.
