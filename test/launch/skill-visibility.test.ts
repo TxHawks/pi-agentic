@@ -9,6 +9,7 @@ import {
 	mkdirSync,
 	writeFileSync,
 } from "../support/index.ts";
+import { getSkillVisibilitySpec } from "../../src/launch/skill-visibility.ts";
 
 function writeSkill(root: string, name: string, description = `${name} skill.`): string {
 	const skillDir = join(root, "skills", name);
@@ -116,6 +117,13 @@ describe("skill visibility annotations", () => {
 		const env = getBaseSubagentEnvVarsForTest({ skills: "tdd, torpathy" });
 		assert.equal(env.PI_SUBAGENT_SKILL_VISIBILITY, "");
 		assert.equal(getBaseSubagentEnvVarsForTest(null).PI_SUBAGENT_SKILL_VISIBILITY, "");
+	});
+
+	it("drops malformed persisted visibility instead of throwing", () => {
+		assert.equal(getSkillVisibilitySpec("context7=banana"), "");
+		assert.equal(getSkillVisibilitySpec("=auto"), "");
+		assert.equal(getSkillVisibilitySpec(" , context7=auto"), "context7=auto");
+		assert.equal(getSkillVisibilitySpec("context7=auto"), "context7=auto");
 	});
 
 	it("overrides an inherited or frontmatter-injected visibility env value", () => {

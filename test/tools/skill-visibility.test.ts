@@ -143,6 +143,45 @@ describe("child skill visibility rewrite", () => {
 		assert.ok(!result?.systemPrompt?.includes("stale-skill"));
 	});
 
+	it("ignores malformed child visibility tokens while applying valid ones", () => {
+		const skills = [skill("context7", true), skill("tdd"), skill("bad", true), skill("aut", true)];
+		const handler = loadHandler();
+
+		const result = run(handler, "Base prompt.", skills, {
+			PI_SUBAGENT_SKILL_VISIBILITY: ", malformed, auto, =auto, bad=banana, context7=auto",
+		});
+
+		assert.ok(result?.systemPrompt?.includes("<name>context7</name>"));
+		assert.ok(result?.systemPrompt?.includes("<name>tdd</name>"));
+		assert.ok(!result?.systemPrompt?.includes("<name>bad</name>"));
+		assert.ok(!result?.systemPrompt?.includes("<name>aut</name>"));
+		assert.equal(skills.find((item) => item.name === "context7")?.disableModelInvocation, false);
+		assert.equal(skills.find((item) => item.name === "bad")?.disableModelInvocation, true);
+		assert.equal(skills.find((item) => item.name === "aut")?.disableModelInvocation, true);
+	});
+
+	it("ignores a child visibility spec made entirely of malformed tokens", () => {
+		const skills = [skill("context7", true)];
+		const handler = loadHandler();
+
+		const result = run(handler, "Base prompt.", skills, {
+			PI_SUBAGENT_SKILL_VISIBILITY: "malformed, =auto, bad=banana",
+		});
+
+		assert.equal(result, undefined);
+		assert.equal(skills[0]?.disableModelInvocation, true);
+	});
+
+	it("keeps the prompt unchanged when annotations arrive without a structured skill list", () => {
+		const handler = loadHandler();
+
+		const result = withEnv({ PI_SUBAGENT_SKILL_VISIBILITY: "context7=auto" }, () =>
+			handler({ systemPrompt: "Base prompt." }),
+		);
+
+		assert.equal(result, undefined);
+	});
+
 	it("falls back to swapping the tagged block when the prompt drifted from the loaded skills", () => {
 		const skills = [skill("tdd"), skill("context7", true)];
 		const stalePrompt = `Base prompt.\n${formatSkillsForPrompt([skill("tdd")])}`;
@@ -153,6 +192,21 @@ describe("child skill visibility rewrite", () => {
 		assert.ok(result?.systemPrompt?.includes("<name>context7</name>"));
 		assert.ok(result?.systemPrompt?.includes("<name>tdd</name>"));
 		assert.equal(result?.systemPrompt?.match(/<available_skills>/g)?.length, 1);
+	});
+
+	it("rewrites every drifted skills section, not just the first", () => {
+		const skills = [skill("tdd"), skill("torpathy")];
+		const staleSection = formatSkillsForPrompt([skill("context7")], "bash");
+		const systemPrompt = `Base prompt.${staleSection}\nTail.${staleSection}`;
+		const handler = loadHandler();
+
+		const result = run(handler, systemPrompt, skills, { PI_SUBAGENT_SKILL_VISIBILITY: "torpathy=manual" }, [
+			"bash",
+		]);
+
+		assert.equal(result?.systemPrompt?.match(/<available_skills>/g)?.length, 2);
+		assert.ok(!result?.systemPrompt?.includes("<name>torpathy</name>"), "torpathy must be hidden in every copy");
+		assert.equal(result?.systemPrompt?.match(/<name>tdd<\/name>/g)?.length, 2);
 	});
 
 	it("applies the rewrite before the append-system prompt", () => {
@@ -169,7 +223,7 @@ describe("child skill visibility rewrite", () => {
 		assert.ok(result?.systemPrompt?.endsWith("Extra instructions."));
 	});
 
-	it("corrects the structured skill list when read is unavailable, without inserting a block", () => {
+	it("inserts a bash-worded block for a bash-only child", () => {
 		const skills = [skill("tdd"), skill("context7", true)];
 		const handler = loadHandler();
 
@@ -177,11 +231,56 @@ describe("child skill visibility rewrite", () => {
 			"bash",
 		]);
 
-		assert.equal(result, undefined);
+		assert.ok(result?.systemPrompt?.includes("<available_skills>"), "block is inserted");
+		assert.ok(result?.systemPrompt?.includes("<name>context7</name>"), "context7 is advertised");
+		assert.ok(
+			result?.systemPrompt?.includes("Use bash to load a skill's file"),
+			"bash-only child keeps pi 0.85's bash wording",
+		);
+		assert.ok(
+			!result?.systemPrompt?.includes("Use the read tool"),
+			"a child without read must not be told to use read",
+		);
 		assert.equal(skills.find((s) => s.name === "context7")?.disableModelInvocation, false);
 	});
 
-	it("applies =manual to the structured skill list when read is unavailable", () => {
+	it("swaps the native bash-worded block byte-identically", () => {
+		const skills = [skill("tdd"), skill("torpathy")];
+		// Pi >= 0.85.0 renders this block itself for a bash-only child.
+		const systemPrompt = `Base prompt.\n${formatSkillsForPrompt(skills, "bash")}`;
+		const handler = loadHandler();
+
+		const result = run(handler, systemPrompt, skills, { PI_SUBAGENT_SKILL_VISIBILITY: "torpathy=manual" }, [
+			"bash",
+		]);
+
+		assert.ok(!result?.systemPrompt?.includes("<name>torpathy</name>"), "torpathy must be hidden");
+		assert.ok(result?.systemPrompt?.includes("<name>tdd</name>"), "tdd stays advertised");
+		assert.ok(
+			result?.systemPrompt?.includes("Use bash to load a skill's file"),
+			"the swap must preserve the native bash wording",
+		);
+		assert.equal(result?.systemPrompt?.match(/Base prompt\./g)?.length, 1);
+	});
+
+	it("rewrites every duplicate native section, not just the first", () => {
+		const skills = [skill("tdd"), skill("torpathy")];
+		// Chained prompt extensions or composed custom prompts can carry the
+		// same native section twice; =manual must hold in every copy.
+		const section = formatSkillsForPrompt(skills, "bash");
+		const systemPrompt = `Base prompt.\n${section}\nTail.\n${section}`;
+		const handler = loadHandler();
+
+		const result = run(handler, systemPrompt, skills, { PI_SUBAGENT_SKILL_VISIBILITY: "torpathy=manual" }, [
+			"bash",
+		]);
+
+		assert.ok(!result?.systemPrompt?.includes("<name>torpathy</name>"), "torpathy must be hidden in every copy");
+		assert.equal(result?.systemPrompt?.match(/<available_skills>/g)?.length, 2);
+		assert.ok(result?.systemPrompt?.includes("<name>tdd</name>"));
+	});
+
+	it("corrects the structured skill list without a block when no native file-read tool is available", () => {
 		const skills = [skill("tdd"), skill("torpathy")];
 		const handler = loadHandler();
 
@@ -192,6 +291,21 @@ describe("child skill visibility rewrite", () => {
 		assert.equal(result, undefined);
 		assert.equal(skills.find((s) => s.name === "torpathy")?.disableModelInvocation, true);
 		assert.equal(skills.find((s) => s.name === "tdd")?.disableModelInvocation, false);
+	});
+
+	it("swaps an existing exact section even without a native file-read tool", () => {
+		const skills = [skill("tdd"), skill("torpathy")];
+		const systemPrompt = `Base prompt.\n${formatSkillsForPrompt(skills)}`;
+		const handler = loadHandler();
+
+		const result = run(handler, systemPrompt, skills, { PI_SUBAGENT_SKILL_VISIBILITY: "torpathy=manual" }, [
+			"exec_command",
+		]);
+
+		const prompt = result?.systemPrompt;
+		assert.ok(prompt);
+		assert.ok(prompt.includes("<name>tdd</name>"));
+		assert.ok(!prompt.includes("<name>torpathy</name>"));
 	});
 
 	it("keeps the annotation applied on every turn against pi's cached base prompt", () => {
@@ -241,7 +355,32 @@ describe("child skill visibility rewrite", () => {
 		assert.ok(result?.systemPrompt?.includes("<name>context7</name>"));
 	});
 
-	it("skips the rewrite but keeps append-system when read is unavailable", () => {
+	it("prefers read wording when both native file-read tools are selected", () => {
+		const skills = [skill("context7", true)];
+		const handler = loadHandler();
+
+		const result = run(handler, "Base prompt.", skills, { PI_SUBAGENT_SKILL_VISIBILITY: "context7=auto" }, [
+			"bash",
+			"read",
+		]);
+
+		assert.ok(result?.systemPrompt?.includes("Use the read tool to load a skill's file"));
+		assert.ok(!result?.systemPrompt?.includes("Use bash to load a skill's file"));
+	});
+
+	it("does not append an empty section when a manual skill is absent from the prompt", () => {
+		const skills = [skill("torpathy")];
+		const handler = loadHandler();
+
+		const result = run(handler, "Base prompt.", skills, { PI_SUBAGENT_SKILL_VISIBILITY: "torpathy=manual" }, [
+			"bash",
+		]);
+
+		assert.equal(result, undefined);
+		assert.equal(skills[0]?.disableModelInvocation, true);
+	});
+
+	it("inserts the corrected block and keeps append-system for a bash-only child", () => {
 		const skills = [skill("tdd"), skill("context7", true)];
 		const handler = loadHandler();
 
@@ -256,6 +395,8 @@ describe("child skill visibility rewrite", () => {
 			["bash"],
 		);
 
-		assert.equal(result?.systemPrompt, "Base prompt.\n\nExtra instructions.");
+		assert.ok(result?.systemPrompt?.includes("<name>context7</name>"));
+		assert.ok(result?.systemPrompt?.includes("Use bash to load a skill's file"));
+		assert.ok(result?.systemPrompt?.endsWith("Extra instructions."));
 	});
 });

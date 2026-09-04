@@ -7,6 +7,7 @@ Read `README.md` before doing anything. It documents the model, frontmatter, pla
 - This is a Pi package extension. Extension entrypoint is `src/index.ts`.
 - Tests run on plain `node --test` (see `package.json` scripts). `npm test` and `bun test` both work.
 - One-off checks (`tsc`, `biome`, `knip`) run via `bunx` so no extra deps are declared.
+- `@earendil-works/pi-coding-agent@0.85.0` imports `@earendil-works/pi-server` from its root barrel without declaring it as a dependency; the explicit `pi-server` devDependency pins around that. Drop the pin once upstream declares it.
 
 ## Project structure contract
 

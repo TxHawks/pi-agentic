@@ -3,6 +3,9 @@ import { formatSkillsForPrompt, type Skill } from "@earendil-works/pi-coding-age
 /** Env var carrying `name=auto|manual` annotations from parent to child. */
 export const PI_SUBAGENT_SKILL_VISIBILITY = "PI_SUBAGENT_SKILL_VISIBILITY";
 
+/** Tool pi (>= 0.85.0) uses to load SKILL.md files for advertised skills. */
+export type SkillFileReadTool = "read" | "bash";
+
 type SkillVisibility = "auto" | "manual";
 
 export interface SkillListEntry {
@@ -106,15 +109,60 @@ function parseVisibilitySpec(raw: string): Map<string, SkillVisibility> {
  */
 const originalFlags = new WeakMap<Skill, boolean>();
 
-function renderOriginalSection(skills: Skill[]): string {
+function captureOriginalFlags(skills: Skill[]): void {
+	for (const skill of skills) {
+		if (!originalFlags.has(skill)) originalFlags.set(skill, skill.disableModelInvocation);
+	}
+}
+
+function renderOriginalSection(skills: Skill[], fileReadTool: SkillFileReadTool): string {
 	const hasCached = skills.some((skill) => originalFlags.has(skill));
-	if (!hasCached) return formatSkillsForPrompt(skills);
+	if (!hasCached) return formatSkillsForPrompt(skills, fileReadTool);
 	return formatSkillsForPrompt(
 		skills.map((skill) => {
 			const original = originalFlags.get(skill);
 			return original === undefined ? skill : { ...skill, disableModelInvocation: original };
 		}),
+		fileReadTool,
 	);
+}
+
+function applyVisibilityAnnotations(skills: Skill[], annotations: Map<string, SkillVisibility>): void {
+	for (const skill of skills) {
+		const annotation = annotations.get(skill.name);
+		if (!annotation) continue;
+		const hidden = annotation === "manual";
+		if (skill.disableModelInvocation === hidden) continue;
+		skill.disableModelInvocation = hidden;
+	}
+}
+
+function replaceExactSkillSection(systemPrompt: string, current: string, next: string): string | undefined {
+	if (!current) return undefined;
+	if (!systemPrompt.includes(current)) return undefined;
+	return systemPrompt.replaceAll(current, () => next);
+}
+
+function replaceDriftedSkillSections(systemPrompt: string, next: string): string {
+	const section =
+		/(?:\n\nThe following skills provide specialized instructions for specific tasks\.\n[^\n]*\n[^\n]*\n\n)?<available_skills>[\s\S]*?<\/available_skills>/g;
+	if (section.test(systemPrompt)) {
+		return systemPrompt.replace(section, () => next);
+	}
+	return next ? `${systemPrompt}${next}` : systemPrompt;
+}
+
+function reconcileSkillSections(
+	systemPrompt: string,
+	current: string,
+	next: string,
+	skillFileTool: SkillFileReadTool | undefined,
+): string {
+	if (current === next) return systemPrompt;
+	const exactReplacement = replaceExactSkillSection(systemPrompt, current, next);
+	if (exactReplacement !== undefined) return exactReplacement;
+	if (!skillFileTool) return systemPrompt;
+	return replaceDriftedSkillSections(systemPrompt, next);
 }
 
 /**
@@ -125,22 +173,25 @@ function renderOriginalSection(skills: Skill[]): string {
  *   (or the global manual list materialized into it) would hide it.
  * - `=manual` hides a skill from this child only, wherever else it is visible.
  *
- * The old and new sections are rendered with Pi's own formatter, so the swap
- * is byte-identical to a native render. The structured skill list is also
+ * The old and new sections are rendered with Pi's own formatter, using the
+ * child's own file-read tool (`read`, or `bash` when `read` is absent — the
+ * same gate and wording pi >= 0.85.0 uses for its own block), so the swap is
+ * byte-identical to a native render. The structured skill list is also
  * corrected in place: any later `before_agent_start` handler that rebuilds a
  * skills section from `systemPromptOptions.skills` (adapter extensions
  * replacing Pi's native tools, for example) inherits the override instead of
- * re-applying the frontmatter flags. Without the read tool no block is ever
- * inserted — pi withholds it there, and a child that cannot load skills must
- * not get one — while the structured correction still flows downstream.
- * Nothing on disk is touched: skill files are managed externally (skill
- * managers such as `npx skills`) and must not be healed per-child.
+ * re-applying the frontmatter flags. Without `read` or `bash` no block is
+ * ever inserted — pi withholds it there, and a child that cannot load skills
+ * through native tooling must not get one — while the structured correction
+ * still flows downstream. Nothing on disk is touched: skill files are managed
+ * externally (skill managers such as `npx skills`) and must not be healed
+ * per-child.
  */
 export function applySkillVisibilityToSystemPrompt(
 	systemPrompt: string,
 	skills: Skill[],
 	rawVisibility: string,
-	readAvailable = true,
+	skillFileTool?: SkillFileReadTool,
 ): string {
 	const annotations = parseVisibilitySpec(rawVisibility);
 	if (annotations.size === 0) return systemPrompt;
@@ -148,37 +199,14 @@ export function applySkillVisibilityToSystemPrompt(
 	// render the "before" section from those originals — the live objects are
 	// corrected in place below, and pi's cached prompt still reflects the
 	// originals on every later turn of the session.
-	for (const skill of skills) {
-		if (!originalFlags.has(skill)) originalFlags.set(skill, skill.disableModelInvocation);
-	}
-	const current = renderOriginalSection(skills);
-	for (const skill of skills) {
-		const annotation = annotations.get(skill.name);
-		if (!annotation) continue;
-		const hidden = annotation === "manual";
-		if (skill.disableModelInvocation === hidden) continue;
-		skill.disableModelInvocation = hidden;
-	}
+	captureOriginalFlags(skills);
+	const renderTool = skillFileTool ?? "read";
+	const current = renderOriginalSection(skills, renderTool);
+	applyVisibilityAnnotations(skills, annotations);
 	// Always render from the live (corrected) list: on later turns the
 	// correction is already in place, but the cached prompt still holds the
 	// pre-correction section, so the reconcile must run every turn. A genuine
 	// no-op annotation makes `current === next` and returns early below.
-	const next = formatSkillsForPrompt(skills);
-	if (current === next) return systemPrompt;
-	if (current && systemPrompt.includes(current)) {
-		return systemPrompt.replace(current, () => next);
-	}
-	// Pi omits the block entirely when the read tool is unavailable; inserting
-	// one would advertise skills the child cannot load through native tooling.
-	// The structured correction above still reaches extension renderers.
-	if (!readAvailable) return systemPrompt;
-	// Drift fallback: the loaded skills changed since the prompt was built, so
-	// the exact section no longer matches. Swap the tagged block (with its
-	// intro lines when present) instead.
-	const section =
-		/(?:\n\nThe following skills provide specialized instructions for specific tasks\.\n[^\n]*\n[^\n]*\n\n)?<available_skills>[\s\S]*?<\/available_skills>/;
-	if (section.test(systemPrompt)) {
-		return systemPrompt.replace(section, () => next);
-	}
-	return next ? `${systemPrompt}${next}` : systemPrompt;
+	const next = formatSkillsForPrompt(skills, renderTool);
+	return reconcileSkillSections(systemPrompt, current, next, skillFileTool);
 }
