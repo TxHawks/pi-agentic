@@ -141,6 +141,11 @@ function muxUnavailableResult(kind: "subagents" | "tab-title" = "subagents") {
 }
 
 export default function subagentsExtension(pi: ExtensionAPI) {
+	// Register nothing when the user has no named agents. The factory re-runs
+	// on every session replacement (/new, /resume, /fork) and on /reload, so
+	// creating an agent file and starting a session restores the full surface.
+	if (getEffectiveAgentDefinitions().length === 0) return;
+
 	publishRunningSubagentCount(() => runningSubagents.size);
 
 	function attachWidgetContext(ctx: ExtensionContext) {
