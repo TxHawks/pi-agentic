@@ -19,6 +19,7 @@
 		"check:lint": "biome check .",
 		"check:dead-code": "knip",
 		"check:file-sizes": "node scripts/check-file-sizes.mjs",
+		"fixtures:record": "node scripts/record-pi-event-fixtures.mjs",
 		"test:e2e-live-blocking": "node scripts/test-e2e-live-blocking.mjs",
 		"test:e2e-live-mix-blocking": "node scripts/test-e2e-live-mix-blocking.mjs",
 		"test:e2e-live-deny-tools": "node scripts/test-e2e-live-deny-tools.mjs",

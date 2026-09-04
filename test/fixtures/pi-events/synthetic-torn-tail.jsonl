@@ -1,0 +1,6 @@
+{"type":"session","version":3,"id":"01a06e92-628d-7795-8cec-e20736acb016","timestamp":"2026-09-04T22:38:02.381Z","cwd":"/private/var/folders/y9/jvw8c02s4xs7rsl78rr21gsr0000gn/T/pi-event-fixtures-YRStDz/work-assistant-text"}
+{"type":"agent_start"}
+{"type":"turn_start"}
+{"type":"message_start","message":{"role":"user","content":[{"type":"text","text":"Reply with exactly this sentence and nothing else: \"The fixture stream works.\""}],"timestamp":1788561482513}}
+{"type":"message_update","usage":{"input":2979,"output":1,"cacheRead":0,"cacheWrite":0,"totalTokens":2980,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"total":0}},"assistantMessageEvent":{"type":"text_delta","contentIndex":1,"delta":"The fixture stream works."}}
+{"type":"message_update","usage":{"input":2979,"output":1,"cacheRead":0,"cacheWrite":0,"totalTokens":2980,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"
