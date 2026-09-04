@@ -29,6 +29,8 @@ import "./runs/identity.test.ts";
 import "./runs/record.test.ts";
 import "./runs/wrapper.test.ts";
 import "./runs/launcher-port.test.ts";
+import "./runs/live-state.test.ts";
+import "./runs/launch.test.ts";
 import "./launch/append-system-inheritance.test.ts";
 import "./launch/autoexit-persistence.test.ts";
 import "./launch/child-launch-plan.test.ts";
