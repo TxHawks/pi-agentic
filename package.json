@@ -12,7 +12,6 @@
 		"url": "https://github.com/TxHawks/pi-agentic"
 	},
 	"type": "module",
-	"packageManager": "pnpm@11.24.0",
 	"scripts": {
 		"prepare": "lefthook install",
 		"test": "node --test test/test.ts",
@@ -38,9 +37,10 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.7",
-		"@earendil-works/pi-ai": "^0.84.4",
-		"@earendil-works/pi-coding-agent": "^0.84.4",
-		"@earendil-works/pi-tui": "^0.84.4",
+		"@earendil-works/pi-ai": "^0.85.0",
+		"@earendil-works/pi-coding-agent": "^0.85.0",
+		"@earendil-works/pi-server": "0.85.0",
+		"@earendil-works/pi-tui": "^0.85.0",
 		"@types/node": "^26.1.2",
 		"knip": "^6.33.0",
 		"lefthook": "^2.1.10",
@@ -53,7 +53,11 @@
 		"@earendil-works/pi-tui": ">=0.79.0",
 		"typebox": "*"
 	},
+	"packageManager": "pnpm@11.24.0",
 	"knip": {
+		"ignoreDependencies": [
+			"@earendil-works/pi-server"
+		],
 		"ignoreBinaries": [
 			"cmux",
 			"ghostty",
