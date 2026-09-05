@@ -49,7 +49,13 @@ export interface LogCursor {
 /** One parsed log line: a JSON object with a type. The reducer decides what it means. */
 type RawLogEvent = { type: string } & Record<string, unknown>;
 
-export interface LogReadResult {
+export interface LogReadResult extends LogReadBatch {
+	/** File facts from the open descriptor, before this bounded read. */
+	sizeBytes: number;
+	modifiedAtMs: number | null;
+}
+
+interface LogReadBatch {
 	events: RawLogEvent[];
 	/** The torn last line of the file, raw. Show it as a preview at most; the next read completes it. */
 	tornTail: string | null;
@@ -69,19 +75,27 @@ export function readObservationLog(path: string, cursor: LogCursor | null = null
 		fd = openSync(path, "r");
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-		return emptyResult(
-			cursor ?? { offset: 0, fingerprint: hashHead(Buffer.alloc(0)), skipToNextLine: false },
-		);
+		return {
+			...emptyResult(
+				cursor ?? { offset: 0, fingerprint: hashHead(Buffer.alloc(0)), skipToNextLine: false },
+			),
+			sizeBytes: 0,
+			modifiedAtMs: null,
+		};
 	}
 	try {
-		return readOpenLog(fd, cursor);
+		const stat = fstatSync(fd);
+		return {
+			...readOpenLog(fd, cursor, stat.size),
+			sizeBytes: stat.size,
+			modifiedAtMs: stat.mtimeMs,
+		};
 	} finally {
 		closeSync(fd);
 	}
 }
 
-function readOpenLog(fd: number, cursor: LogCursor | null): LogReadResult {
-	const size = fstatSync(fd).size;
+function readOpenLog(fd: number, cursor: LogCursor | null, size: number): LogReadBatch {
 	const head = readChunk(fd, 0, Math.min(size, HEAD_FINGERPRINT_WINDOW_BYTES));
 	const fingerprint = hashHead(head);
 
@@ -211,7 +225,7 @@ function headMatches(head: Buffer, fingerprint: HeadFingerprint): boolean {
 	return prefix.hash === fingerprint.hash;
 }
 
-function emptyResult(cursor: LogCursor): LogReadResult {
+function emptyResult(cursor: LogCursor): LogReadBatch {
 	return {
 		events: [],
 		tornTail: null,
