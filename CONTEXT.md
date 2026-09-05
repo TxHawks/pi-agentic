@@ -112,6 +112,19 @@ The durable log of one run's events.
 **Log ceiling**:
 The size limit of one observation log. The extension stops a run whose log passes the ceiling. The ceiling protects the disk, not the model's context window.
 
+**Cursor**:
+A reader's position in one observation log. A cursor lives in memory, per reader. It is never written to disk.
+
+**Cold read**:
+A read of an observation log with no cursor. A cold read starts in the tail window, so it never reads a whole log.
+
+**Tail window**:
+The bounded span at the end of an observation log where a cold read starts. A read that starts there reports the lines before it as not read.
+
+**Torn tail**:
+The incomplete last line of an observation log, while the child is in the middle of a write. A torn tail is returned separately from whole events, and the cursor never moves past it.
+_Avoid_: partial line
+
 **Launch wrapper**:
 The small shell process that starts a background run's child in its own process group, records the child's identity token, waits, and writes the exit record. The launch wrapper lives exactly as long as the run.
 _Avoid_: supervisor, keeper

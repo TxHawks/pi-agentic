@@ -1,7 +1,16 @@
 import { chmodSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { getEntries } from "../../src/session/session.ts";
+
+/** The committed Pi event fixture streams in test/fixtures/pi-events/. */
+export const piEventFixturesDir = join(
+	dirname(fileURLToPath(import.meta.url)),
+	"..",
+	"fixtures",
+	"pi-events",
+);
 
 export function createTestDir(): string {
 	return mkdtempSync(join(tmpdir(), "subagents-test-"));

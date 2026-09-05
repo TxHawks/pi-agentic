@@ -9,11 +9,9 @@
 // version.
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { test } from "node:test";
-import { fileURLToPath } from "node:url";
-
-const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), "..", "fixtures", "pi-events");
+import { piEventFixturesDir as fixturesDir } from "../support/index.ts";
 
 const RECORDED_FIXTURES = ["assistant-text", "thinking", "tool-calls", "provider-error"] as const;
 const SYNTHETIC_FIXTURES = ["synthetic-torn-tail", "synthetic-malformed-lines"] as const;
