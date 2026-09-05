@@ -1,4 +1,5 @@
 import { mock } from "node:test";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
 	assert,
 	clearPublishedRunningSubagentCountForTest,
@@ -22,8 +23,8 @@ describe("subagent-done.ts", () => {
 		// (message_end resetting the failure chain), not in the isolated controller,
 		// so controller-only tests could not catch it. These can.
 		function loadRecoveryChild(options: { interactive?: boolean } = {}) {
-			const handlers = new Map<string, any>();
-			const commands = new Map<string, any>();
+			const handlers = new Map<string, (...args: unknown[]) => unknown>();
+			const commands = new Map<string, Parameters<ExtensionAPI["registerCommand"]>[1]>();
 			const sentMessages: string[] = [];
 			const sentMessageOptions: unknown[] = [];
 			const statusUpdates: Array<{ key: string; text: string | undefined }> = [];
@@ -39,17 +40,17 @@ describe("subagent-done.ts", () => {
 			else delete process.env.PI_SUBAGENT_SURFACE;
 			process.env.PI_SUBAGENT_PROVIDER_RECOVERY_DELAYS_MS = "10,20,30";
 
-			subagentDoneExtension({
+			const pi = {
 				getAllTools: () => [],
 				getActiveTools: () => [],
 				setActiveTools() {},
-				registerTool(definition: { name: string }) {
+				registerTool(definition: Parameters<ExtensionAPI["registerTool"]>[0]) {
 					return definition;
 				},
-				registerCommand(name: string, definition: unknown) {
+				registerCommand(name: string, definition: Parameters<ExtensionAPI["registerCommand"]>[1]) {
 					commands.set(name, definition);
 				},
-				on(event: string, handler: any) {
+				on(event: string, handler: (...args: unknown[]) => unknown) {
 					handlers.set(event, handler);
 				},
 				sendUserMessage(message: string, options?: unknown) {
@@ -57,7 +58,9 @@ describe("subagent-done.ts", () => {
 					sentMessageOptions.push(options);
 				},
 				registerShortcut() {},
-			} as any);
+			};
+			// @ts-expect-error This fake Pi API supplies only the methods used by the child extension.
+			subagentDoneExtension(pi);
 
 			const ctx = {
 				isIdle: () => {
@@ -551,7 +554,8 @@ describe("subagent-done.ts", () => {
 
 				h.handlers.get("agent_start")?.({ type: "agent_start" });
 				h.handlers.get("input")?.({ source: "interactive", streamingBehavior: "steer" }, h.ctx);
-				await h.commands.get("auto-exit")?.handler({}, h.ctx);
+				// @ts-expect-error This command test only needs the fake UI context.
+				await h.commands.get("auto-exit")?.handler("", h.ctx);
 
 				h.handlers.get("input")?.({ source: "extension", streamingBehavior: "steer" }, h.ctx);
 				h.handlers.get("agent_start")?.({ type: "agent_start" });

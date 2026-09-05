@@ -209,7 +209,8 @@ describe("mux.ts", async () => {
 		});
 
 		maybeIt("renames the current tmux window and session", async () => {
-			const paneId = ORIGINAL_ENV.TMUX_PANE!;
+			const paneId = ORIGINAL_ENV.TMUX_PANE;
+			assert.ok(paneId);
 			const windowId = execFileSync(
 				"tmux",
 				["display-message", "-p", "-t", paneId, "#{window_id}"],

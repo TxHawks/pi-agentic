@@ -8,20 +8,22 @@ import type {
 import { deliverCompletedSubagentResult, routeSubagentOutcome } from "./result-router.ts";
 import { releaseSpawnWidthSlot } from "./spawn-width.ts";
 import {
+	type asSubagentToolResult,
 	clearSubagentShutdownTimer,
 	completedSubagentResults,
 	getSubagentBatchStopMetadata,
 	isSubagentBatchBlocking,
 	requestSubagentBatchStop,
 	runningSubagents,
+	type withSubagentBatchStop,
 } from "./state.ts";
 
 export interface RunningRegistryRuntime {
 	formatElapsed(elapsed: number): string;
 	updateWidget(): void;
 	waitForSubagentResult(params: { id: string }, signal?: AbortSignal): Promise<unknown>;
-	withSubagentBatchStop(result: any): any;
-	asSubagentToolResult(result: unknown): any;
+	withSubagentBatchStop: typeof withSubagentBatchStop;
+	asSubagentToolResult: typeof asSubagentToolResult;
 }
 
 export function findRunningSubagent(query: string): {

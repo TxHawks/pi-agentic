@@ -349,14 +349,14 @@ export class SubagentsOverlayController implements Component {
 			this.ctx.ui.notify("No session file.", "error");
 			return;
 		}
-		void this.doResume(item, rawText);
+		void this.doResume(item, item.sessionFile, rawText);
 	}
 
-	private async doResume(item: OverlayItem, message: string): Promise<void> {
+	private async doResume(item: OverlayItem, sessionFile: string, message: string): Promise<void> {
 		try {
 			const running = await resumeSubagentSession(
 				{
-					sessionFile: item.sessionFile!,
+					sessionFile,
 					task: message,
 					name: item.name,
 					agent: item.agent,

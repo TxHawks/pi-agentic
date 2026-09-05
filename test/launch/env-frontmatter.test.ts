@@ -60,8 +60,8 @@ describe("env frontmatter field", () => {
 		const env = getBaseSubagentEnvVarsForTest({
 			env: "FOO=bar\nBAZ=value,with,commas",
 		});
-		assert.equal(env["FOO"], "bar");
-		assert.equal(env["BAZ"], "value,with,commas");
+		assert.equal(env.FOO, "bar");
+		assert.equal(env.BAZ, "value,with,commas");
 		assert.equal(typeof env.PI_SUBAGENT_NAME, "string");
 		assert.equal(env.PI_PACKAGE_DIR, "");
 	});
@@ -89,7 +89,7 @@ describe("env frontmatter field", () => {
 
 	it("returns empty env record when no env field is set", () => {
 		const env = getBaseSubagentEnvVarsForTest(null);
-		assert.equal(env["FOO"], undefined);
+		assert.equal(env.FOO, undefined);
 	});
 
 	it("persists env in launch metadata", async () => {

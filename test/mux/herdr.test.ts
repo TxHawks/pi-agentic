@@ -534,7 +534,8 @@ describe("Herdr mux backend", async () => {
 				paneCount: 1,
 			});
 
-			const log = readFileSync(process.env.FAKE_HERDR_LOG!, "utf8");
+			assert.ok(process.env.FAKE_HERDR_LOG);
+			const log = readFileSync(process.env.FAKE_HERDR_LOG, "utf8");
 			assert.match(log, /status server --json/);
 			assert.match(log, /pane current --current/);
 			assert.match(log, /tab get w1:t1/);

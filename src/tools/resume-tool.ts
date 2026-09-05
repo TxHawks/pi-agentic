@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import type { AgentToolResult, ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
@@ -167,7 +168,8 @@ export function registerSubagentResumeTool(
 				runtime,
 			);
 
-			runtime.wireSubagentSteerBack(pi, running, running.completionPromise!);
+			assert.ok(running.completionPromise, "A resumed run must have completion tracking.");
+			runtime.wireSubagentSteerBack(pi, running, running.completionPromise);
 
 			const shouldAwait = shouldAwaitSubagentLaunch(running);
 			if (shouldAwait) {

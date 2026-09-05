@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import type {
 	CompletedSubagentResult,
@@ -175,7 +176,8 @@ export async function waitForSubagentResult(
 		return getSubagentWaitSuccessResult(cached);
 	}
 
-	const running = match.running!;
+	const running = match.running;
+	assert.ok(running, "A matched subagent without a cached result must be running.");
 	if (running.resultOwner) {
 		return getSubagentWaitErrorResult(
 			`Sub-agent "${running.name}" is already owned by another synchronization call.`,
@@ -214,13 +216,11 @@ export async function waitForSubagentResult(
 			>
 		> = [completionPromise];
 
-		if (params.timeout && params.timeout > 0) {
+		const timeout = params.timeout;
+		if (timeout && timeout > 0) {
 			races.push(
 				new Promise((resolve) => {
-					timeoutHandle = setTimeout(
-						() => resolve({ kind: "timeout" as const }),
-						params.timeout! * 1000,
-					);
+					timeoutHandle = setTimeout(() => resolve({ kind: "timeout" as const }), timeout * 1000);
 				}),
 			);
 		}

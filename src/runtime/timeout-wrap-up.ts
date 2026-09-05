@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -218,7 +219,8 @@ export async function restartSubagentForTimeoutWrapUp(
 		return;
 	}
 
-	const metadata = running.launchMetadata!;
+	const metadata = running.launchMetadata;
+	assert.ok(metadata, "The checked launch metadata must be available.");
 	const backend = getMuxBackend();
 	const zellijTarget = backend === "zellij" ? await resolveZellijTarget() : undefined;
 	throwIfAborted(signal);
@@ -272,7 +274,8 @@ export async function restartSubagentForTimeoutWrapUp(
 		} else {
 			await waitForDelay(runtime.getShellReadyDelayMs(), signal);
 			throwIfAborted(signal);
-			sendShellCommand(surface!, command);
+			assert.ok(surface, "The child surface must exist before sending a command.");
+			sendShellCommand(surface, command);
 		}
 		running.doneSentinelFile = doneSentinelFile;
 		running.zellijTarget = zellijTarget;

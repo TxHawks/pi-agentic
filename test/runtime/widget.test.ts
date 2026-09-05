@@ -149,7 +149,8 @@ describe("widget manager direct module tests", () => {
 		};
 
 		const widget = new SubagentWidgetManager(() => [running]);
-		(widget as any).refreshRunningSubagentState(running);
+		// @ts-expect-error: Read the private refresh result without starting the widget timer.
+		widget.refreshRunningSubagentState(running);
 
 		assert.equal(running.contextLabel, "150/100 ctx (100.0%)");
 	});
@@ -192,7 +193,7 @@ describe("widget manager direct module tests", () => {
 				},
 			},
 		];
-		writeFileSync(sessionFile, entries.map((entry) => JSON.stringify(entry)).join("\n") + "\n");
+		writeFileSync(sessionFile, `${entries.map((entry) => JSON.stringify(entry)).join("\n")}\n`);
 
 		const running: RunningSubagent = {
 			id: "forked-child",
@@ -210,7 +211,8 @@ describe("widget manager direct module tests", () => {
 		};
 
 		const widget = new SubagentWidgetManager(() => [running]);
-		(widget as any).refreshRunningSubagentState(running);
+		// @ts-expect-error: Read the private refresh result without starting the widget timer.
+		widget.refreshRunningSubagentState(running);
 
 		assert.equal(running.toolUses, 0);
 		assert.equal(running.totalTokens, 25);

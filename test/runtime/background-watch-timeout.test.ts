@@ -34,8 +34,9 @@ const spawnedGroups: number[] = [];
 function spawnDetachedGroup(): number {
 	const proc = spawn("sleep", ["30"], { detached: true, stdio: "ignore" });
 	proc.unref();
-	spawnedGroups.push(proc.pid!);
-	return proc.pid!;
+	assert.ok(proc.pid);
+	spawnedGroups.push(proc.pid);
+	return proc.pid;
 }
 
 function spawnLeaderWithStubbornDescendant(): ChildProcess {
@@ -50,7 +51,8 @@ setInterval(() => {}, 1000);`,
 		],
 		{ detached: true, stdio: "ignore" },
 	);
-	spawnedGroups.push(proc.pid!);
+	assert.ok(proc.pid);
+	spawnedGroups.push(proc.pid);
 	return proc;
 }
 
@@ -439,7 +441,8 @@ describe("background watcher timeout budgets", () => {
 	it("does not restart until the interrupted process group is fully gone", async () => {
 		const sessionFile = makeSession();
 		const firstChild = spawnLeaderWithStubbornDescendant();
-		const firstPid = firstChild.pid!;
+		assert.ok(firstChild.pid);
+		const firstPid = firstChild.pid;
 		const wrapUpChild = new EventEmitter() as ChildProcess;
 		const signals: Array<NodeJS.Signals> = [];
 		let groupAliveAtRestart = true;
@@ -643,8 +646,9 @@ describe("background watcher timeout budgets", () => {
 				terminateBackgroundChildProcess(_running: RunningSubagent, signal: NodeJS.Signals) {
 					signals.push(signal);
 					if (signal === "SIGKILL") {
+						assert.ok(child.pid);
 						try {
-							process.kill(-child.pid!, signal);
+							process.kill(-child.pid, signal);
 						} catch {}
 					}
 				},
@@ -678,8 +682,9 @@ describe("background watcher timeout budgets", () => {
 					// running after publishing it must still be reaped.
 					if (signal === "SIGTERM") writeSubagentExitSidecar(sessionFile, { type: "done" });
 					if (signal === "SIGKILL") {
+						assert.ok(child.pid);
 						try {
-							process.kill(-child.pid!, signal);
+							process.kill(-child.pid, signal);
 						} catch {}
 					}
 				},

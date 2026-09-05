@@ -216,6 +216,7 @@ describe("Herdr interactive launch parity", () => {
 				},
 			);
 
+			assert.ok(running.doneSentinelFile);
 			const log = readFileSync(logFile, "utf8");
 			const launchScriptPath = extractHerdrRunScriptPath(log);
 			const launchScript = readFileSync(launchScriptPath, "utf8");
@@ -226,7 +227,7 @@ describe("Herdr interactive launch parity", () => {
 			});
 			try {
 				shell.stdin.write(`${command}\n`);
-				const sentinel = await readEventually(running.doneSentinelFile!, (text) =>
+				const sentinel = await readEventually(running.doneSentinelFile, (text) =>
 					/__SUBAGENT_DONE_42__/.test(text),
 				);
 				assert.match(sentinel, /__SUBAGENT_DONE_42__/);
@@ -234,10 +235,10 @@ describe("Herdr interactive launch parity", () => {
 				shell.stdin.end("exit\n");
 			}
 
-			rmSync(running.doneSentinelFile!, { force: true });
+			rmSync(running.doneSentinelFile, { force: true });
 			const result = spawnSync(launchScriptPath, { encoding: "utf8" });
 			assert.equal(result.error, undefined);
-			assert.match(readFileSync(running.doneSentinelFile!, "utf8"), /__SUBAGENT_DONE_42__/);
+			assert.match(readFileSync(running.doneSentinelFile, "utf8"), /__SUBAGENT_DONE_42__/);
 		} finally {
 			if (originalPiCommand === undefined) delete process.env.PI_SUBAGENT_PI_COMMAND;
 			else process.env.PI_SUBAGENT_PI_COMMAND = originalPiCommand;

@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
@@ -441,7 +442,8 @@ export function registerSubagentCoreTools(
 						);
 						unlaunchedSlots--;
 						launched.push(running);
-						runtime.wireSubagentSteerBack(pi, running, running.completionPromise!);
+						assert.ok(running.completionPromise, "A launched run must have completion tracking.");
+						runtime.wireSubagentSteerBack(pi, running, running.completionPromise);
 					}
 				} catch (error) {
 					releaseSlots(unlaunchedSlots);

@@ -1,4 +1,5 @@
 import { shutdownSubagentsForParentExit } from "../../src/runtime/shutdown.ts";
+import type { RunningSubagent } from "../../src/types.ts";
 import {
 	afterEach,
 	assert,
@@ -80,7 +81,7 @@ describe("subagent shutdown policy", () => {
 			sessionFile: "/tmp/child-close-1.jsonl",
 			abortController: terminateAbort,
 		};
-		const abandon = {
+		const abandon: RunningSubagent = {
 			id: "child-close-2",
 			name: "Abandon child",
 			task: "Keep running",
@@ -106,17 +107,17 @@ describe("subagent shutdown policy", () => {
 			["child-close-1:terminate", "child-close-2:continue"],
 		);
 		assert.equal(terminateAbortCount, 1);
-		assert.equal((terminate as any).resultOwner, undefined);
-		assert.equal((abandon as any).resultOwner, undefined);
+		assert.equal(terminate.resultOwner, undefined);
+		assert.equal(abandon.resultOwner, undefined);
 		assert.equal(terminate.deliveryState, "detached");
 		assert.equal(abandon.deliveryState, "detached");
-		assert.equal((abandon as any).allowSteerDelivery, false);
+		assert.equal(abandon.allowSteerDelivery, false);
 		assert.equal(existsSync(abandon.sessionFile), true);
 
-		const sent: Array<{ message: any; options: any }> = [];
+		const sent: Array<{ message: unknown; options: unknown }> = [];
 		routeDetachedSubagentCompletionForTest(
 			{
-				sendMessage(message: any, options: any) {
+				sendMessage(message, options) {
 					sent.push({ message, options });
 				},
 			},

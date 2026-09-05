@@ -6,7 +6,10 @@ How to run a live repro for changes to subagent runtime behavior. `AGENTS.md` na
 
 Model and provider refs are part of each user's own Pi config. Another contributor's Pi will not have the same providers.
 
-- Ask the user which model to use for any live Pi run (`PI_SUBAGENT_LIVE_MODEL=provider/model[:thinking]` for the Herdr smokes).
+- Before a live Pi run, read `.pi/live-test-models.json` if it exists. Its `models` array holds the user's approved refs for this project. Reuse those choices instead of asking each time.
+- Ask the user for model refs when there are no saved choices. Save approved choices in that file. `.pi/` is gitignored; do not put user-specific refs in tracked files or change Pi's startup model.
+- Check saved refs with `pi --list-models` before use. If a ref is unavailable, ask the user; do not substitute another model.
+- Pass each selected ref through `PI_SUBAGENT_LIVE_MODEL=provider/model[:thinking]` for the Herdr and frontmatter checks. The scripts do not read the saved file themselves.
 - Prefer `thinking high` for non-trivial orchestration changes.
 - A single-model pass is not proof. Test with at least two models from different families the user has available.
 

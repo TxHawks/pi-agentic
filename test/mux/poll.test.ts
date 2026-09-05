@@ -46,18 +46,16 @@ describe("interpretExitSidecar", () => {
 	});
 
 	it("decodes error payloads with non-zero exit code and errorMessage", () => {
-		assert.deepEqual(
-			interpretExitSidecar({
-				type: "error",
-				errorMessage: "Anthropic 529 Overloaded after 3 retries",
-				stopReason: "error",
-			}),
-			{
-				reason: "error",
-				exitCode: 1,
-				errorMessage: "Anthropic 529 Overloaded after 3 retries",
-			},
-		);
+		const payload = {
+			type: "error",
+			errorMessage: "Anthropic 529 Overloaded after 3 retries",
+			stopReason: "error",
+		};
+		assert.deepEqual(interpretExitSidecar(payload), {
+			reason: "error",
+			exitCode: 1,
+			errorMessage: "Anthropic 529 Overloaded after 3 retries",
+		});
 	});
 
 	it("falls back when error payload has no errorMessage", () => {

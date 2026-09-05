@@ -25,13 +25,13 @@ function clearTimeoutEnv(): void {
 
 interface FakePi {
 	sent: string[];
-	handlers: Map<string, Array<(...args: any[]) => unknown>>;
+	handlers: Map<string, Array<(...args: unknown[]) => unknown>>;
 	sendUserMessage(message: string, options?: unknown): void;
-	on(event: string, handler: (...args: any[]) => unknown): void;
+	on(event: string, handler: (...args: unknown[]) => unknown): void;
 }
 
 function makeFakePi(): FakePi {
-	const handlers = new Map<string, Array<(...args: any[]) => unknown>>();
+	const handlers = new Map<string, Array<(...args: unknown[]) => unknown>>();
 	return {
 		sent: [],
 		handlers,
@@ -126,7 +126,8 @@ describe("timeout reminder installation", () => {
 		clearTimeoutEnv();
 		process.env[PI_SUBAGENT_TIMEOUT] = "1";
 		const pi = makeFakePi();
-		installSubagentTimeoutReminders(pi as never);
+		// @ts-expect-error This fake Pi API only supplies the methods used by timeout reminders.
+		installSubagentTimeoutReminders(pi);
 		await sleep(300);
 		assert.deepEqual(pi.sent, []);
 		assert.equal(pi.handlers.size, 0);
@@ -136,7 +137,8 @@ describe("timeout reminder installation", () => {
 		clearTimeoutEnv();
 		process.env[PI_SUBAGENT_TIMEOUT_WARN_THRESHOLD] = "80%";
 		const pi = makeFakePi();
-		installSubagentTimeoutReminders(pi as never);
+		// @ts-expect-error This fake Pi API only supplies the methods used by timeout reminders.
+		installSubagentTimeoutReminders(pi);
 		await sleep(300);
 		assert.deepEqual(pi.sent, []);
 	});
@@ -148,7 +150,8 @@ describe("timeout reminder installation", () => {
 		const startedAt = Date.now() - 900;
 		process.env[PI_SUBAGENT_TIMEOUT_STARTED_AT] = String(startedAt);
 		const pi = makeFakePi();
-		installSubagentTimeoutReminders(pi as never);
+		// @ts-expect-error This fake Pi API only supplies the methods used by timeout reminders.
+		installSubagentTimeoutReminders(pi);
 
 		const handler = pi.handlers.get("before_agent_start")?.[0];
 		assert.ok(handler, "the child must know its clock before it starts work");
@@ -171,7 +174,8 @@ describe("timeout reminder installation", () => {
 		process.env[PI_SUBAGENT_TIMEOUT_WARN_THRESHOLD] = "50%";
 		process.env[PI_SUBAGENT_IDLE_TIMEOUT] = "1";
 		const pi = makeFakePi();
-		installSubagentTimeoutReminders(pi as never);
+		// @ts-expect-error This fake Pi API only supplies the methods used by timeout reminders.
+		installSubagentTimeoutReminders(pi);
 
 		await sleep(700);
 		assert.deepEqual(
@@ -187,7 +191,8 @@ describe("timeout reminder installation", () => {
 		process.env[PI_SUBAGENT_TIMEOUT] = "1";
 		process.env[PI_SUBAGENT_TIMEOUT_WRAP_UP] = "1";
 		const pi = makeFakePi();
-		installSubagentTimeoutReminders(pi as never);
+		// @ts-expect-error This fake Pi API only supplies the methods used by timeout reminders.
+		installSubagentTimeoutReminders(pi);
 
 		const handler = pi.handlers.get("tool_call")?.[0];
 		assert.ok(handler, "wrap-up mode must install a tool gate");

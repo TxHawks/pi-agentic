@@ -159,7 +159,7 @@ describe("subagent_resume name identity", () => {
 
 		const launchMetadata = readSubagentLaunchMetadataForTest(sessionFile);
 		assert.ok(launchMetadata);
-		assert.equal(launchMetadata!.name, "magician");
+		assert.equal(launchMetadata.name, "magician");
 
 		const metadata = resolveResumeLaunchMetadataForTest(sessionFile);
 		assert.equal(metadata.name, "magician");

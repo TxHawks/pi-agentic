@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
 	DefaultPackageManager,
@@ -103,7 +104,11 @@ function resolveSkillNames(names: string[], skills: Skill[]): Skill[] {
 	if (missing.length > 0) {
 		throw new Error(`Unknown skill${missing.length === 1 ? "" : "s"}: ${missing.join(", ")}`);
 	}
-	return names.map((name) => byName.get(name)!);
+	return names.map((name) => {
+		const skill = byName.get(name);
+		assert.ok(skill, `The checked skill ${name} must be available.`);
+		return skill;
+	});
 }
 
 function resolveAvailability(rawSkills: string | undefined, skills: Skill[]): SkillAvailability {
@@ -145,7 +150,11 @@ function resolveInjectSkills(
 				`Cannot inject unavailable skill${blocked.length === 1 ? "" : "s"}: ${blocked.join(", ")}`,
 			);
 		}
-		return names.map((name) => byName.get(name)!);
+		return names.map((name) => {
+			const skill = byName.get(name);
+			assert.ok(skill, `The checked skill ${name} must be available.`);
+			return skill;
+		});
 	}
 	return resolveSkillNames(names, skills);
 }

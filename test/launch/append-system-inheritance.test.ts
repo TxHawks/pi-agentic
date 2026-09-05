@@ -60,12 +60,13 @@ describe("APPEND_SYSTEM inheritance launch policy", () => {
 	it("restores the same policy when resuming child sessions", () => {
 		assert.deepEqual(getPersistedPromptLaunchArgs(undefined), ["--append-system-prompt", ""]);
 		assert.deepEqual(
+			// @ts-expect-error Only prompt fields are needed from the saved launch metadata.
 			getPersistedPromptLaunchArgs({
 				inheritAppendSystem: true,
 				systemPromptMode: "append",
 				systemPrompt: "Reviewer identity.",
 				boundarySystemPrompt: true,
-			} as any),
+			}),
 			[],
 		);
 	});

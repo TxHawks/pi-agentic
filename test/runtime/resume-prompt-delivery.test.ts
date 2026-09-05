@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { resumeSubagentSession } from "../../src/runtime/resume-service.ts";
+import type { RunningSubagent } from "../../src/types.ts";
 import {
 	assert,
 	createTestDir,
@@ -50,13 +51,13 @@ esac
 			const sessionFile = join(dir, "child.jsonl");
 			writeFileSync(
 				sessionFile,
-				JSON.stringify({
+				`${JSON.stringify({
 					type: "session",
 					version: 3,
 					id: "child-session",
 					timestamp: new Date().toISOString(),
 					cwd: dir,
-				}) + "\n",
+				})}\n`,
 			);
 			await writeSubagentLaunchMetadataEntryForTest(sessionFile, {
 				version: 1,
@@ -97,10 +98,11 @@ esac
 						exitCode: 0,
 						elapsed: 0,
 					}),
-					getWatcherSignal: (_running: any, controller: AbortController) => controller.signal,
+					getWatcherSignal: (_running: RunningSubagent, controller: AbortController) =>
+						controller.signal,
 					startWidgetRefresh: () => {},
 					getContextWindow: () => undefined,
-					runningSubagents: new Map<string, any>(),
+					runningSubagents: new Map<string, RunningSubagent>(),
 				},
 			);
 
@@ -113,7 +115,8 @@ esac
 			});
 			try {
 				shell.stdin.write(`${commandMatch[1]}\n`);
-				const sentinel = await readNonEmptyFileEventually(running.doneSentinelFile!);
+				assert.ok(running.doneSentinelFile);
+				const sentinel = await readNonEmptyFileEventually(running.doneSentinelFile);
 				assert.match(sentinel, /__SUBAGENT_DONE_0__/);
 			} finally {
 				shell.stdin.end("exit\n");
@@ -139,13 +142,13 @@ esac
 		const sessionFile = join(dir, "child.jsonl");
 		writeFileSync(
 			sessionFile,
-			JSON.stringify({
+			`${JSON.stringify({
 				type: "session",
 				version: 3,
 				id: "child-session",
 				timestamp: new Date().toISOString(),
 				cwd: dir,
-			}) + "\n",
+			})}\n`,
 		);
 
 		const task = "  preserve leading space\n\nand trailing space  \n";
@@ -160,13 +163,13 @@ esac
 		const sessionFile = join(dir, "child.jsonl");
 		writeFileSync(
 			sessionFile,
-			JSON.stringify({
+			`${JSON.stringify({
 				type: "session",
 				version: 3,
 				id: "../../evil/session",
 				timestamp: new Date().toISOString(),
 				cwd: dir,
-			}) + "\n",
+			})}\n`,
 		);
 
 		const artifactPath = writeResumeTaskArtifactForTest("resume-child", "safe", sessionFile, dir);
@@ -198,13 +201,13 @@ esac
 		const sessionFile = join(dir, "child.jsonl");
 		writeFileSync(
 			sessionFile,
-			JSON.stringify({
+			`${JSON.stringify({
 				type: "session",
 				version: 3,
 				id: "child-session",
 				timestamp: new Date().toISOString(),
 				cwd: dir,
-			}) + "\n",
+			})}\n`,
 		);
 		await writeSubagentLaunchMetadataEntryForTest(sessionFile, {
 			version: 1,
@@ -244,10 +247,11 @@ esac
 					exitCode: 0,
 					elapsed: 0,
 				}),
-				getWatcherSignal: (_running: any, controller: AbortController) => controller.signal,
+				getWatcherSignal: (_running: RunningSubagent, controller: AbortController) =>
+					controller.signal,
 				startWidgetRefresh: () => {},
 				getContextWindow: () => undefined,
-				runningSubagents: new Map<string, any>(),
+				runningSubagents: new Map<string, RunningSubagent>(),
 			},
 		);
 
@@ -275,13 +279,13 @@ cat > '${stdinLog}'
 			const sessionFile = join(dir, "child.jsonl");
 			writeFileSync(
 				sessionFile,
-				JSON.stringify({
+				`${JSON.stringify({
 					type: "session",
 					version: 3,
 					id: "child-session",
 					timestamp: new Date().toISOString(),
 					cwd: dir,
-				}) + "\n",
+				})}\n`,
 			);
 			await writeSubagentLaunchMetadataEntryForTest(sessionFile, {
 				version: 1,
@@ -321,10 +325,11 @@ cat > '${stdinLog}'
 						exitCode: 0,
 						elapsed: 0,
 					}),
-					getWatcherSignal: (_running: any, controller: AbortController) => controller.signal,
+					getWatcherSignal: (_running: RunningSubagent, controller: AbortController) =>
+						controller.signal,
 					startWidgetRefresh: () => {},
 					getContextWindow: () => undefined,
-					runningSubagents: new Map<string, any>(),
+					runningSubagents: new Map<string, RunningSubagent>(),
 				},
 			);
 
@@ -360,13 +365,13 @@ esac
 		const sessionFile = join(dir, "child.jsonl");
 		writeFileSync(
 			sessionFile,
-			JSON.stringify({
+			`${JSON.stringify({
 				type: "session",
 				version: 3,
 				id: "child-session",
 				timestamp: new Date().toISOString(),
 				cwd: dir,
-			}) + "\n",
+			})}\n`,
 		);
 		await writeSubagentLaunchMetadataEntryForTest(sessionFile, {
 			version: 1,
@@ -406,10 +411,11 @@ esac
 					exitCode: 0,
 					elapsed: 0,
 				}),
-				getWatcherSignal: (_running: any, controller: AbortController) => controller.signal,
+				getWatcherSignal: (_running: RunningSubagent, controller: AbortController) =>
+					controller.signal,
 				startWidgetRefresh: () => {},
 				getContextWindow: () => undefined,
-				runningSubagents: new Map<string, any>(),
+				runningSubagents: new Map<string, RunningSubagent>(),
 			},
 		);
 

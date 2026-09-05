@@ -1,3 +1,8 @@
+import type {
+	ExtensionAPI,
+	ExtensionHandler,
+	SessionStartEvent,
+} from "@earendil-works/pi-coding-agent";
 import { withoutAmbientSpawnGrant } from "../support/ambient-spawn-grant.ts";
 import {
 	afterEach,
@@ -49,62 +54,66 @@ describe("ambient agents and runtime paths", () => {
 		);
 
 		const start = () => {
-			const handlers = new Map<string, any>();
-			const sent: any[] = [];
-			subagentsExtension({
-				on(event: string, handler: any) {
+			const handlers = new Map<string, ExtensionHandler<SessionStartEvent>>();
+			const sent: Parameters<ExtensionAPI["sendMessage"]>[0][] = [];
+			const pi = {
+				on(event: string, handler: ExtensionHandler<SessionStartEvent>) {
 					handlers.set(event, handler);
 				},
 				registerCommand() {},
 				registerMessageRenderer() {},
 				registerTool() {},
-				sendMessage(message: any) {
+				sendMessage(message: Parameters<ExtensionAPI["sendMessage"]>[0]) {
 					sent.push(message);
 				},
 				getThinkingLevel: () => "low" as const,
-			} as any);
+			};
+			// @ts-expect-error This test supplies only the API methods used by these hooks.
+			subagentsExtension(pi);
 			return { handlers, sent };
 		};
 
 		try {
 			const child = start();
-			child.handlers.get("session_start")(
-				{ type: "session_start", reason: "startup" },
-				{
-					cwd: dir,
-					hasUI: false,
-					ui: { setWidget() {} },
-					sessionManager: {
-						getHeader: () => ({
-							id: "child",
-							type: "session",
-							timestamp: "",
-							cwd: dir,
-							parentSession: "/tmp/root.jsonl",
-						}),
-					},
+			const childStart = child.handlers.get("session_start");
+			assert.ok(childStart);
+			const childContext = {
+				cwd: dir,
+				hasUI: false,
+				ui: { setWidget() {} },
+				sessionManager: {
+					getHeader: () => ({
+						id: "child",
+						type: "session",
+						timestamp: "",
+						cwd: dir,
+						parentSession: "/tmp/root.jsonl",
+					}),
 				},
-			);
+			};
+			// @ts-expect-error The startup hook only needs the context fields supplied here.
+			childStart({ type: "session_start", reason: "startup" }, childContext);
 			assert.equal(child.sent.length, 0);
 
 			process.env.PI_DENY_TOOLS = "subagent";
 			const denied = start();
-			denied.handlers.get("session_start")(
-				{ type: "session_start", reason: "startup" },
-				{
-					cwd: dir,
-					hasUI: false,
-					ui: { setWidget() {} },
-					sessionManager: {
-						getHeader: () => ({
-							id: "root",
-							type: "session",
-							timestamp: "",
-							cwd: dir,
-						}),
-					},
+			const deniedStart = denied.handlers.get("session_start");
+			assert.ok(deniedStart);
+			const deniedContext = {
+				cwd: dir,
+				hasUI: false,
+				ui: { setWidget() {} },
+				sessionManager: {
+					getHeader: () => ({
+						id: "root",
+						type: "session",
+						timestamp: "",
+						cwd: dir,
+					}),
 				},
-			);
+			};
+			// @ts-expect-error The startup hook only needs the context fields supplied here.
+			deniedStart({ type: "session_start", reason: "startup" }, deniedContext);
 			assert.equal(denied.sent.length, 0);
 		} finally {
 			if (prevDenied == null) delete process.env.PI_DENY_TOOLS;
@@ -228,26 +237,34 @@ describe("ambient agents and runtime paths", () => {
 			`---\nname: reviewer\nmode: interactive\nasync: true\n---\n\nReviewer body.`,
 		);
 
-		const tools = new Map<string, any>();
+		const tools = new Map<string, Parameters<ExtensionAPI["registerTool"]>[0]>();
 		const prevCwd = process.cwd();
 		try {
 			process.chdir(dir);
-			subagentsExtension({
+			const pi = {
 				on() {},
 				registerCommand() {},
 				registerMessageRenderer() {},
 				sendMessage() {},
-				registerTool(definition: any) {
+				registerTool(definition: Parameters<ExtensionAPI["registerTool"]>[0]) {
 					tools.set(definition.name, definition);
 					return definition;
 				},
 				getThinkingLevel: () => "low" as const,
-			} as any);
+			};
+			// @ts-expect-error This test supplies only the API methods used by these hooks.
+			subagentsExtension(pi);
 
 			const tool = tools.get("subagent");
 			assert.ok(tool);
-			const executeWithoutAmbientSpawnGrant = (...args: any[]) =>
+			const executeWithoutAmbientSpawnGrant = (...args: Parameters<typeof tool.execute>) =>
 				withoutAmbientSpawnGrant(() => tool.execute(...args));
+			const context = {
+				cwd: dir,
+				hasUI: false,
+				ui: { setWidget() {} },
+				sessionManager: { getSessionFile: () => null },
+			};
 			await assert.rejects(
 				() =>
 					executeWithoutAmbientSpawnGrant(
@@ -262,12 +279,8 @@ describe("ambient agents and runtime paths", () => {
 						},
 						undefined,
 						undefined,
-						{
-							cwd: dir,
-							hasUI: false,
-							ui: { setWidget() {} },
-							sessionManager: { getSessionFile: () => null },
-						},
+						// @ts-expect-error This minimal context deliberately has no parent session file.
+						context,
 					),
 				{
 					message:
@@ -384,7 +397,7 @@ describe("ambient agents and runtime paths", () => {
 						content: [{ type: "text", text: "DONE" }],
 					},
 				},
-			] as any[]),
+			]),
 			"DONE",
 		);
 
@@ -398,7 +411,7 @@ describe("ambient agents and runtime paths", () => {
 						content: [{ type: "text", text: "Not final" }],
 					},
 				},
-			] as any[]),
+			]),
 			null,
 		);
 
@@ -419,7 +432,7 @@ describe("ambient agents and runtime paths", () => {
 						content: [{ type: "text", text: "later" }],
 					},
 				},
-			] as any[]),
+			]),
 			null,
 		);
 	});

@@ -114,7 +114,7 @@ try {
 			: [];
 
 	// Check assistant text from the result summary
-	if (noSessionResult.summary && noSessionResult.summary.includes("FM_NOSESSION_OK")) {
+	if (noSessionResult.summary?.includes("FM_NOSESSION_OK")) {
 		console.log("No-session child produced FM_NOSESSION_OK (from summary).");
 	} else if (noSessionEvents.length > 0) {
 		const noSessionTexts = getAssistantTexts(noSessionEvents);

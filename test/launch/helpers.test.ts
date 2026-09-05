@@ -1,3 +1,4 @@
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
 	assert,
 	buildPiPromptArgsForTest,
@@ -39,33 +40,50 @@ describe("launch helpers", () => {
 	});
 
 	it("registers set_tab_title only when explicitly enabled", () => {
-		const tools = new Map<string, any>();
+		const tools = new Map<
+			string,
+			Pick<Parameters<ExtensionAPI["registerTool"]>[0], "name" | "description" | "promptSnippet">
+		>();
 		delete process.env.PI_SUBAGENT_ENABLE_SET_TAB_TITLE;
 
-		subagentsExtension({
+		const pi = {
 			on() {},
 			registerCommand() {},
 			registerMessageRenderer() {},
 			sendMessage() {},
-			registerTool(definition: any) {
+			registerTool(
+				definition: Pick<
+					Parameters<ExtensionAPI["registerTool"]>[0],
+					"name" | "description" | "promptSnippet"
+				>,
+			) {
 				tools.set(definition.name, definition);
 				return definition;
 			},
-		} as any);
+		};
+		// @ts-expect-error This test supplies only the API methods used during registration.
+		subagentsExtension(pi);
 		assert.equal(tools.has("set_tab_title"), false);
 
 		process.env.PI_SUBAGENT_ENABLE_SET_TAB_TITLE = "1";
 		tools.clear();
-		subagentsExtension({
+		const enabledPi = {
 			on() {},
 			registerCommand() {},
 			registerMessageRenderer() {},
 			sendMessage() {},
-			registerTool(definition: any) {
+			registerTool(
+				definition: Pick<
+					Parameters<ExtensionAPI["registerTool"]>[0],
+					"name" | "description" | "promptSnippet"
+				>,
+			) {
 				tools.set(definition.name, definition);
 				return definition;
 			},
-		} as any);
+		};
+		// @ts-expect-error This test supplies only the API methods used during registration.
+		subagentsExtension(enabledPi);
 		assert.equal(tools.has("set_tab_title"), true);
 	});
 });

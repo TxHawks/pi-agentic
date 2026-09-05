@@ -1,3 +1,4 @@
+import type { ExtensionAPI, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { routeSubagentOutcome } from "../../src/runtime/result-router.ts";
 import {
 	claimSpawnWidthSlot,
@@ -51,7 +52,7 @@ function makeResult(): SubagentResult {
 }
 
 function registerToolWithRuntime(runtimeOverrides: Partial<SubagentToolRuntime> = {}) {
-	const tools = new Map<string, any>();
+	const tools = new Map<string, Pick<ToolDefinition, "execute">>();
 	const runtime: SubagentToolRuntime = {
 		loadAgentDefaults: () => ({ spawning: true }),
 		resolveEffectiveSessionMode: () => "lineage-only",
@@ -71,18 +72,18 @@ function registerToolWithRuntime(runtimeOverrides: Partial<SubagentToolRuntime> 
 		muxUnavailableResult: () => ({ content: [{ type: "text", text: "mux" }], details: {} }),
 		...runtimeOverrides,
 	};
-	registerSubagentCoreTools(
-		{
-			registerTool(definition: any) {
-				tools.set(definition.name, definition);
-				return definition;
-			},
-			getThinkingLevel: () => "low",
-		} as any,
-		() => true,
-		runtime,
-	);
-	return tools.get("subagent");
+	const pi: Pick<ExtensionAPI, "registerTool" | "getThinkingLevel"> = {
+		registerTool(definition) {
+			tools.set(definition.name, definition);
+			return definition;
+		},
+		getThinkingLevel: () => "low",
+	};
+	// @ts-expect-error: This test API includes only the methods used to register and run the tool.
+	registerSubagentCoreTools(pi, () => true, runtime);
+	const tool = tools.get("subagent");
+	assert.ok(tool);
+	return tool;
 }
 
 function toolContext() {
@@ -147,10 +148,14 @@ describe("spawn width semaphore", () => {
 			child("worker-a"),
 			undefined,
 			undefined,
+			// @ts-expect-error: This context has only the session fields read by the launch path.
 			toolContext(),
 		);
-		assert.match(result.content[0].text, /Spawn width limit reached \(1\/1 slots busy\)/);
-		assert.match(result.content[0].text, /subagent_kill/);
+		assert.match(
+			(result.content[0] as { type: "text"; text: string }).text,
+			/Spawn width limit reached \(1\/1 slots busy\)/,
+		);
+		assert.match((result.content[0] as { type: "text"; text: string }).text, /subagent_kill/);
 		assert.equal(launches, 0);
 	});
 
@@ -170,9 +175,13 @@ describe("spawn width semaphore", () => {
 			{ children: [child("worker-a"), child("worker-b"), child("worker-c")] },
 			undefined,
 			undefined,
+			// @ts-expect-error: This context has only the session fields read by the launch path.
 			toolContext(),
 		);
-		assert.match(result.content[0].text, /batch of 3.*width limit.*2/i);
+		assert.match(
+			(result.content[0] as { type: "text"; text: string }).text,
+			/batch of 3.*width limit.*2/i,
+		);
 		assert.equal(launches, 0);
 		assert.equal(getLiveSlotCount(), 0);
 	});
@@ -195,6 +204,7 @@ describe("spawn width semaphore", () => {
 				{ children: [child("worker-a"), child("worker-b"), child("worker-c")] },
 				undefined,
 				undefined,
+				// @ts-expect-error: This context has only the session fields read by the launch path.
 				toolContext(),
 			),
 			/launch failed/,

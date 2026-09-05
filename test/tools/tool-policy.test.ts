@@ -283,8 +283,9 @@ describe("tool policy", () => {
 					allTools.push({ name: definition.name });
 					activeTools.push(definition.name);
 				},
-			} as any;
+			};
 
+			// @ts-expect-error These test tool listings need names only, not full Pi tool descriptions.
 			const { applyDeniedTools } = installDeniedToolGuards(pi, false);
 			assert.deepEqual(applyDeniedTools(), ["caller_ping"]);
 			assert.deepEqual(activeTools, ["caller_ping"]);
@@ -303,11 +304,12 @@ describe("tool policy", () => {
 				registerTool: (definition: { name: string }) => {
 					allTools.push({ name: definition.name });
 				},
-			} as any;
+			};
 
 			const original = process.env.PI_DENY_TOOLS;
 			process.env.PI_DENY_TOOLS = "ask_user_question";
 			try {
+				// @ts-expect-error These test tool listings need names only, not full Pi tool descriptions.
 				const { applyDeniedTools } = installDeniedToolGuards(pi, false, (active, denied) => {
 					changes.push({ active: [...active], denied: [...denied] });
 				});

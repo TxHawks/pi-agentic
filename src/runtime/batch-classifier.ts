@@ -30,7 +30,7 @@ function isCoordinatorOnlyTurnDisabled(): boolean {
 }
 
 function getToolCalls(message: AssistantMessageLike): ToolCallLike[] {
-	if (!message || message.role !== "assistant") return [];
+	if (message?.role !== "assistant") return [];
 	const content = message.content;
 	if (!Array.isArray(content)) return [];
 	return content.filter(

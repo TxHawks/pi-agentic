@@ -173,13 +173,13 @@ describe("agent launch configuration", () => {
 		const sessionFile = join(dir, "child.jsonl");
 		writeFileSync(
 			sessionFile,
-			JSON.stringify({
+			`${JSON.stringify({
 				type: "session",
 				version: 3,
 				id: "s",
 				timestamp: new Date().toISOString(),
 				cwd: dir,
-			}) + "\n",
+			})}\n`,
 		);
 
 		writeSubagentModelStateEntriesForTest(sessionFile, {
@@ -959,7 +959,7 @@ describe("agent launch configuration", () => {
 			boundarySystemPrompt: false,
 		});
 
-		const entries = getEntries(child) as any[];
+		const entries = getEntries(child);
 		assert.equal(entries[0].type, "session");
 		assert.equal(entries[1].type, "custom");
 		assert.equal(entries[1].customType, "pi-subagents_launch_metadata");

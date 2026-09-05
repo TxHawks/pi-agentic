@@ -1,3 +1,4 @@
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
 	afterEach,
 	assert,
@@ -540,21 +541,32 @@ describe("agent definitions and catalog", () => {
 	});
 
 	it("registers conservative delegation guidance on the subagent tool", () => {
-		const tools = new Map<string, any>();
+		const tools = new Map<
+			string,
+			Pick<Parameters<ExtensionAPI["registerTool"]>[0], "name" | "description" | "promptSnippet">
+		>();
 
-		subagentsExtension({
+		const pi = {
 			on() {},
 			registerCommand() {},
 			registerMessageRenderer() {},
 			sendMessage() {},
-			registerTool(definition: any) {
+			registerTool(
+				definition: Pick<
+					Parameters<ExtensionAPI["registerTool"]>[0],
+					"name" | "description" | "promptSnippet"
+				>,
+			) {
 				tools.set(definition.name, definition);
 				return definition;
 			},
-		} as any);
+		};
+		// @ts-expect-error This test supplies only the API methods used during registration.
+		subagentsExtension(pi);
 
 		const tool = tools.get("subagent");
 		assert.ok(tool);
+		assert.ok(tool.promptSnippet);
 		assert.match(tool.description, /named helper agents from the subagent roster/);
 		assert.match(
 			tool.promptSnippet,
@@ -595,21 +607,32 @@ describe("agent definitions and catalog", () => {
 
 	it("registers opt-out delegation guidance when coordinator-only turn stop is disabled", () => {
 		process.env.PI_SUBAGENT_DISABLE_COORDINATOR_ONLY_TURN = "1";
-		const tools = new Map<string, any>();
+		const tools = new Map<
+			string,
+			Pick<Parameters<ExtensionAPI["registerTool"]>[0], "name" | "description" | "promptSnippet">
+		>();
 
-		subagentsExtension({
+		const pi = {
 			on() {},
 			registerCommand() {},
 			registerMessageRenderer() {},
 			sendMessage() {},
-			registerTool(definition: any) {
+			registerTool(
+				definition: Pick<
+					Parameters<ExtensionAPI["registerTool"]>[0],
+					"name" | "description" | "promptSnippet"
+				>,
+			) {
 				tools.set(definition.name, definition);
 				return definition;
 			},
-		} as any);
+		};
+		// @ts-expect-error This test supplies only the API methods used during registration.
+		subagentsExtension(pi);
 
 		const tool = tools.get("subagent");
 		assert.ok(tool);
+		assert.ok(tool.promptSnippet);
 		assert.match(
 			tool.promptSnippet,
 			/You may continue with non-overlapping work after launching a tool_return=later_message helper/,

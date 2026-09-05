@@ -1,3 +1,4 @@
+import type { MessageRenderer, Theme } from "@earendil-works/pi-coding-agent";
 import {
 	formatSubagentBatchLines,
 	formatSubagentCompletionLines,
@@ -6,7 +7,8 @@ import {
 } from "../../src/tools/message-renderers.ts";
 import { assert, describe, it } from "../support/index.ts";
 
-const theme = {
+// @ts-expect-error This test theme supplies only the three styles used by these renderers.
+const theme: Theme = {
 	fg(_tone: string, text: string) {
 		return text;
 	},
@@ -16,19 +18,18 @@ const theme = {
 	bold(text: string) {
 		return text;
 	},
-} as any;
+};
 
 describe("subagent message renderers", () => {
 	it("honors Pi output padding for custom result and ping messages", () => {
-		const renderers = new Map<string, (...args: any[]) => any>();
-		registerSubagentMessageRenderers(
-			{
-				registerMessageRenderer(name: string, renderer: (...args: any[]) => any) {
-					renderers.set(name, renderer);
-				},
-			} as any,
-			(seconds) => `${seconds}s`,
-		);
+		const renderers = new Map<string, MessageRenderer>();
+		const pi = {
+			registerMessageRenderer(name: string, renderer: MessageRenderer) {
+				renderers.set(name, renderer);
+			},
+		};
+		// @ts-expect-error This fake Pi API only collects message renderers.
+		registerSubagentMessageRenderers(pi, (seconds) => `${seconds}s`);
 
 		const messages = [
 			{
@@ -45,9 +46,21 @@ describe("subagent message renderers", () => {
 		];
 
 		for (const { type, message } of messages) {
-			const renderer = renderers.get(type)!;
-			const unpadded = renderer(message, { expanded: true, outputPad: 0 }, theme).render(40);
-			const padded = renderer(message, { expanded: true, outputPad: 1 }, theme).render(40);
+			const renderer = renderers.get(type);
+			assert.ok(renderer);
+			const customMessage = {
+				...message,
+				role: "custom" as const,
+				customType: type,
+				display: true,
+				timestamp: 0,
+			};
+			const unpaddedComponent = renderer(customMessage, { expanded: true, outputPad: 0 }, theme);
+			const paddedComponent = renderer(customMessage, { expanded: true, outputPad: 1 }, theme);
+			assert.ok(unpaddedComponent);
+			assert.ok(paddedComponent);
+			const unpadded = unpaddedComponent.render(40);
+			const padded = paddedComponent.render(40);
 			const unpaddedContent = unpadded.find((line: string) =>
 				line.trim().startsWith(type === "subagent_ping" ? "?" : "✓"),
 			);

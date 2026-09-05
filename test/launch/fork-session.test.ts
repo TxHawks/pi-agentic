@@ -1,3 +1,6 @@
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { SessionEntry } from "../../src/session/session.ts";
+import type { SubagentResult } from "../../src/types.ts";
 import {
 	ASSISTANT_MSG,
 	afterEach,
@@ -77,7 +80,7 @@ describe("fork session launch behavior", () => {
 		});
 
 		assert.equal(existsSync(child), true);
-		const entries = getEntries(child) as any[];
+		const entries = getEntries(child);
 		assert.deepEqual(
 			entries.filter((entry) => entry.type === "message").map((entry) => entry.id),
 			["root-user", "main-assistant"],
@@ -113,9 +116,10 @@ describe("fork session launch behavior", () => {
 					content: [{ type: "text", text: newSummary }],
 				},
 			},
-		] as any[];
+		];
 
 		assert.equal(getTerminalAssistantSummaryAfterLaunchForTest(seededEntries, 2), newSummary);
+		// @ts-expect-error These reader fixtures omit entry IDs, which the reader does not use.
 		assert.equal(findLastAssistantMessage(seededEntries.slice(2)), newSummary);
 		assert.equal(
 			getTerminalAssistantSummaryAfterLaunchForTest(seededEntries, seededEntries.length),
@@ -242,7 +246,7 @@ describe("fork session launch behavior", () => {
 			activeLeafId: "asst-006",
 		});
 
-		const seeded = getEntries(child) as any[];
+		const seeded = getEntries(child);
 		const messages = seeded.filter((entry) => entry.type === "message");
 		assert.deepEqual(
 			messages.map((entry) => entry.id),
@@ -268,9 +272,9 @@ describe("fork session launch behavior", () => {
 		// The full parentId chain must be walkable from the last seeded entry:
 		// dropping an entry must re-link its successor, or the child's inherited
 		// context silently truncates at the stale link.
-		const byId = new Map(messages.map((entry: any) => [entry.id, entry]));
+		const byId = new Map(messages.map((entry) => [entry.id, entry]));
 		const visited: string[] = [];
-		let cursor: any = messages[messages.length - 1];
+		let cursor: SessionEntry | undefined = messages[messages.length - 1];
 		while (cursor) {
 			visited.push(cursor.id);
 			cursor = cursor.parentId ? byId.get(cursor.parentId) : undefined;
@@ -308,7 +312,7 @@ describe("fork session launch behavior", () => {
 		);
 
 		createForkSessionFileForTest(parent, child);
-		const entries = getEntries(child) as any[];
+		const entries = getEntries(child);
 
 		assert.equal(entries[0].type, "session");
 		assert.equal(entries[0].parentSession, parent);
@@ -317,7 +321,10 @@ describe("fork session launch behavior", () => {
 	});
 
 	it("returns detached launch metadata and defers same-batch completion once", async () => {
-		const sent: Array<{ message: any; options: any }> = [];
+		const sent: Array<{
+			message: Parameters<ExtensionAPI["sendMessage"]>[0];
+			options: Parameters<ExtensionAPI["sendMessage"]>[1];
+		}> = [];
 		const running = {
 			id: "child-123",
 			name: "Detached child",
@@ -331,9 +338,9 @@ describe("fork session launch behavior", () => {
 			sessionFile: "/tmp/child-session.jsonl",
 		};
 
-		const launched = (await getLaunchedSubagentResultForTest(running)) as any;
-		assert.match(launched.content[0].text, /child-123/);
-		assert.match(launched.content[0].text, /resume or stop/);
+		const launched = await getLaunchedSubagentResultForTest(running);
+		assert.match((launched.content[0] as { type: "text"; text: string }).text, /child-123/);
+		assert.match((launched.content[0] as { type: "text"; text: string }).text, /resume or stop/);
 
 		const started = getStartedSubagentDetailsForTest(running);
 		assert.equal(started.status, "started");
@@ -343,7 +350,7 @@ describe("fork session launch behavior", () => {
 
 		const cached = routeDetachedSubagentCompletionForTest(
 			{
-				sendMessage(message: any, options: any) {
+				sendMessage(message, options) {
 					sent.push({ message, options });
 				},
 			},
@@ -359,11 +366,14 @@ describe("fork session launch behavior", () => {
 		);
 
 		assert.equal(sent.length, 1);
-		assert.equal(sent[0].options.deliverAs, "nextTurn");
-		assert.equal((sent[0].message.details as any).id, running.id);
-		assert.equal((sent[0].message.details as any).deliveryState, "detached");
-		assert.equal((sent[0].message.details as any).parentClosePolicy, "terminate");
-		assert.equal((sent[0].message.details as any).status, "completed");
+		assert.equal(sent[0].options?.deliverAs, "nextTurn");
+		assert.equal((sent[0].message.details as { id: string }).id, running.id);
+		assert.equal((sent[0].message.details as { deliveryState: string }).deliveryState, "detached");
+		assert.equal(
+			(sent[0].message.details as { parentClosePolicy: string }).parentClosePolicy,
+			"terminate",
+		);
+		assert.equal((sent[0].message.details as { status: string }).status, "completed");
 
 		assert.equal(cached.deliveredTo, "steer");
 		assert.equal(cached.deliveryState, "detached");
@@ -401,9 +411,12 @@ describe("fork session launch behavior", () => {
 	});
 
 	it("returns an awaited result immediately when launched as blocking", async () => {
-		const sent: Array<{ message: any; options: any }> = [];
-		let resolveCompletion!: (result: any) => void;
-		const completionPromise = new Promise<any>((resolve) => {
+		const sent: Array<{
+			message: Parameters<ExtensionAPI["sendMessage"]>[0];
+			options: Parameters<ExtensionAPI["sendMessage"]>[1];
+		}> = [];
+		let resolveCompletion: ((result: SubagentResult) => void) | undefined;
+		const completionPromise = new Promise<SubagentResult>((resolve) => {
 			resolveCompletion = resolve;
 		});
 		const running = {
@@ -424,7 +437,7 @@ describe("fork session launch behavior", () => {
 		completionPromise.then((result) => {
 			routeDetachedSubagentCompletionForTest(
 				{
-					sendMessage(message: any, options: any) {
+					sendMessage(message, options) {
 						sent.push({ message, options });
 					},
 				},
@@ -434,6 +447,7 @@ describe("fork session launch behavior", () => {
 		});
 
 		const launchedPromise = getLaunchedSubagentResultForTest(running);
+		assert.ok(resolveCompletion);
 		resolveCompletion({
 			name: running.name,
 			task: running.task,
@@ -444,25 +458,28 @@ describe("fork session launch behavior", () => {
 		});
 
 		const launched = await launchedPromise;
-		assert.equal((launched.details as any).status, "completed");
-		assert.equal((launched.details as any).deliveryState, "awaited");
-		assert.equal((launched.details as any).summary, "Blocking completion summary");
-		assert.match(launched.content[0].text, /Blocking completion summary/);
+		assert.equal((launched.details as { status: string }).status, "completed");
+		assert.equal((launched.details as { deliveryState: string }).deliveryState, "awaited");
+		assert.equal((launched.details as { summary: string }).summary, "Blocking completion summary");
+		assert.match(
+			(launched.content[0] as { type: "text"; text: string }).text,
+			/Blocking completion summary/,
+		);
 		assert.equal(sent.length, 0);
 		assert.equal(getCompletedSubagentResultForTest(running.id)?.deliveredTo, "wait");
 	});
 
 	it("awaits async siblings when a blocking child gates the batch", async () => {
-		let resolveAsyncA!: (result: any) => void;
-		let resolveAsyncB!: (result: any) => void;
-		let resolveBlocking!: (result: any) => void;
-		const asyncAPromise = new Promise<any>((resolve) => {
+		let resolveAsyncA: ((result: SubagentResult) => void) | undefined;
+		let resolveAsyncB: ((result: SubagentResult) => void) | undefined;
+		let resolveBlocking: ((result: SubagentResult) => void) | undefined;
+		const asyncAPromise = new Promise<SubagentResult>((resolve) => {
 			resolveAsyncA = resolve;
 		});
-		const asyncBPromise = new Promise<any>((resolve) => {
+		const asyncBPromise = new Promise<SubagentResult>((resolve) => {
 			resolveAsyncB = resolve;
 		});
-		const blockingPromise = new Promise<any>((resolve) => {
+		const blockingPromise = new Promise<SubagentResult>((resolve) => {
 			resolveBlocking = resolve;
 		});
 
@@ -517,6 +534,7 @@ describe("fork session launch behavior", () => {
 			getLaunchedSubagentResultForTest(running),
 		);
 
+		assert.ok(resolveAsyncA);
 		resolveAsyncA({
 			name: asyncA.name,
 			task: asyncA.task,
@@ -525,6 +543,7 @@ describe("fork session launch behavior", () => {
 			exitCode: 0,
 			elapsed: 2,
 		});
+		assert.ok(resolveBlocking);
 		resolveBlocking({
 			name: blocking.name,
 			task: blocking.task,
@@ -533,6 +552,7 @@ describe("fork session launch behavior", () => {
 			exitCode: 0,
 			elapsed: 3,
 		});
+		assert.ok(resolveAsyncB);
 		resolveAsyncB({
 			name: asyncB.name,
 			task: asyncB.task,
@@ -544,16 +564,16 @@ describe("fork session launch behavior", () => {
 
 		const launched = await Promise.all(launchedPromises);
 		assert.deepEqual(
-			launched.map((result) => (result.details as any).name),
+			launched.map((result) => (result.details as { name: string }).name),
 			["Async A", "Blocking gate", "Async B"],
 		);
 		for (const result of launched) {
-			assert.equal((result.details as any).status, "completed");
-			assert.equal((result.details as any).deliveryState, "awaited");
-			assert.equal((result as any).terminate, undefined);
+			assert.equal((result.details as { status: string }).status, "completed");
+			assert.equal((result.details as { deliveryState: string }).deliveryState, "awaited");
+			assert.equal((result as typeof result & { terminate?: boolean }).terminate, undefined);
 		}
-		assert.equal((launched[0].details as any).async, true);
-		assert.equal((launched[2].details as any).async, true);
+		assert.equal((launched[0].details as { async: boolean }).async, true);
+		assert.equal((launched[2].details as { async: boolean }).async, true);
 		for (const running of [asyncA, asyncB, blocking]) {
 			assert.equal(getCompletedSubagentResultForTest(running.id)?.deliveredTo, "wait");
 		}
@@ -592,9 +612,12 @@ describe("fork session launch behavior", () => {
 	});
 
 	it("waits for one running subagent and suppresses steer delivery", async () => {
-		const sent: Array<{ message: any; options: any }> = [];
-		let resolveCompletion!: (result: any) => void;
-		const completionPromise = new Promise<any>((resolve) => {
+		const sent: Array<{
+			message: Parameters<ExtensionAPI["sendMessage"]>[0];
+			options: Parameters<ExtensionAPI["sendMessage"]>[1];
+		}> = [];
+		let resolveCompletion: ((result: SubagentResult) => void) | undefined;
+		const completionPromise = new Promise<SubagentResult>((resolve) => {
 			resolveCompletion = resolve;
 		});
 		const running = {
@@ -614,7 +637,7 @@ describe("fork session launch behavior", () => {
 		completionPromise.then((result) => {
 			routeDetachedSubagentCompletionForTest(
 				{
-					sendMessage(message: any, options: any) {
+					sendMessage(message, options) {
 						sent.push({ message, options });
 					},
 				},
@@ -626,6 +649,7 @@ describe("fork session launch behavior", () => {
 		const waitPromise = waitForSubagentForTest({ id: running.name });
 		assert.equal(running.deliveryState, "awaited");
 
+		assert.ok(resolveCompletion);
 		resolveCompletion({
 			name: running.name,
 			task: running.task,
@@ -636,10 +660,10 @@ describe("fork session launch behavior", () => {
 		});
 
 		const waited = await waitPromise;
-		assert.equal((waited.details as any).id, running.id);
-		assert.equal((waited.details as any).status, "completed");
-		assert.equal((waited.details as any).deliveryState, "awaited");
-		assert.equal((waited.details as any).exitCode, 0);
+		assert.equal((waited.details as { id: string }).id, running.id);
+		assert.equal((waited.details as { status: string }).status, "completed");
+		assert.equal((waited.details as { deliveryState: string }).deliveryState, "awaited");
+		assert.equal((waited.details as { exitCode: number }).exitCode, 0);
 		assert.equal(sent.length, 0);
 		assert.equal(getCompletedSubagentResultForTest(running.id)?.deliveredTo, "wait");
 		assert.equal(getCompletedSubagentResultForTest(running.id)?.deliveryState, "awaited");
@@ -669,11 +693,11 @@ describe("fork session launch behavior", () => {
 
 		setRunningSubagentForTest(running);
 		const waited = await waitForSubagentForTest({ id: running.id });
-		assert.equal((waited.details as any).id, running.id);
-		assert.equal((waited.details as any).status, "pinged");
-		assert.equal((waited.details as any).deliveryState, "awaited");
-		assert.equal((waited.details as any).sessionFile, running.sessionFile);
-		assert.equal((waited.details as any).message, "Please answer");
+		assert.equal((waited.details as { id: string }).id, running.id);
+		assert.equal((waited.details as { status: string }).status, "pinged");
+		assert.equal((waited.details as { deliveryState: string }).deliveryState, "awaited");
+		assert.equal((waited.details as { sessionFile: string }).sessionFile, running.sessionFile);
+		assert.equal((waited.details as { message: string }).message, "Please answer");
 		assert.equal(getCompletedSubagentResultForTest(running.id), undefined);
 	});
 
@@ -701,8 +725,8 @@ describe("fork session launch behavior", () => {
 		setRunningSubagentForTest(running);
 		const first = await waitForSubagentForTest({ id: running.name });
 		const second = await waitForSubagentForTest({ id: running.name });
-		assert.equal((first.details as any).status, "completed");
-		assert.equal((second.details as any).status, "completed");
-		assert.equal((second.details as any).id, running.id);
+		assert.equal((first.details as { status: string }).status, "completed");
+		assert.equal((second.details as { status: string }).status, "completed");
+		assert.equal((second.details as { id: string }).id, running.id);
 	});
 });

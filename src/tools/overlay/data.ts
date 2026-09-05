@@ -78,11 +78,11 @@ const SECTION_FIELDS = [
 ];
 
 function none(value?: string | null): string {
-	return value && value.trim() ? value : "none";
+	return value?.trim() ? value : "none";
 }
 
 function inherited(value?: string | null): string {
-	return value && value.trim() ? value : "default";
+	return value?.trim() ? value : "default";
 }
 
 function buildSections(

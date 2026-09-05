@@ -361,7 +361,7 @@ export function readSubagentLaunchMetadataEntries(path: string): PersistedSubage
 			if (entry?.type !== "custom" || entry.customType !== SUBAGENT_LAUNCH_METADATA_CUSTOM_TYPE)
 				continue;
 			const data = entry.data as Partial<PersistedSubagentLaunchMetadata> | undefined;
-			if (!data || data.version !== 1 || !isResumeMode(data.mode)) continue;
+			if (data?.version !== 1 || !isResumeMode(data.mode)) continue;
 			metadata.push(data as PersistedSubagentLaunchMetadata);
 		}
 	} catch {

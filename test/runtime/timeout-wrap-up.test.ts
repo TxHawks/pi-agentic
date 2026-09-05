@@ -109,7 +109,7 @@ cat > "${stdinFile}"
 
 		await restartSubagentForTimeoutWrapUp(running, { getShellReadyDelayMs: () => 0 });
 		assert.ok(running.childProcess);
-		await once(running.childProcess!, "exit");
+		await once(running.childProcess, "exit");
 
 		assert.equal(
 			await readNonEmptyFileEventually(envFile),
@@ -163,7 +163,8 @@ esac
 			);
 			const running = makeRunning(dir, sessionFile);
 			running.mode = "interactive";
-			running.launchMetadata = { ...running.launchMetadata!, mode: "interactive" };
+			assert.ok(running.launchMetadata);
+			running.launchMetadata = { ...running.launchMetadata, mode: "interactive" };
 
 			await assert.rejects(
 				restartSubagentForTimeoutWrapUp(running, { getShellReadyDelayMs: () => 0 }),

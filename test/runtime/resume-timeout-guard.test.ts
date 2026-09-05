@@ -105,7 +105,9 @@ function registerResumeTool(runtime: ReturnType<typeof createResumeRuntime>) {
 		() => true,
 		runtime as never,
 	);
-	return tools.get("subagent_resume")!;
+	const tool = tools.get("subagent_resume");
+	assert.ok(tool);
+	return tool;
 }
 
 function withFakePi<T>(bin: string, run: () => Promise<T>): Promise<T> {

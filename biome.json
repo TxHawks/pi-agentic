@@ -8,6 +8,19 @@
 	"files": {
 		"includes": ["**", "!skills-lock.json"]
 	},
+	"linter": {
+		"rules": {
+			"complexity": {
+				"useOptionalChain": "error"
+			},
+			"style": {
+				"noNonNullAssertion": "error"
+			},
+			"suspicious": {
+				"noExplicitAny": "error"
+			}
+		}
+	},
 	"formatter": {
 		"enabled": true,
 		"indentStyle": "tab",

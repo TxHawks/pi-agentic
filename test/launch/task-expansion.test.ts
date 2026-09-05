@@ -134,11 +134,11 @@ describe("subagent task expansion", () => {
 
 	it("runs commands from the child cwd and exposes PI_WORKSPACE without shell-source substitution", async () => {
 		const base = createTestDir();
-		const cwd = join(base, "workspace-$(touch${IFS}injected)");
+		const cwd = join(base, `workspace-$(touch\${IFS}injected)`);
 		const { taskArtifact } = await launchAndReadTaskArtifact({
 			cwd,
 			agentFrontmatter: ["task-expansion: shell"],
-			task: 'Workspace: !`printf "%s" "${PI_WORKSPACE}"`',
+			task: `Workspace: !\`printf "%s" "\${PI_WORKSPACE}"\``,
 		});
 
 		assert.match(taskArtifact, /Workspace: /);

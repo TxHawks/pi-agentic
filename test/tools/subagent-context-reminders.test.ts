@@ -92,17 +92,19 @@ describe("subagent context reminders", () => {
 		process.env.PI_SUBAGENT_CONTEXT_WARN_THRESHOLD = "80%";
 		process.env.PI_SUBAGENT_CONTEXT_WARN_STEP = "5%";
 		try {
-			const handlers = new Map<string, any[]>();
+			const handlers = new Map<string, Array<(...args: unknown[]) => unknown>>();
 			const sent: string[] = [];
-			installSubagentContextReminders({
-				on(event: string, handler: any) {
+			const pi = {
+				on(event: string, handler: (...args: unknown[]) => unknown) {
 					handlers.set(event, [...(handlers.get(event) ?? []), handler]);
 				},
 				sendUserMessage(message: string) {
 					sent.push(message);
 				},
 				appendEntry() {},
-			} as any);
+			};
+			// @ts-expect-error This fake Pi API supplies only the methods used by the child extension.
+			installSubagentContextReminders(pi);
 
 			let percent = 70;
 			const ctx = {
@@ -140,17 +142,19 @@ describe("subagent context reminders", () => {
 		const originalThreshold = process.env.PI_SUBAGENT_CONTEXT_WARN_THRESHOLD;
 		process.env.PI_SUBAGENT_CONTEXT_WARN_THRESHOLD = "80%";
 		try {
-			const handlers = new Map<string, any[]>();
+			const handlers = new Map<string, Array<(...args: unknown[]) => unknown>>();
 			const sent: string[] = [];
-			installSubagentContextReminders({
-				on(event: string, handler: any) {
+			const pi = {
+				on(event: string, handler: (...args: unknown[]) => unknown) {
 					handlers.set(event, [...(handlers.get(event) ?? []), handler]);
 				},
 				sendUserMessage(message: string) {
 					sent.push(message);
 				},
 				appendEntry() {},
-			} as any);
+			};
+			// @ts-expect-error This fake Pi API supplies only the methods used by the child extension.
+			installSubagentContextReminders(pi);
 			const ctx = {
 				getContextUsage: () => ({ tokens: 182_000, contextWindow: 200_000, percent: 91 }),
 			};
@@ -185,11 +189,11 @@ describe("subagent context reminders", () => {
 		// Pin the step: an ambient value would move the thresholds asserted below.
 		process.env.PI_SUBAGENT_CONTEXT_WARN_STEP = "5%";
 		try {
-			const handlers = new Map<string, any[]>();
+			const handlers = new Map<string, Array<(...args: unknown[]) => unknown>>();
 			const sent: string[] = [];
 			const persisted: number[][] = [];
 			const pi = {
-				on(event: string, handler: any) {
+				on(event: string, handler: (...args: unknown[]) => unknown) {
 					handlers.set(event, [...(handlers.get(event) ?? []), handler]);
 				},
 				sendUserMessage(message: string) {
@@ -198,7 +202,8 @@ describe("subagent context reminders", () => {
 				appendEntry(_type: string, data: { sentThresholds: number[] }) {
 					persisted.push(data.sentThresholds);
 				},
-			} as any;
+			};
+			// @ts-expect-error This fake Pi API supplies only reminder methods.
 			installSubagentContextReminders(pi);
 
 			let percent = 91;
@@ -254,17 +259,19 @@ describe("subagent context reminders", () => {
 		process.env.PI_SUBAGENT_CONTEXT_WARN_THRESHOLD = "99%";
 		process.env.PI_SUBAGENT_CONTEXT_WARN_STEP = "5%";
 		try {
-			const handlers = new Map<string, any[]>();
+			const handlers = new Map<string, Array<(...args: unknown[]) => unknown>>();
 			const sent: string[] = [];
-			const state = installSubagentContextReminders({
-				on(event: string, handler: any) {
+			const pi = {
+				on(event: string, handler: (...args: unknown[]) => unknown) {
 					handlers.set(event, [...(handlers.get(event) ?? []), handler]);
 				},
 				sendUserMessage(message: string) {
 					sent.push(message);
 				},
 				appendEntry() {},
-			} as any);
+			};
+			// @ts-expect-error This fake Pi API supplies only the methods used by the child extension.
+			const state = installSubagentContextReminders(pi);
 			const ctx = {
 				getContextUsage: () => ({ tokens: 199_000, contextWindow: 200_000, percent: 99.5 }),
 			};
@@ -292,17 +299,18 @@ describe("subagent context reminders", () => {
 		process.env.PI_SUBAGENT_CONTEXT_WARN_THRESHOLD = "80%";
 		process.env.PI_SUBAGENT_CONTEXT_WARN_STEP = "5%";
 		try {
-			const handlers = new Map<string, any[]>();
+			const handlers = new Map<string, Array<(...args: unknown[]) => unknown>>();
 			const sent: string[] = [];
 			const pi = {
-				on(event: string, handler: any) {
+				on(event: string, handler: (...args: unknown[]) => unknown) {
 					handlers.set(event, [...(handlers.get(event) ?? []), handler]);
 				},
 				sendUserMessage(message: string) {
 					sent.push(message);
 				},
 				appendEntry() {},
-			} as any;
+			};
+			// @ts-expect-error This fake Pi API supplies only reminder methods.
 			const state = installSubagentContextReminders(pi);
 			assert.equal(state.hasDeliveredFinalWarning(), false);
 
@@ -360,20 +368,20 @@ describe("subagent context reminders", () => {
 		process.env.PI_SUBAGENT_AUTO_EXIT = "1";
 		process.env.PI_SUBAGENT_SESSION = sessionFile;
 		try {
-			const handlers = new Map<string, any[]>();
+			const handlers = new Map<string, Array<(...args: unknown[]) => unknown>>();
 			const emit = (event: string, ...args: unknown[]) => {
 				for (const handler of handlers.get(event) ?? []) handler(...args);
 			};
-			const sent: Array<{ message: string; options: any }> = [];
+			const sent: Array<{ message: string; options: unknown }> = [];
 			const entries: Array<Record<string, unknown>> = [];
 			let hasPendingMessages = false;
 
-			subagentDoneExtension({
+			const pi = {
 				getAllTools: () => [],
 				getActiveTools: () => [],
 				setActiveTools() {},
 				registerTool: (definition: unknown) => definition,
-				on(event: string, handler: any) {
+				on(event: string, handler: (...args: unknown[]) => unknown) {
 					handlers.set(event, [...(handlers.get(event) ?? []), handler]);
 				},
 				sendUserMessage(message: string, options: unknown) {
@@ -384,7 +392,9 @@ describe("subagent context reminders", () => {
 					entries.push({ type: "custom", customType, data });
 				},
 				registerShortcut() {},
-			} as any);
+			};
+			// @ts-expect-error This fake Pi API supplies only the methods used by the child extension.
+			subagentDoneExtension(pi);
 
 			const ctx = {
 				sessionManager: { getEntries: () => entries },
@@ -431,17 +441,19 @@ describe("subagent context reminders", () => {
 		const originalThreshold = process.env.PI_SUBAGENT_CONTEXT_WARN_THRESHOLD;
 		process.env.PI_SUBAGENT_CONTEXT_WARN_THRESHOLD = "80%";
 		try {
-			const handlers = new Map<string, any[]>();
+			const handlers = new Map<string, Array<(...args: unknown[]) => unknown>>();
 			const sent: string[] = [];
-			installSubagentContextReminders({
-				on(event: string, handler: any) {
+			const pi = {
+				on(event: string, handler: (...args: unknown[]) => unknown) {
 					handlers.set(event, [...(handlers.get(event) ?? []), handler]);
 				},
 				sendUserMessage(message: string) {
 					sent.push(message);
 				},
 				appendEntry() {},
-			} as any);
+			};
+			// @ts-expect-error This fake Pi API supplies only the methods used by the child extension.
+			installSubagentContextReminders(pi);
 			const ctx = {
 				getContextUsage: () => ({
 					tokens: 160_000,
@@ -475,11 +487,11 @@ describe("subagent context reminders", () => {
 		process.env.PI_SUBAGENT_SESSION = sessionFile;
 
 		try {
-			const handlers = new Map<string, any[]>();
+			const handlers = new Map<string, Array<(...args: unknown[]) => unknown>>();
 			const emit = (event: string, ...args: unknown[]) => {
 				for (const handler of handlers.get(event) ?? []) handler(...args);
 			};
-			const sent: Array<{ message: string; options: any }> = [];
+			const sent: Array<{ message: string; options: unknown }> = [];
 			const entries: Array<Record<string, unknown>> = [];
 			let shutdowns = 0;
 			let hasPendingMessages = false;
@@ -489,14 +501,14 @@ describe("subagent context reminders", () => {
 				percent: 80,
 			};
 
-			subagentDoneExtension({
+			const pi = {
 				getAllTools: () => [],
 				getActiveTools: () => [],
 				setActiveTools() {},
 				registerTool(definition: unknown) {
 					return definition;
 				},
-				on(event: string, handler: any) {
+				on(event: string, handler: (...args: unknown[]) => unknown) {
 					handlers.set(event, [...(handlers.get(event) ?? []), handler]);
 				},
 				sendUserMessage(message: string, options: unknown) {
@@ -507,7 +519,9 @@ describe("subagent context reminders", () => {
 					entries.push({ type: "custom", customType, data });
 				},
 				registerShortcut() {},
-			} as any);
+			};
+			// @ts-expect-error This fake Pi API supplies only the methods used by the child extension.
+			subagentDoneExtension(pi);
 
 			const ctx = {
 				sessionManager: { getEntries: () => entries },
@@ -528,17 +542,19 @@ describe("subagent context reminders", () => {
 				deliverAs: "steer",
 			});
 			assert.equal(entries.length, 0, "queueing alone must not mark delivery");
-			const retryHandlers = new Map<string, any[]>();
+			const retryHandlers = new Map<string, Array<(...args: unknown[]) => unknown>>();
 			const retrySent: unknown[] = [];
-			installSubagentContextReminders({
-				on(event: string, handler: any) {
+			const retryPi = {
+				on(event: string, handler: (...args: unknown[]) => unknown) {
 					retryHandlers.set(event, [...(retryHandlers.get(event) ?? []), handler]);
 				},
 				sendUserMessage(message: unknown) {
 					retrySent.push(message);
 				},
 				appendEntry() {},
-			} as any);
+			};
+			// @ts-expect-error This fake Pi API supplies only the methods used by the child extension.
+			installSubagentContextReminders(retryPi);
 			for (const handler of retryHandlers.get("session_start") ?? []) {
 				handler({}, ctx);
 			}
@@ -575,20 +591,22 @@ describe("subagent context reminders", () => {
 				},
 			});
 
-			const resumedHandlers = new Map<string, any[]>();
+			const resumedHandlers = new Map<string, Array<(...args: unknown[]) => unknown>>();
 			const emitResumed = (event: string, ...args: unknown[]) => {
 				for (const handler of resumedHandlers.get(event) ?? []) handler(...args);
 			};
 			const resumedSent: unknown[] = [];
-			installSubagentContextReminders({
-				on(event: string, handler: any) {
+			const resumedPi = {
+				on(event: string, handler: (...args: unknown[]) => unknown) {
 					resumedHandlers.set(event, [...(resumedHandlers.get(event) ?? []), handler]);
 				},
 				sendUserMessage(message: unknown) {
 					resumedSent.push(message);
 				},
 				appendEntry() {},
-			} as any);
+			};
+			// @ts-expect-error This fake Pi API supplies only the methods used by the child extension.
+			installSubagentContextReminders(resumedPi);
 			emitResumed("session_start", {}, ctx);
 			emitResumed("agent_end", { messages: [{ role: "assistant", stopReason: "stop" }] }, ctx);
 			assert.equal(

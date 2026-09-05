@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -42,7 +43,6 @@ import { getEntryCount } from "../session/session.ts";
 import {
 	getDoneSentinelFile,
 	isResumeMode,
-	type PersistedSubagentLaunchMetadata,
 	readSubagentExtensionEntry,
 	readSubagentLaunchMetadataEntries,
 	writeSubagentLaunchMetadataEntry,
@@ -469,14 +469,16 @@ async function resumeSubagentSessionWithoutWidth(
 		const sentinel = buildInteractiveSentinelShellCommands(doneSentinelFile);
 		const surfacePrefix = zellijTarget ? "PI_SUBAGENT_SURFACE=pane:$ZELLIJ_PANE_ID " : "";
 		const command = `trap ${shellEscape(sentinel.exitTrap)} EXIT; ${buildShellChangeDirectoryPrefix(resumeCwd)}${resumeEnvPrefix}${surfacePrefix}${parts.join(" ")}; ${sentinel.direct}`;
-		const surface =
-			ordinarySurface ??
-			(await createZellijCommandSurface(
+		let surface = ordinarySurface;
+		if (surface === undefined) {
+			assert.ok(zellijTarget, "A command surface requires a Zellij target.");
+			surface = await createZellijCommandSurface(
 				surfaceName,
-				zellijTarget!,
+				zellijTarget,
 				getZellijShellCommand(command),
 				zellijContext,
-			));
+			);
+		}
 		if (!zellijTarget) {
 			await new Promise<void>((resolve) => setTimeout(resolve, runtime.getShellReadyDelayMs()));
 			sendShellCommand(surface, command);

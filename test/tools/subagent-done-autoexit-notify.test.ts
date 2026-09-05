@@ -1,3 +1,4 @@
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
 	assert,
 	createTestDir,
@@ -23,22 +24,9 @@ import {
 //   - an idle prompt starts a FRESH run (runAgentLoopContinue -> new agent_start)
 //   - Escape (agent.abort) fires NO input event; it is observed at agent_end.
 
-interface Harness {
-	handlers: Map<string, any>;
-	commands: Map<string, any>;
-	notifies: { msg: string; tone?: string }[];
-	statusSets: { key: string; msg?: string }[];
-	ctx: () => any;
-	sessionFile: string;
-	shutdowns: () => number;
-	disabledNotifies: () => { msg: string; tone?: string }[];
-	sidecarExists: () => boolean;
-	restore: () => void;
-}
-
-function buildAutoExitHarness(opts: { interactive?: boolean } = {}): Harness {
-	const handlers = new Map<string, any>();
-	const commands = new Map<string, any>();
+function buildAutoExitHarness(opts: { interactive?: boolean } = {}) {
+	const handlers = new Map<string, (...args: unknown[]) => unknown>();
+	const commands = new Map<string, Parameters<ExtensionAPI["registerCommand"]>[1]>();
 	const dir = createTestDir();
 	const sessionFile = join(dir, "child.jsonl");
 	writeFileSync(sessionFile, "");
@@ -54,21 +42,23 @@ function buildAutoExitHarness(opts: { interactive?: boolean } = {}): Harness {
 	const statusSets: { key: string; msg?: string }[] = [];
 	let shutdowns = 0;
 
-	subagentDoneExtension({
+	const pi = {
 		getAllTools: () => [],
 		getActiveTools: () => [],
 		setActiveTools() {},
-		registerTool(definition: { name: string }) {
+		registerTool(definition: Parameters<ExtensionAPI["registerTool"]>[0]) {
 			return definition;
 		},
-		on(event: string, handler: any) {
+		on(event: string, handler: (...args: unknown[]) => unknown) {
 			handlers.set(event, handler);
 		},
 		registerShortcut() {},
-		registerCommand(name: string, def: any) {
+		registerCommand(name: string, def: Parameters<ExtensionAPI["registerCommand"]>[1]) {
 			commands.set(name, def);
 		},
-	} as any);
+	};
+	// @ts-expect-error This fake Pi API supplies only the methods used by the child extension.
+	subagentDoneExtension(pi);
 
 	const ctx = () => ({
 		shutdown() {
@@ -191,7 +181,10 @@ describe("auto-exit operator-takeover notification", () => {
 		try {
 			h.handlers.get("agent_start")?.({});
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx()); // disables + notifies
-			await h.commands.get("auto-exit").handler({}, h.ctx()); // re-arm
+			const autoExit = h.commands.get("auto-exit");
+			assert.ok(autoExit);
+			// @ts-expect-error This command test only needs the fake UI context.
+			await autoExit.handler("", h.ctx()); // re-arm
 			const before = h.disabledNotifies().length;
 			// The input that consumes the re-arm is the granted "free" input; it must
 			// NOT notify, and the next normal completion auto-exits.
@@ -268,7 +261,10 @@ describe("auto-exit operator-takeover notification", () => {
 			await sleep(0);
 			assert.equal(h.disabledNotifies().length, 1);
 			// Operator re-arms /auto-exit mid-stream.
-			await h.commands.get("auto-exit").handler({}, h.ctx());
+			const autoExit = h.commands.get("auto-exit");
+			assert.ok(autoExit);
+			// @ts-expect-error This command test only needs the fake UI context.
+			await autoExit.handler("", h.ctx());
 			// The queued steer drains as the next input, consuming the one-shot
 			// re-arm. Pi fires agent_start for the new run before the input, and the
 			// model turn then begins with turn_start.
@@ -301,7 +297,10 @@ describe("auto-exit operator-takeover notification", () => {
 			h.handlers.get("agent_start")?.({});
 			h.handlers.get("turn_start")?.({});
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());
-			await h.commands.get("auto-exit").handler({}, h.ctx());
+			const autoExit = h.commands.get("auto-exit");
+			assert.ok(autoExit);
+			// @ts-expect-error This command test only needs the fake UI context.
+			await autoExit.handler("", h.ctx());
 			h.handlers.get("agent_start")?.({});
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());
 			// No turn_start: the answer completes without tools.
@@ -342,7 +341,10 @@ describe("auto-exit operator-takeover notification", () => {
 				}
 				await sleep(0);
 				assert.equal(h.disabledNotifies().length, 1, `${c.name}: input must disable auto-exit`);
-				await h.commands.get("auto-exit").handler({}, h.ctx());
+				const autoExit = h.commands.get("auto-exit");
+				assert.ok(autoExit);
+				// @ts-expect-error This command test only needs the fake UI context.
+				await autoExit.handler("", h.ctx());
 				h.handlers.get("agent_start")?.({});
 				h.handlers.get("turn_start")?.({});
 				h.handlers.get("agent_end")?.(
@@ -366,7 +368,10 @@ describe("auto-exit operator-takeover notification", () => {
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());
 			await sleep(0);
 			assert.equal(h.disabledNotifies().length, 1);
-			await h.commands.get("auto-exit").handler({}, h.ctx());
+			const autoExit = h.commands.get("auto-exit");
+			assert.ok(autoExit);
+			// @ts-expect-error This command test only needs the fake UI context.
+			await autoExit.handler("", h.ctx());
 			h.handlers.get("agent_start")?.({});
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());

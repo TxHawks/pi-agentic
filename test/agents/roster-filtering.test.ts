@@ -1,3 +1,9 @@
+import type {
+	BeforeAgentStartEvent,
+	BeforeAgentStartEventResult,
+	ExtensionHandler,
+	SessionStartEvent,
+} from "@earendil-works/pi-coding-agent";
 import {
 	getAgentListEntries,
 	getAgentListSignature,
@@ -96,29 +102,44 @@ describe("roster filtering", () => {
 		writeAgents(dir);
 		process.env.PI_SUBAGENT_AGENT = "hidden-child";
 		process.env.PI_SUBAGENT_SPAWNABLE = "missing-agent";
-		const handlers = new Map<string, any>();
-		subagentsExtension({
-			on(event: string, handler: any) {
+		type Handler =
+			| ExtensionHandler<SessionStartEvent>
+			| ExtensionHandler<BeforeAgentStartEvent, BeforeAgentStartEventResult>;
+		const handlers = new Map<string, Handler>();
+		const pi = {
+			on(event: string, handler: Handler) {
 				handlers.set(event, handler);
 			},
 			registerTool() {},
 			registerCommand() {},
 			registerMessageRenderer() {},
 			getThinkingLevel: () => "low",
-		} as any);
+		};
+		// @ts-expect-error This test supplies only the API methods used by these hooks.
+		subagentsExtension(pi);
 
-		handlers.get("session_start")(
-			{ type: "session_start", reason: "startup" },
-			{
-				cwd: dir,
-				hasUI: false,
-				ui: { setWidget() {} },
-				sessionManager: {
-					getHeader: () => ({ id: "child", type: "session", timestamp: "", cwd: dir }),
-				},
+		const sessionStart = handlers.get("session_start") as
+			| ExtensionHandler<SessionStartEvent>
+			| undefined;
+		assert.ok(sessionStart);
+		const context = {
+			cwd: dir,
+			hasUI: false,
+			ui: { setWidget() {} },
+			sessionManager: {
+				getHeader: () => ({ id: "child", type: "session", timestamp: "", cwd: dir }),
 			},
-		);
-		const result = handlers.get("before_agent_start")({ type: "before_agent_start" });
+		};
+		// @ts-expect-error The startup hook only needs the context fields supplied here.
+		sessionStart({ type: "session_start", reason: "startup" }, context);
+		const beforeAgentStart = handlers.get("before_agent_start") as
+			| ExtensionHandler<BeforeAgentStartEvent, BeforeAgentStartEventResult>
+			| undefined;
+		assert.ok(beforeAgentStart);
+		// @ts-expect-error Roster refresh does not need the prompt or context arguments.
+		const result = beforeAgentStart({ type: "before_agent_start" }) as {
+			message: { content: string; details: { supersedes: boolean } };
+		};
 		assert.ok(result?.message);
 		assert.equal(result.message.details.supersedes, true);
 		assert.match(result.message.content, /No agents are spawnable in this session/);

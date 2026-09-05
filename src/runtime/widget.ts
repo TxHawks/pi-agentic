@@ -117,7 +117,7 @@ export class SubagentWidgetManager {
 		if (!provider) return undefined;
 		const candidates = [modelId, modelId.replace(/:[^:]+$/, "")].filter(Boolean);
 		const model = [...new Set(candidates)]
-			.map((candidate) => this.latestCtx?.modelRegistry.find(provider!, candidate))
+			.map((candidate) => this.latestCtx?.modelRegistry.find(provider, candidate))
 			.find(Boolean);
 		return model?.contextWindow;
 	}
@@ -182,7 +182,7 @@ export class SubagentWidgetManager {
 		if (!contextWindow && this.latestCtx?.modelRegistry?.find && resolvedProvider) {
 			const candidates = [resolvedModelId, resolvedModelId.replace(/:[^:]+$/, "")].filter(Boolean);
 			const model = [...new Set(candidates)]
-				.map((candidate) => this.latestCtx?.modelRegistry.find(resolvedProvider!, candidate))
+				.map((candidate) => this.latestCtx?.modelRegistry.find(resolvedProvider, candidate))
 				.find(Boolean);
 			contextWindow = model?.contextWindow ?? 0;
 		}
@@ -353,7 +353,7 @@ export class SubagentWidgetManager {
 			);
 
 			for (let i = 0; i < visibleAgents.length; i++) {
-				const agent = visibleAgents[i]!;
+				const agent = visibleAgents[i];
 				const isLast = i === visibleAgents.length - 1;
 				const connector = isLast ? "└─" : "├─";
 				const childConnector = isLast ? "   " : "│  ";

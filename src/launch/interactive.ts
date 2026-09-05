@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getSubagentDisplayTitle, isSetTabTitleToolEnabled } from "../agents/titles.ts";
@@ -195,14 +196,16 @@ export async function launchInteractiveSubagent(
 	const sentinel = buildInteractiveSentinelShellCommands(doneSentinelFile);
 	const surfacePrefix = zellijTarget ? "PI_SUBAGENT_SURFACE=pane:$ZELLIJ_PANE_ID " : "";
 	const command = `trap ${shellEscape(sentinel.exitTrap)} EXIT; ${cdPrefix}${envPrefix}${surfacePrefix}${parts.join(" ")}; ${sentinel.direct}`;
-	const surface =
-		ordinarySurface ??
-		(await createZellijCommandSurface(
+	let surface = ordinarySurface;
+	if (surface === undefined) {
+		assert.ok(zellijTarget, "A command surface requires a Zellij target.");
+		surface = await createZellijCommandSurface(
 			surfaceName,
-			zellijTarget!,
+			zellijTarget,
 			getZellijShellCommand(command),
 			zellijContext,
-		));
+		);
+	}
 	traceSubagentLaunch("interactive.surface", {
 		id,
 		name: params.name,

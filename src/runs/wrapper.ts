@@ -75,9 +75,13 @@ const LAUNCH_WRAPPER_SCRIPT = [
 	'\t\tstat=$(cat "/proc/$pid/stat" 2>/dev/null) || return 1',
 	// The command sits between the first "(" and the last ")". After the
 	// last ")" the start time is the 20th field (field 22 of the stat line).
+	// biome-ignore lint/suspicious/noTemplateCurlyInString: The child shell expands these variables.
 	"\t\trest=${stat%)*}",
+	// biome-ignore lint/suspicious/noTemplateCurlyInString: The child shell expands these variables.
 	"\t\tcommand_name=${rest#*(}",
+	// biome-ignore lint/suspicious/noTemplateCurlyInString: The child shell expands these variables.
 	"\t\tset -- ${stat##*)}",
+	// biome-ignore lint/suspicious/noTemplateCurlyInString: The child shell expands these variables.
 	"\t\tstart_time=${20}",
 	"\telse",
 	"\t\tstart_time=$(ps -p \"$pid\" -o lstart= 2>/dev/null | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')",
@@ -126,6 +130,7 @@ const LAUNCH_WRAPPER_SCRIPT = [
 	'wrapper_identity=$(identity_json "$$") || wrapper_identity=',
 	'if [ -n "$child_identity" ]; then',
 	'\ttmp="$run_dir/.tmp-wrapper-$$-child"',
+	// biome-ignore lint/suspicious/noTemplateCurlyInString: The child shell expands these variables.
 	'\tprintf \'{"child":%s,"wrapper":%s}\\n\' "$child_identity" "${wrapper_identity:-null}" > "$tmp"',
 	'\twrite_frozen "$tmp" "$run_dir/child.json"',
 	"fi",

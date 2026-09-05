@@ -197,10 +197,11 @@ fi
 			parentPaneId: 10,
 			policy: "right-stack",
 		};
+		assert.ok(process.env.ZELLIJ_SESSION_NAME);
 		assert.equal(
 			await createZellijCommandSurface(
 				"first",
-				{ sessionName: process.env.ZELLIJ_SESSION_NAME!, parentPaneId: 10 },
+				{ sessionName: process.env.ZELLIJ_SESSION_NAME, parentPaneId: 10 },
 				["/bin/bash", "--noprofile", "--norc", "-c", "pi"],
 				context,
 			),
@@ -268,10 +269,11 @@ fi
 			parentPaneId: 10,
 			policy: "down-stack",
 		};
+		assert.ok(process.env.ZELLIJ_SESSION_NAME);
 		assert.equal(
 			await createZellijCommandSurface(
 				"first",
-				{ sessionName: process.env.ZELLIJ_SESSION_NAME!, parentPaneId: 10 },
+				{ sessionName: process.env.ZELLIJ_SESSION_NAME, parentPaneId: 10 },
 				["/bin/bash", "--noprofile", "--norc", "-c", "pi"],
 				context,
 			),
@@ -296,6 +298,7 @@ fi
 		writePanes(panesFile, [terminalPane(10), terminalPane(30, { exited: true })]);
 		const sessionFile = join(dir, "child.jsonl");
 		writeFileSync(sessionFile, "");
+		assert.ok(process.env.ZELLIJ_SESSION_NAME);
 		const running: RunningSubagent = {
 			id: "dead-zellij-pane",
 			name: "Dead pane",
@@ -308,7 +311,7 @@ fi
 			sessionFile,
 			surface: "pane:30",
 			zellijTarget: {
-				sessionName: process.env.ZELLIJ_SESSION_NAME!,
+				sessionName: process.env.ZELLIJ_SESSION_NAME,
 				parentPaneId: 10,
 			},
 		};

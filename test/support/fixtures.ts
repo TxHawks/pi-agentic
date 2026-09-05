@@ -124,11 +124,14 @@ export function createForkSessionFileForTest(
 	parentSessionFile: string,
 	childSessionFile: string,
 ): void {
-	const entries = getEntries(parentSessionFile) as any[];
+	const entries = getEntries(parentSessionFile);
 	let truncateAt = entries.length;
 	for (let i = entries.length - 1; i >= 0; i--) {
 		const entry = entries[i];
-		if (entry.type === "message" && entry.message?.role === "user") {
+		if (
+			entry.type === "message" &&
+			(entry.message as { role?: string } | undefined)?.role === "user"
+		) {
 			truncateAt = i;
 			break;
 		}

@@ -126,9 +126,8 @@ export function selectContextReminder(
 	const crossed = thresholds.filter(
 		(threshold) => usage.percent >= threshold && !sentThresholds.has(threshold),
 	);
-	if (crossed.length === 0) return null;
-
-	const threshold = crossed.at(-1)!;
+	const threshold = crossed.at(-1);
+	if (threshold === undefined) return null;
 	const stage = thresholds.indexOf(threshold);
 	const nextSent = new Set(sentThresholds);
 	for (const candidate of thresholds) {

@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { existsSync, statSync } from "node:fs";
 import { getTerminalAssistantSummary, shouldReapStableTerminalSummary } from "../agents/titles.ts";
 import { consumeSubagentExitSignal } from "../mux.ts";
@@ -41,24 +42,14 @@ export interface BackgroundWatchOptions {
 type BackgroundGenerationOutcome = { kind: "restart" } | { kind: "result"; result: SubagentResult };
 
 function terminateChildProcessGroup(running: RunningSubagent, signal: NodeJS.Signals): void {
-	const child = running.childProcess!;
+	const child = running.childProcess;
+	assert.ok(child, "A background run must have a child process.");
 	if (!child.pid) return;
 	try {
 		process.kill(-child.pid, signal);
 	} catch {
 		child.kill(signal);
 	}
-}
-
-/**
- * True while any process in the child's group still exists.
- *
- * The group, not the leader: a leader can exit while the descendants it
- * spawned keep running, and those are the processes still burning the budget.
- */
-function isChildProcessGroupAlive(running: RunningSubagent): boolean {
-	const pid = running.childProcess?.pid;
-	return pid ? isProcessGroupAlive(pid) : false;
 }
 
 function isProcessGroupAlive(pid: number): boolean {
@@ -194,7 +185,8 @@ function watchBackgroundGeneration(
 	signal: AbortSignal,
 	options: BackgroundWatchOptions,
 ): Promise<BackgroundGenerationOutcome> {
-	const child = running.childProcess!;
+	const child = running.childProcess;
+	assert.ok(child, "A background run must have a child process.");
 	const processGroupPid = child.pid;
 	const terminalGraceMs = 1000;
 	const killEscalationMs = options.timeoutKillEscalationMs ?? TIMEOUT_KILL_ESCALATION_MS;
@@ -439,7 +431,7 @@ function watchBackgroundGeneration(
 				if (!groupExitPoll) {
 					groupExitPoll = setInterval(() => {
 						if (isProcessGroupAlive(processGroupPid)) return;
-						clearInterval(groupExitPoll!);
+						clearInterval(groupExitPoll);
 						groupExitPoll = undefined;
 						finalizeExit(code, exitSignal);
 					}, 25);

@@ -1,3 +1,9 @@
+import type {
+	BeforeAgentStartEvent,
+	BeforeAgentStartEventResult,
+	ExtensionContext,
+	SessionStartEvent,
+} from "@earendil-works/pi-coding-agent";
 import {
 	afterEach,
 	assert,
@@ -39,8 +45,9 @@ describe("subagent launch result delivery", () => {
 			sessionFile: "/tmp/child-terminate.jsonl",
 		};
 
-		const result = (await getLaunchedSubagentResultForTest(running as any)) as any;
-		assert.equal((result.details as any).status, "started");
+		const result = await getLaunchedSubagentResultForTest(running);
+		const details = result.details as { status: string };
+		assert.equal(details.status, "started");
 		assert.equal(result.terminate, true);
 	});
 
@@ -60,15 +67,16 @@ describe("subagent launch result delivery", () => {
 			sessionFile: "/tmp/child-no-terminate-opt-out.jsonl",
 		};
 
-		const result = (await getLaunchedSubagentResultForTest(running as any)) as any;
-		assert.equal((result.details as any).status, "started");
-		assert.equal((result.details as any).async, true);
+		const result = await getLaunchedSubagentResultForTest(running);
+		const details = result.details as { status: string; async: boolean };
+		assert.equal(details.status, "started");
+		assert.equal(details.async, true);
 		assert.equal(result.terminate, undefined);
 	});
 
 	it("does not defer same-turn detached async completion when coordinator-only turn stop is disabled", async () => {
 		process.env.PI_SUBAGENT_DISABLE_COORDINATOR_ONLY_TURN = "1";
-		const sent: Array<{ message: any; options: any }> = [];
+		const sent: Array<{ message: unknown; options: unknown }> = [];
 		const running = {
 			id: "child-no-defer-opt-out",
 			name: "Async child",
@@ -83,15 +91,15 @@ describe("subagent launch result delivery", () => {
 			sessionFile: "/tmp/child-no-defer-opt-out.jsonl",
 		};
 
-		setRunningSubagentForTest(running as any);
-		const asyncResult = (await getLaunchedSubagentResultForTest(running as any)) as any;
+		setRunningSubagentForTest(running);
+		const asyncResult = await getLaunchedSubagentResultForTest(running);
 		routeDetachedSubagentCompletionForTest(
 			{
-				sendMessage(message: any, options: any) {
+				sendMessage(message, options) {
 					sent.push({ message, options });
 				},
 			},
-			running as any,
+			running,
 			{
 				name: running.name,
 				task: running.task,
@@ -104,11 +112,11 @@ describe("subagent launch result delivery", () => {
 
 		assert.equal(asyncResult.terminate, undefined);
 		assert.equal(sent.length, 1);
-		assert.equal(sent[0].options.deliverAs, "steer");
+		assert.equal((sent[0].options as { deliverAs: string }).deliverAs, "steer");
 	});
 
 	it("defers same-turn detached async completion delivery until the next user turn", async () => {
-		const sent: Array<{ message: any; options: any }> = [];
+		const sent: Array<{ message: unknown; options: unknown }> = [];
 		const running = {
 			id: "child-deferred-steer",
 			name: "Async child",
@@ -123,15 +131,15 @@ describe("subagent launch result delivery", () => {
 			sessionFile: "/tmp/child-deferred-steer.jsonl",
 		};
 
-		setRunningSubagentForTest(running as any);
-		const asyncResult = (await getLaunchedSubagentResultForTest(running as any)) as any;
+		setRunningSubagentForTest(running);
+		const asyncResult = await getLaunchedSubagentResultForTest(running);
 		routeDetachedSubagentCompletionForTest(
 			{
-				sendMessage(message: any, options: any) {
+				sendMessage(message, options) {
 					sent.push({ message, options });
 				},
 			},
-			running as any,
+			running,
 			{
 				name: running.name,
 				task: running.task,
@@ -144,7 +152,7 @@ describe("subagent launch result delivery", () => {
 
 		assert.equal(asyncResult.terminate, true);
 		assert.equal(sent.length, 1);
-		assert.equal(sent[0].options.deliverAs, "nextTurn");
+		assert.equal((sent[0].options as { deliverAs: string }).deliverAs, "nextTurn");
 		assert.equal(getCompletedSubagentResultForTest(running.id)?.deliveredTo, "steer");
 	});
 
@@ -172,11 +180,16 @@ describe("subagent launch result delivery", () => {
 			}),
 		};
 
-		setRunningSubagentForTest(asyncRunning as any);
-		const asyncResult = (await getLaunchedSubagentResultForTest(asyncRunning as any)) as any;
-		assert.equal((asyncResult.details as any).status, "completed");
-		assert.equal((asyncResult.details as any).deliveryState, "awaited");
-		assert.equal((asyncResult.details as any).async, true);
+		setRunningSubagentForTest(asyncRunning);
+		const asyncResult = await getLaunchedSubagentResultForTest(asyncRunning);
+		const details = asyncResult.details as {
+			status: string;
+			deliveryState: string;
+			async: boolean;
+		};
+		assert.equal(details.status, "completed");
+		assert.equal(details.deliveryState, "awaited");
+		assert.equal(details.async, true);
 		assert.equal(asyncResult.terminate, undefined);
 		assert.equal(getCompletedSubagentResultForTest(asyncRunning.id)?.deliveredTo, "wait");
 	});
@@ -218,12 +231,13 @@ describe("subagent launch result delivery", () => {
 			}),
 		};
 
-		setRunningSubagentForTest(asyncRunning as any);
-		setRunningSubagentForTest(syncRunning as any);
-		const asyncResult = (await getLaunchedSubagentResultForTest(asyncRunning as any)) as any;
-		const syncResult = (await getLaunchedSubagentResultForTest(syncRunning as any)) as any;
+		setRunningSubagentForTest(asyncRunning);
+		setRunningSubagentForTest(syncRunning);
+		const asyncResult = await getLaunchedSubagentResultForTest(asyncRunning);
+		const syncResult = await getLaunchedSubagentResultForTest(syncRunning);
 		assert.equal(asyncResult.terminate, undefined);
-		assert.equal((syncResult.details as any).status, "completed");
+		const details = syncResult.details as { status: string };
+		assert.equal(details.status, "completed");
 		assert.equal(syncResult.terminate, undefined);
 	});
 
@@ -250,9 +264,10 @@ describe("subagent launch result delivery", () => {
 			}),
 		};
 
-		setRunningSubagentForTest(running as any);
-		const result = (await getLaunchedSubagentResultForTest(running as any)) as any;
-		assert.equal((result.details as any).status, "completed");
+		setRunningSubagentForTest(running);
+		const result = await getLaunchedSubagentResultForTest(running);
+		const details = result.details as { status: string };
+		assert.equal(details.status, "completed");
 		assert.equal(result.terminate, undefined);
 	});
 
@@ -279,7 +294,8 @@ describe("subagent launch result delivery", () => {
 
 		setRunningSubagentForTest(running);
 		const waited = await waitForSubagentForTest({ id: "Child" });
-		assert.equal((waited.details as any).status, "completed");
+		const details = waited.details as { status: string };
+		assert.equal(details.status, "completed");
 		assert.equal(getCompletedSubagentResultForTest(running.id)?.deliveredTo, "wait");
 	});
 
@@ -294,48 +310,59 @@ describe("subagent launch result delivery", () => {
 			`---\nname: reviewer\ndescription: Review changes for regressions\nmode: background\n---\n\nReviewer body.`,
 		);
 
-		const handlers = new Map<string, any>();
+		const handlers = new Map<string, unknown>();
+		// @ts-expect-error: This test API includes only the registration and message methods used here.
 		subagentsExtension({
-			on(event: string, handler: any) {
+			on(event: string, handler: unknown) {
 				handlers.set(event, handler);
 			},
 			registerCommand() {},
 			registerMessageRenderer() {},
 			registerTool() {},
 			sendMessage() {},
-		} as any);
+		});
 
-		handlers.get("session_start")(
-			{ type: "session_start", reason: "startup" },
-			{
-				cwd: dir,
-				hasUI: false,
-				ui: { setWidget() {} },
-				sessionManager: {
-					getHeader: () => ({
-						id: "root",
-						type: "session",
-						timestamp: "",
-						cwd: dir,
-					}),
-				},
+		const sessionStart = handlers.get("session_start") as (
+			event: SessionStartEvent,
+			ctx: ExtensionContext,
+		) => void;
+		const beforeAgentStart = handlers.get("before_agent_start") as (
+			event: BeforeAgentStartEvent,
+		) => BeforeAgentStartEventResult | undefined;
+
+		const ctx = {
+			cwd: dir,
+			hasUI: false,
+			ui: { setWidget() {} },
+			sessionManager: {
+				getHeader: () => ({
+					id: "root",
+					type: "session",
+					timestamp: "",
+					cwd: dir,
+				}),
 			},
-		);
+		};
+		// @ts-expect-error: This context has only the widget and session header methods read at startup.
+		sessionStart({ type: "session_start", reason: "startup" }, ctx);
 
-		const result = handlers.get("before_agent_start")({
+		const result = beforeAgentStart({
 			type: "before_agent_start",
 			prompt: "hi",
 			systemPrompt: "sys",
+			systemPromptOptions: { cwd: dir },
 		});
 		const message = result?.message;
 		assert.ok(message);
 		assert.equal(message.customType, "subagent_roster");
 		assert.equal(message.display, false);
-		assert.equal((message.details as any).entries[0].name, "reviewer");
-		assert.equal(
-			(message.details as any).signature,
-			getAgentListSignatureForTest((message.details as any).entries),
-		);
+		const details = message.details as {
+			entries: Parameters<typeof getAgentListSignatureForTest>[0];
+			signature: string;
+		};
+		assert.equal(details.entries[0].name, "reviewer");
+		assert.equal(details.signature, getAgentListSignatureForTest(details.entries));
+		assert.ok(typeof message.content === "string");
 		assert.match(message.content, /^<system-reminder>\nYou can launch separate helper agents/);
 		assert.match(
 			message.content,
@@ -355,12 +382,13 @@ describe("subagent launch result delivery", () => {
 			/context=copy_of_this_chat means the helper starts from this conversation/,
 		);
 		assert.match(message.content, /\n<\/subagent-rules>\n<\/system-reminder>$/);
-		assert.equal(renderAgentListReminderForTest((message.details as any).entries), message.content);
+		assert.equal(renderAgentListReminderForTest(details.entries), message.content);
 		assert.equal(
-			handlers.get("before_agent_start")({
+			beforeAgentStart({
 				type: "before_agent_start",
 				prompt: "again",
 				systemPrompt: "sys",
+				systemPromptOptions: { cwd: dir },
 			}),
 			undefined,
 		);
@@ -377,7 +405,7 @@ describe("subagent launch result delivery", () => {
 			`---\nname: reviewer\ndescription: Review changes for regressions\n---\n\nReviewer body.`,
 		);
 
-		const handlers = new Map<string, any>();
+		const handlers = new Map<string, unknown>();
 		const ctx = {
 			cwd: dir,
 			hasUI: false,
@@ -392,49 +420,65 @@ describe("subagent launch result delivery", () => {
 			},
 		};
 
+		// @ts-expect-error: This test API includes only the registration and message methods used here.
 		subagentsExtension({
-			on(event: string, handler: any) {
+			on(event: string, handler: unknown) {
 				handlers.set(event, handler);
 			},
 			registerCommand() {},
 			registerMessageRenderer() {},
 			registerTool() {},
 			sendMessage() {},
-		} as any);
+		});
 
-		handlers.get("session_start")({ type: "session_start", reason: "startup" }, ctx);
-		const startup = handlers.get("before_agent_start")({
+		const sessionStart = handlers.get("session_start") as (
+			event: SessionStartEvent,
+			ctx: ExtensionContext,
+		) => void;
+		const beforeAgentStart = handlers.get("before_agent_start") as (
+			event: BeforeAgentStartEvent,
+		) => BeforeAgentStartEventResult | undefined;
+
+		// @ts-expect-error: This context has only the widget and session header methods read at startup.
+		sessionStart({ type: "session_start", reason: "startup" }, ctx);
+		const startup = beforeAgentStart({
 			type: "before_agent_start",
 			prompt: "start",
 			systemPrompt: "sys",
+			systemPromptOptions: { cwd: dir },
 		});
 		assert.ok(startup?.message);
-		assert.equal((startup.message.details as any).supersedes, undefined);
+		assert.equal((startup.message.details as { supersedes?: boolean }).supersedes, undefined);
 
 		writeFileSync(
 			join(agentsDir, "researcher.md"),
 			`---\nname: researcher\ndescription: Investigate open-ended questions\nmode: background\n---\n\nResearcher body.`,
 		);
 
-		handlers.get("session_start")({ type: "session_start", reason: "reload" }, ctx);
-		const reloaded = handlers.get("before_agent_start")({
+		// @ts-expect-error: This context has only the widget and session header methods read at startup.
+		sessionStart({ type: "session_start", reason: "reload" }, ctx);
+		const reloaded = beforeAgentStart({
 			type: "before_agent_start",
 			prompt: "continue",
 			systemPrompt: "sys",
+			systemPromptOptions: { cwd: dir },
 		});
 		assert.ok(reloaded?.message);
-		assert.equal((reloaded.message.details as any).supersedes, true);
+		assert.equal((reloaded.message.details as { supersedes?: boolean }).supersedes, true);
+		assert.ok(typeof reloaded.message.content === "string");
 		assert.match(
 			reloaded.message.content,
 			/`researcher`: Investigate open-ended questions[\s\S]*?tool_return: later_message[\s\S]*?runs_as: hidden_process[\s\S]*?context: fresh_chat_needs_full_brief[\s\S]*?completion: exits_automatically/,
 		);
 
-		handlers.get("session_start")({ type: "session_start", reason: "reload" }, ctx);
+		// @ts-expect-error: This context has only the widget and session header methods read at startup.
+		sessionStart({ type: "session_start", reason: "reload" }, ctx);
 		assert.equal(
-			handlers.get("before_agent_start")({
+			beforeAgentStart({
 				type: "before_agent_start",
 				prompt: "continue again",
 				systemPrompt: "sys",
+				systemPromptOptions: { cwd: dir },
 			}),
 			undefined,
 		);

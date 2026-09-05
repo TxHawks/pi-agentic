@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { resumeSubagentSession } from "../../src/runtime/resume-service.ts";
+import type { RunningSubagent } from "../../src/types.ts";
 import {
 	afterEach,
 	assert,
@@ -9,7 +10,6 @@ import {
 	getSubagentBatchStopMetadataForTest,
 	it,
 	join,
-	readFileSync,
 	readNonEmptyFileEventually,
 	readSubagentLaunchMetadataForTest,
 	requestSubagentBatchStopForTest,
@@ -89,10 +89,11 @@ describe("subagent_resume approval args", () => {
 				exitCode: 0,
 				elapsed: 0,
 			}),
-			getWatcherSignal: (_running: any, controller: AbortController) => controller.signal,
+			getWatcherSignal: (_running: RunningSubagent, controller: AbortController) =>
+				controller.signal,
 			startWidgetRefresh: () => {},
 			getContextWindow: () => undefined,
-			runningSubagents: new Map<string, any>(),
+			runningSubagents: new Map<string, RunningSubagent>(),
 		};
 	}
 
@@ -105,13 +106,13 @@ describe("subagent_resume approval args", () => {
 			const sessionFile = join(dir, "child.jsonl");
 			writeFileSync(
 				sessionFile,
-				JSON.stringify({
+				`${JSON.stringify({
 					type: "session",
 					version: 3,
 					id: "s",
 					timestamp: new Date().toISOString(),
 					cwd: dir,
-				}) + "\n",
+				})}\n`,
 			);
 
 			const running = await resumeSubagentSession(
@@ -140,13 +141,13 @@ describe("subagent_resume approval args", () => {
 			const sessionFile = join(dir, "context-aware-child.jsonl");
 			writeFileSync(
 				sessionFile,
-				JSON.stringify({
+				`${JSON.stringify({
 					type: "session",
 					version: 3,
 					id: "s",
 					timestamp: new Date().toISOString(),
 					cwd: dir,
-				}) + "\n",
+				})}\n`,
 			);
 			await writeSubagentLaunchMetadataEntryForTest(sessionFile, {
 				version: 1,
@@ -184,13 +185,13 @@ describe("subagent_resume approval args", () => {
 			const sessionFile = join(dir, "quiet-context-child.jsonl");
 			writeFileSync(
 				sessionFile,
-				JSON.stringify({
+				`${JSON.stringify({
 					type: "session",
 					version: 3,
 					id: "s",
 					timestamp: new Date().toISOString(),
 					cwd: dir,
-				}) + "\n",
+				})}\n`,
 			);
 			await writeSubagentLaunchMetadataEntryForTest(sessionFile, {
 				version: 1,
@@ -228,13 +229,13 @@ describe("subagent_resume approval args", () => {
 			const sessionFile = join(dir, "child.jsonl");
 			writeFileSync(
 				sessionFile,
-				JSON.stringify({
+				`${JSON.stringify({
 					type: "session",
 					version: 3,
 					id: "s",
 					timestamp: new Date().toISOString(),
 					cwd: dir,
-				}) + "\n",
+				})}\n`,
 			);
 			await writeSubagentLaunchMetadataEntryForTest(sessionFile, {
 				version: 1,
@@ -276,13 +277,13 @@ describe("subagent_resume approval args", () => {
 			const sessionFile = join(dir, "child.jsonl");
 			writeFileSync(
 				sessionFile,
-				JSON.stringify({
+				`${JSON.stringify({
 					type: "session",
 					version: 3,
 					id: "s",
 					timestamp: new Date().toISOString(),
 					cwd: dir,
-				}) + "\n",
+				})}\n`,
 			);
 			await writeSubagentLaunchMetadataEntryForTest(sessionFile, {
 				version: 1,
@@ -341,10 +342,11 @@ describe("subagent_resume extension parity", () => {
 				exitCode: 0,
 				elapsed: 0,
 			}),
-			getWatcherSignal: (_running: any, controller: AbortController) => controller.signal,
+			getWatcherSignal: (_running: RunningSubagent, controller: AbortController) =>
+				controller.signal,
 			startWidgetRefresh: () => {},
 			getContextWindow: () => undefined,
-			runningSubagents: new Map<string, any>(),
+			runningSubagents: new Map<string, RunningSubagent>(),
 		};
 	}
 
@@ -357,13 +359,13 @@ describe("subagent_resume extension parity", () => {
 			const sessionFile = join(dir, "child.jsonl");
 			writeFileSync(
 				sessionFile,
-				JSON.stringify({
+				`${JSON.stringify({
 					type: "session",
 					version: 3,
 					id: "s",
 					timestamp: new Date().toISOString(),
 					cwd: dir,
-				}) + "\n",
+				})}\n`,
 			);
 			await writeSubagentLaunchMetadataEntryForTest(sessionFile, {
 				version: 1,
@@ -400,13 +402,13 @@ describe("subagent_resume extension parity", () => {
 			const sessionFile = join(dir, "legacy-child.jsonl");
 			writeFileSync(
 				sessionFile,
-				JSON.stringify({
+				`${JSON.stringify({
 					type: "session",
 					version: 3,
 					id: "s",
 					timestamp: new Date().toISOString(),
 					cwd: dir,
-				}) + "\n",
+				})}\n`,
 			);
 
 			const running = await resumeSubagentSession(
@@ -428,13 +430,13 @@ describe("subagent_resume same-session guard", () => {
 		const sessionFile = join(dir, "child.jsonl");
 		writeFileSync(
 			sessionFile,
-			JSON.stringify({
+			`${JSON.stringify({
 				type: "session",
 				version: 3,
 				id: "s",
 				timestamp: new Date().toISOString(),
 				cwd: dir,
-			}) + "\n",
+			})}\n`,
 		);
 		await writeSubagentLaunchMetadataEntryForTest(sessionFile, {
 			version: 1,
@@ -457,7 +459,8 @@ describe("subagent_resume same-session guard", () => {
 			boundarySystemPrompt: false,
 		});
 
-		const runningSubagents = new Map<string, any>();
+		const runningSubagents = new Map<string, RunningSubagent>();
+		// @ts-expect-error: The duplicate-session guard needs only the existing run identity and session.
 		runningSubagents.set("existing-001", {
 			id: "existing-001",
 			name: "scout",
@@ -486,7 +489,8 @@ describe("subagent_resume same-session guard", () => {
 							exitCode: 0,
 							elapsed: 0,
 						}),
-						getWatcherSignal: (_running: any, controller: AbortController) => controller.signal,
+						getWatcherSignal: (_running: RunningSubagent, controller: AbortController) =>
+							controller.signal,
 						startWidgetRefresh: () => {},
 						getContextWindow: () => undefined,
 						runningSubagents,
@@ -512,16 +516,19 @@ describe("subagent_resume same-session guard", () => {
 		const sessionFile = join(dir, "child.jsonl");
 		writeFileSync(
 			sessionFile,
-			JSON.stringify({
+			`${JSON.stringify({
 				type: "session",
 				version: 3,
 				id: "s",
 				timestamp: new Date().toISOString(),
 				cwd: dir,
-			}) + "\n",
+			})}\n`,
 		);
 
-		const runningSubagents = new Map<string, any>();
+		const runningSubagents = new Map<
+			string,
+			Omit<RunningSubagent, "executionState" | "startTime">
+		>();
 		const existingId = "existing-001";
 		runningSubagents.set(existingId, {
 			id: existingId,
@@ -538,7 +545,7 @@ describe("subagent_resume same-session guard", () => {
 
 		// Simulate the same-session guard from resume-tool.ts
 		const normalizedFile = resolve(sessionFile);
-		let guardResult: any = null;
+		let guardResult: { id: string; name: string; content: string } | null = null;
 		for (const existing of runningSubagents.values()) {
 			if (existing.sessionFile && resolve(existing.sessionFile) === normalizedFile) {
 				guardResult = {
@@ -551,17 +558,20 @@ describe("subagent_resume same-session guard", () => {
 		}
 
 		assert.ok(guardResult, "Guard should have triggered");
-		assert.equal(guardResult!.name, "magician");
-		assert.equal(guardResult!.id, existingId);
+		assert.equal(guardResult.name, "magician");
+		assert.equal(guardResult.id, existingId);
 		assert.match(
-			guardResult!.content,
+			guardResult.content,
 			/existing-001/,
 			"Should reference the existing running subagent id",
 		);
 	});
 
 	it("does not trigger guard when sessionFile differs", () => {
-		const runningSubagents = new Map<string, any>();
+		const runningSubagents = new Map<
+			string,
+			Pick<RunningSubagent, "id" | "name" | "sessionFile">
+		>();
 		runningSubagents.set("existing-001", {
 			id: "existing-001",
 			name: "scout",
@@ -570,7 +580,7 @@ describe("subagent_resume same-session guard", () => {
 
 		const newSessionFile = "/tmp/different-session.jsonl";
 		const normalizedFile = resolve(newSessionFile);
-		let guardResult: any = null;
+		let guardResult: { id: string } | null = null;
 		for (const existing of runningSubagents.values()) {
 			if (existing.sessionFile && resolve(existing.sessionFile) === normalizedFile) {
 				guardResult = { id: existing.id };

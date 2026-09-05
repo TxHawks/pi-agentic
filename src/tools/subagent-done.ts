@@ -9,12 +9,7 @@ import {
 import { PI_SUBAGENT_APPEND_SYSTEM_PROMPT } from "../launch/append-system.ts";
 import { getPublishedRunningSubagentCount } from "../runtime/nested-lifecycle.ts";
 import { installSubagentContextReminders } from "./context-reminders.ts";
-import {
-	filterToolNames,
-	getDeniedToolNames,
-	installDeniedToolGuards,
-	shouldRegisterSubagentDone,
-} from "./denied-tools.ts";
+import { filterToolNames, getDeniedToolNames, shouldRegisterSubagentDone } from "./denied-tools.ts";
 import { createExitSignalWriter } from "./exit-signal.ts";
 import { type FinalContextSnapshot, getFinalContextSnapshot } from "./final-context-snapshot.ts";
 import { isMissingOptionalDependency, optionalRequire } from "./optional-dependency.ts";
@@ -199,7 +194,7 @@ export default function (pi: ExtensionAPI) {
 					let displayLabel = visibleLabel;
 					if (visiblePrefix.length + visibleLabel.length > avail) {
 						const maxLabel = Math.max(0, avail - visiblePrefix.length - 1);
-						displayLabel = visibleLabel.slice(0, maxLabel) + "…";
+						displayLabel = `${visibleLabel.slice(0, maxLabel)}…`;
 					}
 
 					// Split truncated label into name and suffix for different styling

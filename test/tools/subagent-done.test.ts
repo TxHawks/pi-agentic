@@ -1,4 +1,5 @@
 import { mock } from "node:test";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
 	assert,
 	createTestDir,
@@ -94,11 +95,11 @@ describe("subagent-done.ts", () => {
 		it("ignores stale contexts in delayed enforcement callbacks", () => {
 			mock.timers.enable({ apis: ["setTimeout"] });
 			try {
-				const handlers = new Map<string, any>();
+				const handlers = new Map<string, (...args: unknown[]) => unknown>();
 				let stale = false;
 				let activeTools = ["read"];
 
-				subagentDoneExtension({
+				const pi = {
 					getAllTools: () => [],
 					getActiveTools() {
 						if (stale) throw new Error("stale context");
@@ -108,15 +109,17 @@ describe("subagent-done.ts", () => {
 						if (stale) throw new Error("stale context");
 						activeTools = [...toolNames];
 					},
-					registerTool(definition: { name: string }) {
+					registerTool(definition: Parameters<ExtensionAPI["registerTool"]>[0]) {
 						return definition;
 					},
-					on(event: string, handler: any) {
+					on(event: string, handler: (...args: unknown[]) => unknown) {
 						handlers.set(event, handler);
 					},
 					registerShortcut() {},
 					registerCommand() {},
-				} as any);
+				};
+				// @ts-expect-error This fake Pi API supplies only the methods used by the child extension.
+				subagentDoneExtension(pi);
 
 				handlers.get("session_start")?.(
 					{},
@@ -151,8 +154,8 @@ describe("subagent-done.ts", () => {
 
 			try {
 				for (const testCase of cases) {
-					const tools = new Map<string, any>();
-					const handlers = new Map<string, any>();
+					const tools = new Map<string, Parameters<ExtensionAPI["registerTool"]>[0]>();
+					const handlers = new Map<string, (...args: unknown[]) => unknown>();
 					const sessionFile = join(dir, `${testCase.name.replace(/\s/g, "-")}.jsonl`);
 					writeFileSync(sessionFile, "");
 
@@ -162,20 +165,22 @@ describe("subagent-done.ts", () => {
 					if (testCase.surface) process.env.PI_SUBAGENT_SURFACE = testCase.surface;
 					else delete process.env.PI_SUBAGENT_SURFACE;
 
-					subagentDoneExtension({
+					const pi = {
 						getAllTools: () => [],
 						getActiveTools: () => [],
 						setActiveTools() {},
-						registerTool(definition: { name: string }) {
+						registerTool(definition: Parameters<ExtensionAPI["registerTool"]>[0]) {
 							tools.set(definition.name, definition);
 							return definition;
 						},
-						on(event: string, handler: any) {
+						on(event: string, handler: (...args: unknown[]) => unknown) {
 							handlers.set(event, handler);
 						},
 						registerShortcut() {},
 						registerCommand() {},
-					} as any);
+					};
+					// @ts-expect-error This fake Pi API supplies only the methods used by the child extension.
+					subagentDoneExtension(pi);
 
 					handlers.get("message_end")?.(
 						{ message: { role: "assistant", usage: { output: 23 } } },
@@ -211,22 +216,24 @@ describe("subagent-done.ts", () => {
 		});
 
 		it("registers caller_ping and writes a ping exit sidecar", async () => {
-			const tools = new Map<string, any>();
-			const handlers = new Map<string, any>();
-			subagentDoneExtension({
+			const tools = new Map<string, Parameters<ExtensionAPI["registerTool"]>[0]>();
+			const handlers = new Map<string, (...args: unknown[]) => unknown>();
+			const pi = {
 				getAllTools: () => [],
 				getActiveTools: () => [],
 				setActiveTools() {},
-				registerTool(definition: { name: string }) {
+				registerTool(definition: Parameters<ExtensionAPI["registerTool"]>[0]) {
 					tools.set(definition.name, definition);
 					return definition;
 				},
-				on(event: string, handler: any) {
+				on(event: string, handler: (...args: unknown[]) => unknown) {
 					handlers.set(event, handler);
 				},
 				registerShortcut() {},
 				registerCommand() {},
-			} as any);
+			};
+			// @ts-expect-error This fake Pi API supplies only the methods used by the child extension.
+			subagentDoneExtension(pi);
 
 			const pingTool = tools.get("caller_ping");
 			assert.ok(pingTool);
@@ -244,6 +251,7 @@ describe("subagent-done.ts", () => {
 					message: { role: "assistant", usage: { output: 11 } },
 				});
 				let shutdowns = 0;
+				// @ts-expect-error This tool test only needs the shutdown method.
 				await pingTool.execute("tool-1", { message: "Need help" }, undefined, undefined, {
 					shutdown() {
 						shutdowns += 1;
@@ -268,7 +276,7 @@ describe("subagent-done.ts", () => {
 		});
 
 		it("keeps auto-exit agents open for streaming follow-ups", async () => {
-			const handlers = new Map<string, any>();
+			const handlers = new Map<string, (...args: unknown[]) => unknown>();
 			const dir = createTestDir();
 			const sessionFile = join(dir, "child.jsonl");
 			writeFileSync(sessionFile, "");
@@ -278,19 +286,21 @@ describe("subagent-done.ts", () => {
 			try {
 				process.env.PI_SUBAGENT_SESSION = sessionFile;
 				process.env.PI_SUBAGENT_AUTO_EXIT = "1";
-				subagentDoneExtension({
+				const pi = {
 					getAllTools: () => [],
 					getActiveTools: () => [],
 					setActiveTools() {},
-					registerTool(definition: { name: string }) {
+					registerTool(definition: Parameters<ExtensionAPI["registerTool"]>[0]) {
 						return definition;
 					},
-					on(event: string, handler: any) {
+					on(event: string, handler: (...args: unknown[]) => unknown) {
 						handlers.set(event, handler);
 					},
 					registerShortcut() {},
 					registerCommand() {},
-				} as any);
+				};
+				// @ts-expect-error This fake Pi API supplies only the methods used by the child extension.
+				subagentDoneExtension(pi);
 
 				let shutdowns = 0;
 				handlers.get("agent_start")?.({});
@@ -320,7 +330,7 @@ describe("subagent-done.ts", () => {
 		});
 
 		it("keeps auto-exit agents open after Escape then steer", async () => {
-			const handlers = new Map<string, any>();
+			const handlers = new Map<string, (...args: unknown[]) => unknown>();
 			const dir = createTestDir();
 			const sessionFile = join(dir, "child.jsonl");
 			writeFileSync(sessionFile, "");
@@ -330,19 +340,21 @@ describe("subagent-done.ts", () => {
 			try {
 				process.env.PI_SUBAGENT_SESSION = sessionFile;
 				process.env.PI_SUBAGENT_AUTO_EXIT = "1";
-				subagentDoneExtension({
+				const pi = {
 					getAllTools: () => [],
 					getActiveTools: () => [],
 					setActiveTools() {},
-					registerTool(definition: { name: string }) {
+					registerTool(definition: Parameters<ExtensionAPI["registerTool"]>[0]) {
 						return definition;
 					},
-					on(event: string, handler: any) {
+					on(event: string, handler: (...args: unknown[]) => unknown) {
 						handlers.set(event, handler);
 					},
 					registerShortcut() {},
 					registerCommand() {},
-				} as any);
+				};
+				// @ts-expect-error This fake Pi API supplies only the methods used by the child extension.
+				subagentDoneExtension(pi);
 
 				let shutdowns = 0;
 				// 1. Agent starts working
@@ -389,7 +401,7 @@ describe("subagent-done.ts", () => {
 		});
 
 		it("keeps interactive auto-exit agents open after Escape alone", async () => {
-			const handlers = new Map<string, any>();
+			const handlers = new Map<string, (...args: unknown[]) => unknown>();
 			const dir = createTestDir();
 			const sessionFile = join(dir, "child.jsonl");
 			writeFileSync(sessionFile, "");
@@ -401,19 +413,21 @@ describe("subagent-done.ts", () => {
 				process.env.PI_SUBAGENT_SESSION = sessionFile;
 				process.env.PI_SUBAGENT_AUTO_EXIT = "1";
 				process.env.PI_SUBAGENT_SURFACE = "pane:test";
-				subagentDoneExtension({
+				const pi = {
 					getAllTools: () => [],
 					getActiveTools: () => [],
 					setActiveTools() {},
-					registerTool(definition: { name: string }) {
+					registerTool(definition: Parameters<ExtensionAPI["registerTool"]>[0]) {
 						return definition;
 					},
-					on(event: string, handler: any) {
+					on(event: string, handler: (...args: unknown[]) => unknown) {
 						handlers.set(event, handler);
 					},
 					registerShortcut() {},
 					registerCommand() {},
-				} as any);
+				};
+				// @ts-expect-error This fake Pi API supplies only the methods used by the child extension.
+				subagentDoneExtension(pi);
 
 				let shutdowns = 0;
 				// 1. Agent starts working on an interactive pane
@@ -461,8 +475,8 @@ describe("subagent-done.ts", () => {
 		});
 
 		it("shows auto-exit disabled status after Escape on interactive pane", async () => {
-			const handlers = new Map<string, any>();
-			const commands = new Map<string, any>();
+			const handlers = new Map<string, (...args: unknown[]) => unknown>();
+			const commands = new Map<string, Parameters<ExtensionAPI["registerCommand"]>[1]>();
 			const dir = createTestDir();
 			const sessionFile = join(dir, "child.jsonl");
 			writeFileSync(sessionFile, "");
@@ -476,21 +490,23 @@ describe("subagent-done.ts", () => {
 				process.env.PI_SUBAGENT_SURFACE = "pane:test";
 				let statusKey: string | undefined;
 				let statusMessage: string | undefined;
-				subagentDoneExtension({
+				const pi = {
 					getAllTools: () => [],
 					getActiveTools: () => [],
 					setActiveTools() {},
-					registerTool(definition: { name: string }) {
+					registerTool(definition: Parameters<ExtensionAPI["registerTool"]>[0]) {
 						return definition;
 					},
-					on(event: string, handler: any) {
+					on(event: string, handler: (...args: unknown[]) => unknown) {
 						handlers.set(event, handler);
 					},
 					registerShortcut() {},
-					registerCommand(name: string, def: any) {
+					registerCommand(name: string, def: Parameters<ExtensionAPI["registerCommand"]>[1]) {
 						commands.set(name, def);
 					},
-				} as any);
+				};
+				// @ts-expect-error This fake Pi API supplies only the methods used by the child extension.
+				subagentDoneExtension(pi);
 
 				handlers.get("agent_start")?.({});
 				handlers.get("agent_end")?.(
@@ -523,8 +539,8 @@ describe("subagent-done.ts", () => {
 		});
 
 		it("re-enables auto-exit via /auto-exit command", async () => {
-			const handlers = new Map<string, any>();
-			const commands = new Map<string, any>();
+			const handlers = new Map<string, (...args: unknown[]) => unknown>();
+			const commands = new Map<string, Parameters<ExtensionAPI["registerCommand"]>[1]>();
 			const dir = createTestDir();
 			const sessionFile = join(dir, "child.jsonl");
 			writeFileSync(sessionFile, "");
@@ -539,21 +555,23 @@ describe("subagent-done.ts", () => {
 				let statusKey: string | undefined;
 				let statusMessage: string | undefined;
 				let notifyMsg: string | undefined;
-				subagentDoneExtension({
+				const pi = {
 					getAllTools: () => [],
 					getActiveTools: () => [],
 					setActiveTools() {},
-					registerTool(definition: { name: string }) {
+					registerTool(definition: Parameters<ExtensionAPI["registerTool"]>[0]) {
 						return definition;
 					},
-					on(event: string, handler: any) {
+					on(event: string, handler: (...args: unknown[]) => unknown) {
 						handlers.set(event, handler);
 					},
 					registerShortcut() {},
-					registerCommand(name: string, def: any) {
+					registerCommand(name: string, def: Parameters<ExtensionAPI["registerCommand"]>[1]) {
 						commands.set(name, def);
 					},
-				} as any);
+				};
+				// @ts-expect-error This fake Pi API supplies only the methods used by the child extension.
+				subagentDoneExtension(pi);
 
 				// Simulate user interaction that disables auto-exit
 				let shutdowns = 0;
@@ -579,20 +597,18 @@ describe("subagent-done.ts", () => {
 				assert.equal(autoExitCmd.description, "Re-enable auto-exit after operator interaction");
 
 				// Run the command handler
-				await autoExitCmd.handler(
-					{},
-					{
-						ui: {
-							setStatus(key: string, msg?: string) {
-								statusKey = key;
-								statusMessage = msg;
-							},
-							notify(msg: string) {
-								notifyMsg = msg;
-							},
+				await autoExitCmd.handler("", {
+					// @ts-expect-error This command test only needs the fake UI context.
+					ui: {
+						setStatus(key: string, msg?: string) {
+							statusKey = key;
+							statusMessage = msg;
+						},
+						notify(msg: string) {
+							notifyMsg = msg;
 						},
 					},
-				);
+				});
 
 				// Status should be cleared
 				assert.equal(statusKey, "pi-subagent-auto-exit");
@@ -627,22 +643,24 @@ describe("subagent-done.ts", () => {
 		});
 
 		it("writes a done exit sidecar when subagent_done runs", async () => {
-			const tools = new Map<string, any>();
-			const handlers = new Map<string, any>();
-			subagentDoneExtension({
+			const tools = new Map<string, Parameters<ExtensionAPI["registerTool"]>[0]>();
+			const handlers = new Map<string, (...args: unknown[]) => unknown>();
+			const pi = {
 				getAllTools: () => [],
 				getActiveTools: () => [],
 				setActiveTools() {},
-				registerTool(definition: { name: string }) {
+				registerTool(definition: Parameters<ExtensionAPI["registerTool"]>[0]) {
 					tools.set(definition.name, definition);
 					return definition;
 				},
-				on(event: string, handler: any) {
+				on(event: string, handler: (...args: unknown[]) => unknown) {
 					handlers.set(event, handler);
 				},
 				registerShortcut() {},
 				registerCommand() {},
-			} as any);
+			};
+			// @ts-expect-error This fake Pi API supplies only the methods used by the child extension.
+			subagentDoneExtension(pi);
 
 			const doneTool = tools.get("subagent_done");
 			assert.ok(doneTool);
@@ -664,6 +682,7 @@ describe("subagent-done.ts", () => {
 					},
 				);
 				let shutdowns = 0;
+				// @ts-expect-error This tool test only needs the shutdown method.
 				await doneTool.execute("tool-2", {}, undefined, undefined, {
 					shutdown() {
 						shutdowns += 1;
@@ -692,22 +711,26 @@ describe("subagent-done.ts", () => {
 			process.env.PI_SUBAGENT_APPEND_SYSTEM_PROMPT =
 				"Reviewer identity.\n\nChild boundary instructions.";
 			try {
-				const handlers = new Map<string, any>();
-				subagentDoneExtension({
+				const handlers = new Map<string, (...args: unknown[]) => unknown>();
+				const pi = {
 					getAllTools: () => [],
 					getActiveTools: () => [],
 					setActiveTools() {},
 					registerTool(definition: unknown) {
 						return definition;
 					},
-					on(event: string, handler: any) {
+					on(event: string, handler: (...args: unknown[]) => unknown) {
 						handlers.set(event, handler);
 					},
 					registerShortcut() {},
 					registerCommand() {},
-				} as any);
+				};
+				// @ts-expect-error This fake Pi API supplies only the methods used by the child extension.
+				subagentDoneExtension(pi);
 
-				const result = handlers.get("before_agent_start")({
+				const handler = handlers.get("before_agent_start");
+				assert.ok(handler);
+				const result = handler({
 					type: "before_agent_start",
 					prompt: "Review",
 					systemPrompt: "Pi default.\n\nNative APPEND_SYSTEM.",
@@ -718,7 +741,7 @@ describe("subagent-done.ts", () => {
 				});
 
 				assert.equal(
-					result?.systemPrompt,
+					(result as { systemPrompt?: string })?.systemPrompt,
 					"Pi default.\n\nNative APPEND_SYSTEM.\n\nReviewer identity.\n\nChild boundary instructions.",
 				);
 			} finally {
@@ -730,19 +753,21 @@ describe("subagent-done.ts", () => {
 
 	describe("set_tab_title registration", () => {
 		function loadChildExtension() {
-			const tools = new Map<string, any>();
-			subagentDoneExtension({
+			const tools = new Map<string, Parameters<ExtensionAPI["registerTool"]>[0]>();
+			const pi = {
 				getAllTools: () => [],
 				getActiveTools: () => [],
 				setActiveTools() {},
-				registerTool(definition: { name: string }) {
+				registerTool(definition: Parameters<ExtensionAPI["registerTool"]>[0]) {
 					tools.set(definition.name, definition);
 					return definition;
 				},
 				on() {},
 				registerShortcut() {},
 				registerCommand() {},
-			} as any);
+			};
+			// @ts-expect-error This fake Pi API supplies only the methods used by the child extension.
+			subagentDoneExtension(pi);
 			return tools;
 		}
 
@@ -755,6 +780,7 @@ describe("subagent-done.ts", () => {
 				const tools = loadChildExtension();
 				assert.ok(tools.has("set_tab_title"), "child extension should register set_tab_title");
 				const tool = tools.get("set_tab_title");
+				assert.ok(tool);
 				assert.equal(tool.label, "Set Tab Title");
 			} finally {
 				if (original == null) delete process.env.PI_SUBAGENT_ENABLE_SET_TAB_TITLE;

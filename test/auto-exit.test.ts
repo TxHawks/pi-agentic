@@ -51,10 +51,10 @@ describe("findLatestAssistantError", () => {
 		const messages = [{ role: "assistant", stopReason: "error" }];
 		const info = findLatestAssistantError(messages);
 		assert.ok(info);
-		assert.equal(info!.stopReason, "error");
-		assert.equal(info!.isRetryable, false);
-		assert.equal(info!.recoveryKind, "none");
-		assert.match(info!.errorMessage, /stopReason=error/);
+		assert.equal(info.stopReason, "error");
+		assert.equal(info.isRetryable, false);
+		assert.equal(info.recoveryKind, "none");
+		assert.match(info.errorMessage, /stopReason=error/);
 	});
 
 	it("stops scanning at the first assistant message (newest)", () => {
@@ -64,7 +64,7 @@ describe("findLatestAssistantError", () => {
 		];
 		const info = findLatestAssistantError(messages);
 		assert.ok(info);
-		assert.equal(info!.errorMessage, "second");
+		assert.equal(info.errorMessage, "second");
 	});
 
 	it("returns null when messages is undefined or empty", () => {
