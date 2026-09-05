@@ -3,15 +3,6 @@ export const PI_SUBAGENT_CONTEXT_WARN_STEP = "PI_SUBAGENT_CONTEXT_WARN_STEP";
 
 export const SUBAGENT_CONTEXT_REMINDER_ENTRY = "pi-subagent-context-reminders";
 
-/** Session entry recording how a child's run ended. */
-export const SUBAGENT_COMPLETION_ENTRY = "pi-subagent-completion";
-
-/** The child stopped because its context-warning policy told it to. */
-export const SUBAGENT_CONTEXT_PRESSURE_REASON = "context-pressure";
-
-/** The child failed while it was already holding the final warning. */
-export const SUBAGENT_CONTEXT_PRESSURE_FAILURE_REASON = "context-pressure-failure";
-
 const DEFAULT_CONTEXT_WARN_STEP = 5;
 
 export interface SubagentContextUsage {

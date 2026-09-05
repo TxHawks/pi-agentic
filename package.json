@@ -20,6 +20,7 @@
 		"check:dead-code": "knip",
 		"check:file-sizes": "node scripts/check-file-sizes.mjs",
 		"fixtures:record": "node scripts/record-pi-event-fixtures.mjs",
+		"fixtures:record-sessions": "node scripts/record-pi-session-fixtures.mjs",
 		"test:e2e-live-blocking": "node scripts/test-e2e-live-blocking.mjs",
 		"test:e2e-live-mix-blocking": "node scripts/test-e2e-live-mix-blocking.mjs",
 		"test:e2e-live-deny-tools": "node scripts/test-e2e-live-deny-tools.mjs",

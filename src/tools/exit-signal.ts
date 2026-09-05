@@ -4,7 +4,7 @@ import {
 	SUBAGENT_COMPLETION_ENTRY,
 	SUBAGENT_CONTEXT_PRESSURE_FAILURE_REASON,
 	SUBAGENT_CONTEXT_PRESSURE_REASON,
-} from "./context-reminders.ts";
+} from "../session/session.ts";
 import type { FinalContextSnapshot } from "./final-context-snapshot.ts";
 
 export interface ExitSignalWriterDeps {

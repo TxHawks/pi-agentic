@@ -8,6 +8,7 @@ import "./auto-exit.test.ts";
 import "./live-test-guard.test.ts";
 import "./system-prompt-mode.test.ts";
 import "./session/session.test.ts";
+import "./session/session-extractors.test.ts";
 import "./session/child-session-storage.test.ts";
 import "./session/exit-sidecar.test.ts";
 import "./settings/loader.test.ts";

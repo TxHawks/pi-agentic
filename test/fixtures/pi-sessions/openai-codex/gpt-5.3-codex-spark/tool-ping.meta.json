@@ -1,0 +1,36 @@
+{
+	"scenario": "tool-ping",
+	"source": "recorded",
+	"format": "Pi SessionManager JSONL (not stdout events)",
+	"piVersion": "0.85.0",
+	"requestedModel": "gpt-5.3-codex-spark",
+	"model": "openai-codex/gpt-5.3-codex-spark",
+	"recordedAt": "2026-09-05T12:05:36.885Z",
+	"recorder": "scripts/record-pi-session-fixtures.mjs",
+	"rawSessionSha256": "ad0216f288400cc533e6f87b6f143c8405b2f32e426e3b8eb55e8f2138b322fc",
+	"transforms": [],
+	"fixtureExtension": {
+		"origin": "scripts/record-pi-session-fixtures.mjs",
+		"sha256": "74ef0f0758a719459ecd91ea35eac74d812009af607f09d74297f44202a9fdf1",
+		"callerPing": "Temporary tool; records real model arguments and allows a final reply.",
+		"completionMarker": "Temporary extension calls pi.appendEntry after agent_settled.",
+		"contextPressureForced": false
+	},
+	"providerExtensions": [],
+	"localProviderError": null,
+	"evidence": {
+		"model": "openai-codex/gpt-5.3-codex-spark",
+		"api": "openai-codex-responses",
+		"assistantCount": 3,
+		"outputTokens": [88, 39, 45],
+		"totalOutputTokens": 172,
+		"pingArguments": [
+			{
+				"message": "Fixture help: confirm the next step."
+			}
+		],
+		"completionReasons": ["normal"],
+		"terminalStopReason": "stop",
+		"terminalError": null
+	}
+}

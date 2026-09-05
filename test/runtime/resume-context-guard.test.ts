@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import { resumeSubagentSession } from "../../src/runtime/resume-service.ts";
-import { SUBAGENT_COMPLETION_ENTRY } from "../../src/tools/context-reminders.ts";
+import { SUBAGENT_COMPLETION_ENTRY } from "../../src/session/session.ts";
 import { registerSubagentResumeTool } from "../../src/tools/resume-tool.ts";
 import {
 	assert,

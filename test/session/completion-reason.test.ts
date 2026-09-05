@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { endedUnderContextPressure } from "../../src/session/completion-reason.ts";
+import { endedUnderContextPressure } from "../../src/session/session.ts";
 import { assert, createTestDir, rmSync, writeFileSync } from "../support/index.ts";
 
 function writeSession(dir: string, entries: object[]): string {
@@ -55,6 +55,49 @@ describe("completion reason", () => {
 				marker("pressure", "root", "context-pressure"),
 				marker("clean", "pressure", "normal"),
 			]);
+			assert.equal(endedUnderContextPressure(file), false);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+});
+
+describe("completion evidence limits", () => {
+	it("does not turn a failure or unknown latest reason into a pressure stop", () => {
+		const dir = createTestDir();
+		try {
+			for (const reason of ["context-pressure-failure", "unknown"]) {
+				const file = writeSession(dir, [
+					marker("pressure", undefined, "context-pressure"),
+					marker("latest", "pressure", reason),
+				]);
+				assert.equal(endedUnderContextPressure(file), false);
+			}
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("ends a scan at a broken link or a cycle", () => {
+		const dir = createTestDir();
+		try {
+			for (const parentId of ["missing", "leaf"]) {
+				const file = writeSession(dir, [
+					marker("abandoned", undefined, "context-pressure"),
+					{ type: "custom", id: "leaf", parentId },
+				]);
+				assert.equal(endedUnderContextPressure(file), false);
+			}
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("returns no evidence for an absent session even if an exit sidecar exists", () => {
+		const dir = createTestDir();
+		try {
+			const file = join(dir, "missing.jsonl");
+			writeFileSync(`${file}.exit`, JSON.stringify({ completionReason: "context-pressure" }));
 			assert.equal(endedUnderContextPressure(file), false);
 		} finally {
 			rmSync(dir, { recursive: true, force: true });

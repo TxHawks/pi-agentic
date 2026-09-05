@@ -1,0 +1,26 @@
+{
+	"scenario": "provider-error",
+	"source": "recorded",
+	"format": "Pi SessionManager JSONL (not stdout events)",
+	"piVersion": "0.85.0",
+	"requestedModel": "fixture-broken/fixture-model",
+	"model": "fixture-broken/fixture-model",
+	"recordedAt": "2026-09-05T12:05:42.971Z",
+	"recorder": "scripts/record-pi-session-fixtures.mjs",
+	"rawSessionSha256": "601cef68f8aa13589ddfaf10a5bdd240555ebd981e3b6d969213f29b95c81f08",
+	"transforms": [],
+	"fixtureExtension": null,
+	"providerExtensions": [],
+	"localProviderError": "Closed local port http://127.0.0.1:9/v1; no model output is generated.",
+	"evidence": {
+		"model": "fixture-broken/fixture-model",
+		"api": "openai-completions",
+		"assistantCount": 3,
+		"outputTokens": [0, 0, 0],
+		"totalOutputTokens": 0,
+		"pingArguments": [],
+		"completionReasons": [],
+		"terminalStopReason": "error",
+		"terminalError": "Connection error."
+	}
+}
