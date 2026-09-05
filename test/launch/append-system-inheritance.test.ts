@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildAppendSystemInheritancePlan, PI_SUBAGENT_APPEND_SYSTEM_PROMPT } from "../../src/launch/append-system.ts";
+import {
+	buildAppendSystemInheritancePlan,
+	PI_SUBAGENT_APPEND_SYSTEM_PROMPT,
+} from "../../src/launch/append-system.ts";
 import { getPersistedPromptLaunchArgs } from "../../src/launch/prep.ts";
 
 const BOUNDARY = "Child boundary instructions.";
@@ -57,12 +60,13 @@ describe("APPEND_SYSTEM inheritance launch policy", () => {
 	it("restores the same policy when resuming child sessions", () => {
 		assert.deepEqual(getPersistedPromptLaunchArgs(undefined), ["--append-system-prompt", ""]);
 		assert.deepEqual(
+			// @ts-expect-error Only prompt fields are needed from the saved launch metadata.
 			getPersistedPromptLaunchArgs({
 				inheritAppendSystem: true,
 				systemPromptMode: "append",
 				systemPrompt: "Reviewer identity.",
 				boundarySystemPrompt: true,
-			} as any),
+			}),
 			[],
 		);
 	});
@@ -76,7 +80,12 @@ describe("APPEND_SYSTEM inheritance launch policy", () => {
 				boundarySystemPrompt: BOUNDARY,
 			}),
 			{
-				promptArgs: ["--append-system-prompt", "Reviewer identity.", "--append-system-prompt", BOUNDARY],
+				promptArgs: [
+					"--append-system-prompt",
+					"Reviewer identity.",
+					"--append-system-prompt",
+					BOUNDARY,
+				],
 				env: { [PI_SUBAGENT_APPEND_SYSTEM_PROMPT]: "" },
 			},
 		);

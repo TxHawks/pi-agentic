@@ -1,8 +1,17 @@
 import { randomBytes } from "node:crypto";
-import { appendFileSync, copyFileSync, readFileSync } from "node:fs";
+import { appendFileSync, copyFileSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { CALLER_PING_TOOL_NAME, SUBAGENT_DONE_TOOL_NAME } from "../tools/tool-names.ts";
 import type { SubagentSummarySource } from "../types.ts";
+
+/** Session entry recording how a child's run ended. */
+export const SUBAGENT_COMPLETION_ENTRY = "pi-subagent-completion";
+
+/** The child stopped because its context-warning policy told it to. */
+export const SUBAGENT_CONTEXT_PRESSURE_REASON = "context-pressure";
+
+/** The child failed while it was already holding the final warning. */
+export const SUBAGENT_CONTEXT_PRESSURE_FAILURE_REASON = "context-pressure-failure";
 
 export interface SessionEntry {
 	type: string;
@@ -36,7 +45,9 @@ function parseEntryLine(sessionFile: string, line: string, lineNumber: number): 
 }
 
 export function getEntries(sessionFile: string): SessionEntry[] {
-	return getNonEmptyLines(sessionFile).map((line, index) => parseEntryLine(sessionFile, line, index + 1));
+	return getNonEmptyLines(sessionFile).map((line, index) =>
+		parseEntryLine(sessionFile, line, index + 1),
+	);
 }
 
 export function getLeafId(sessionFile: string): string | null {
@@ -54,9 +65,96 @@ export function getNewEntries(sessionFile: string, afterLine: number): SessionEn
 		.map((line, index) => parseEntryLine(sessionFile, line, afterLine + index + 1));
 }
 
+/**
+ * Sum output usage from messages and summaries, not copied retained context.
+ * Supply getNewEntries(sessionFile, launchEntryCount) to count only one run.
+ */
+export function sumSessionOutputTokens(entries: SessionEntry[]): number {
+	let total = 0;
+	for (const entry of entries) {
+		let usage: { output?: number } | undefined;
+		if (entry.type === "message") {
+			const message = entry.message as { role?: string; usage?: { output?: number } };
+			if (message?.role === "assistant" || message?.role === "toolResult") usage = message.usage;
+		} else if (entry.type === "compaction" || entry.type === "branch_summary") {
+			usage = entry.usage as { output?: number } | undefined;
+		}
+		const output = usage?.output;
+		if (typeof output === "number" && Number.isSafeInteger(output) && output >= 0) total += output;
+	}
+	return total;
+}
+
+export interface SessionCallerPing {
+	toolCallId: string;
+	message: string;
+}
+
+/**
+ * Read call arguments only. The tool may end the child before its result is saved.
+ * The caller supplies the run's entries and the child's name separately.
+ */
+export function findCallerPings(entries: SessionEntry[]): SessionCallerPing[] {
+	const pings: SessionCallerPing[] = [];
+	for (const entry of entries) {
+		if (entry.type !== "message") continue;
+		const message = entry.message as { role?: string; content?: unknown[] } | undefined;
+		if (message?.role !== "assistant" || !Array.isArray(message.content)) continue;
+		for (const block of message.content) {
+			const call = block as {
+				type?: string;
+				id?: string;
+				name?: string;
+				arguments?: { message?: string };
+			};
+			if (
+				call?.type === "toolCall" &&
+				call.name === CALLER_PING_TOOL_NAME &&
+				typeof call.id === "string" &&
+				typeof call.arguments?.message === "string"
+			) {
+				pings.push({ toolCallId: call.id, message: call.arguments.message });
+			}
+		}
+	}
+	return pings;
+}
+
+export interface SessionError {
+	stopReason: "error";
+	errorMessage: string;
+}
+
+/**
+ * Read the last assistant's error, not an earlier failure that a retry resolved.
+ * Supply only the run's entries to avoid reading an earlier run's error.
+ */
+export function findSubagentError(entries: SessionEntry[]): SessionError | undefined {
+	for (let index = entries.length - 1; index >= 0; index--) {
+		const entry = entries[index];
+		if (entry.type !== "message") continue;
+		const message = entry.message as
+			| { role?: string; stopReason?: string; errorMessage?: string }
+			| undefined;
+		if (message?.role !== "assistant") continue;
+		if (message.stopReason !== "error") return undefined;
+		return {
+			stopReason: "error",
+			errorMessage:
+				typeof message.errorMessage === "string" && message.errorMessage.trim() !== ""
+					? message.errorMessage
+					: "Subagent error",
+		};
+	}
+	return undefined;
+}
+
 function getTextContent(msg: MessageEntry): string | null {
 	const texts = msg.message.content
-		.filter((block) => block.type === "text" && typeof block.text === "string" && block.text.trim() !== "")
+		.filter(
+			(block) =>
+				block.type === "text" && typeof block.text === "string" && block.text.trim() !== "",
+		)
 		.map((block) => block.text as string);
 
 	return texts.length > 0 && texts.join("").trim() ? texts.join("\n") : null;
@@ -105,7 +203,9 @@ export interface AssistantContextSnapshot {
 	model?: string;
 }
 
-export function findLatestAssistantContextSnapshot(entries: SessionEntry[]): AssistantContextSnapshot | undefined {
+export function findLatestAssistantContextSnapshot(
+	entries: SessionEntry[],
+): AssistantContextSnapshot | undefined {
 	for (let index = entries.length - 1; index >= 0; index--) {
 		const entry = entries[index];
 		if (entry.type !== "message") continue;
@@ -209,10 +309,56 @@ export function copySessionFile(sessionFile: string, destDir: string): string {
 	return dest;
 }
 
-export function mergeNewEntries(sourceFile: string, targetFile: string, afterLine: number): SessionEntry[] {
+export function mergeNewEntries(
+	sourceFile: string,
+	targetFile: string,
+	afterLine: number,
+): SessionEntry[] {
 	const entries = getNewEntries(sourceFile, afterLine);
 	for (const entry of entries) {
 		appendFileSync(targetFile, `${JSON.stringify(entry)}\n`, "utf8");
 	}
 	return entries;
+}
+
+/**
+ * True when the child's last completed run ended because its context-warning
+ * policy told it to stop. Only a terminal wrap-up sets this, so a child that
+ * merely saw an early warning and then finished normally is not reported.
+ *
+ * The last marker wins: a later clean completion releases a session that an
+ * earlier context-pressure exit had blocked.
+ */
+export function endedUnderContextPressure(sessionFile: string): boolean {
+	if (!existsSync(sessionFile)) return false;
+	try {
+		const entries = getEntries(sessionFile) as Array<{
+			id?: string;
+			parentId?: string;
+			type?: unknown;
+			customType?: unknown;
+			data?: { reason?: unknown };
+		}>;
+		if (entries.length === 0) return false;
+		// Walk back from the active leaf. A marker on an abandoned branch
+		// describes a run this session no longer descends from.
+		const byId = new Map(
+			entries.filter((entry) => entry.id).map((entry) => [entry.id as string, entry]),
+		);
+		let current: (typeof entries)[number] | undefined = entries[entries.length - 1];
+		const seen = new Set<string>();
+		while (current) {
+			if (current.type === "custom" && current.customType === SUBAGENT_COMPLETION_ENTRY) {
+				return current.data?.reason === SUBAGENT_CONTEXT_PRESSURE_REASON;
+			}
+			if (current.id) {
+				if (seen.has(current.id)) break;
+				seen.add(current.id);
+			}
+			current = current.parentId ? byId.get(current.parentId) : undefined;
+		}
+		return false;
+	} catch {
+		return false;
+	}
 }

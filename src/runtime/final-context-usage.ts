@@ -1,8 +1,8 @@
 import { existsSync } from "node:fs";
 import { splitModelRef } from "../agents/model-refs.ts";
 import type { PollResult } from "../mux/poll.ts";
-import { findLatestAssistantContextSnapshot, getNewEntries } from "../session/session.ts";
 import { endedUnderContextPressure } from "../session/completion-reason.ts";
+import { findLatestAssistantContextSnapshot, getNewEntries } from "../session/session.ts";
 import type { RunningSubagent } from "../types.ts";
 
 export interface FinalContextUsage {
@@ -25,7 +25,11 @@ export interface FinalContextUsage {
  * details.
  */
 export function formatSessionRef(
-	result: FinalContextUsage & { sessionFile?: string; timedOut?: string; timeoutBlocksResume?: boolean },
+	result: FinalContextUsage & {
+		sessionFile?: string;
+		timedOut?: string;
+		timeoutBlocksResume?: boolean;
+	},
 ): string {
 	if (!result.sessionFile) return "";
 	if (result.contextWarned) return "";
@@ -106,7 +110,10 @@ export function resolveFinalContextUsage(
 			: wasContextWarned(running);
 	const exhausted: { contextExhausted?: true } =
 		exitSignal?.completionReason === "context-pressure-failure" ? { contextExhausted: true } : {};
-	if (typeof exitSignal?.contextTokens === "number" && typeof exitSignal.contextWindow === "number") {
+	if (
+		typeof exitSignal?.contextTokens === "number" &&
+		typeof exitSignal.contextWindow === "number"
+	) {
 		return {
 			contextTokens: exitSignal.contextTokens,
 			contextWindow: exitSignal.contextWindow,
@@ -122,8 +129,10 @@ export function resolveFinalContextUsage(
 			getNewEntries(running.sessionFile, running.launchEntryCount ?? 0),
 		);
 		const launchModel = running.modelRef ? splitModelRef(running.modelRef).model : undefined;
-		const snapshotModel = snapshot?.provider && snapshot.model ? `${snapshot.provider}/${snapshot.model}` : undefined;
-		if (!snapshot || !launchModel || launchModel !== snapshotModel) return { ...warned, ...exhausted };
+		const snapshotModel =
+			snapshot?.provider && snapshot.model ? `${snapshot.provider}/${snapshot.model}` : undefined;
+		if (!snapshot || !launchModel || launchModel !== snapshotModel)
+			return { ...warned, ...exhausted };
 		return {
 			contextTokens: snapshot.contextTokens,
 			contextWindow: running.modelContextWindow,

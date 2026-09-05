@@ -10,7 +10,11 @@ export function registerSubagentsView(pi: ExtensionAPI, runtime: OverlayRuntime)
 
 	function open(ctx: ExtensionContext) {
 		if (activeOverlay) return;
-		if (!runningSubagents.size && !completedSubagentResults.size && !getEffectiveAgentDefinitions().length) {
+		if (
+			!runningSubagents.size &&
+			!completedSubagentResults.size &&
+			!getEffectiveAgentDefinitions().length
+		) {
 			ctx.ui.notify("No subagents or definitions.", "info");
 			return;
 		}

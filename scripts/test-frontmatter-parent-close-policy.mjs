@@ -100,13 +100,17 @@ try {
 	const children = getAllSubagentChildren(parent.events);
 
 	if (children.length < 3) {
-		throw new Error(`Expected 3 children, got ${children.length}. Found: ${children.map((c) => c.name).join(", ")}`);
+		throw new Error(
+			`Expected 3 children, got ${children.length}. Found: ${children.map((c) => c.name).join(", ")}`,
+		);
 	}
 
 	const byName = {};
 	for (const child of children) {
-		if (child.status !== "completed") throw new Error(`${child.name}: expected completed, got ${child.status}.`);
-		if (!child.sessionFile || !existsSync(child.sessionFile)) throw new Error(`${child.name}: missing sessionFile.`);
+		if (child.status !== "completed")
+			throw new Error(`${child.name}: expected completed, got ${child.status}.`);
+		if (!child.sessionFile || !existsSync(child.sessionFile))
+			throw new Error(`${child.name}: missing sessionFile.`);
 		byName[child.name] = child;
 	}
 
@@ -132,7 +136,9 @@ try {
 		}
 
 		// Check launch metadata for parentClosePolicy
-		const metadata = events.find((e) => e.type === "custom" && e.customType === "pi-subagents_launch_metadata");
+		const metadata = events.find(
+			(e) => e.type === "custom" && e.customType === "pi-subagents_launch_metadata",
+		);
 		if (!metadata?.data?.parentClosePolicy) {
 			throw new Error(`${label} child missing parentClosePolicy in launch metadata.`);
 		}

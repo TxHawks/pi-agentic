@@ -94,7 +94,7 @@ try {
 		}
 		if (child.agent === "fm-enabled-child" || child.name === "Enabled Child") {
 			if (child.status !== "completed") {
-				throw new Error("Enabled agent expected to complete but status is " + child.status);
+				throw new Error(`Enabled agent expected to complete but status is ${child.status}`);
 			}
 			foundEnabledCompletion = true;
 		}
@@ -126,7 +126,9 @@ try {
 	}
 
 	verified = true;
-	console.log("frontmatter `enabled: false` ok: disabled agent was not launchable; enabled agent worked.");
+	console.log(
+		"frontmatter `enabled: false` ok: disabled agent was not launchable; enabled agent worked.",
+	);
 } finally {
 	ctx.cleanup();
 }

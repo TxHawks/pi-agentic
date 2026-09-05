@@ -10,6 +10,7 @@ import {
 	describe,
 	enforceAgentFrontmatterForTest,
 	existsSync,
+	fakePiCommand,
 	it,
 	join,
 	loadAgentDefaults,
@@ -153,7 +154,8 @@ async function readEventually(
 
 function extractTaskArtifactPath(commandText: string): string {
 	const match = commandText.match(/'@([^']+)'/);
-	if (!match?.[1]) throw new Error("Expected Herdr launch command to include a task artifact argument");
+	if (!match?.[1])
+		throw new Error("Expected Herdr launch command to include a task artifact argument");
 	return match[1];
 }
 
@@ -181,12 +183,16 @@ describe("Herdr interactive launch parity", () => {
 			mkdirSync(join(cwd, ".pi", "agents"), { recursive: true });
 			writeFileSync(
 				join(cwd, ".pi", "agents", "sentinel-child.md"),
-				["---", "name: sentinel-child", "auto-exit: true", "---", "Exit immediately for sentinel verification."].join(
-					"\n",
-				),
+				[
+					"---",
+					"name: sentinel-child",
+					"auto-exit: true",
+					"---",
+					"Exit immediately for sentinel verification.",
+				].join("\n"),
 			);
 			const fakePi = writeExecutable(dir, "fake-pi", "#!/bin/sh\nexit 42\n");
-			process.env.PI_SUBAGENT_PI_COMMAND = fakePi;
+			process.env.PI_SUBAGENT_PI_COMMAND = fakePiCommand(fakePi);
 			const parentSession = writeParentSession(cwd);
 
 			const running = await launchInteractiveSubagent(
@@ -210,6 +216,7 @@ describe("Herdr interactive launch parity", () => {
 				},
 			);
 
+			assert.ok(running.doneSentinelFile);
 			const log = readFileSync(logFile, "utf8");
 			const launchScriptPath = extractHerdrRunScriptPath(log);
 			const launchScript = readFileSync(launchScriptPath, "utf8");
@@ -220,16 +227,18 @@ describe("Herdr interactive launch parity", () => {
 			});
 			try {
 				shell.stdin.write(`${command}\n`);
-				const sentinel = await readEventually(running.doneSentinelFile!, (text) => /__SUBAGENT_DONE_42__/.test(text));
+				const sentinel = await readEventually(running.doneSentinelFile, (text) =>
+					/__SUBAGENT_DONE_42__/.test(text),
+				);
 				assert.match(sentinel, /__SUBAGENT_DONE_42__/);
 			} finally {
 				shell.stdin.end("exit\n");
 			}
 
-			rmSync(running.doneSentinelFile!, { force: true });
+			rmSync(running.doneSentinelFile, { force: true });
 			const result = spawnSync(launchScriptPath, { encoding: "utf8" });
 			assert.equal(result.error, undefined);
-			assert.match(readFileSync(running.doneSentinelFile!, "utf8"), /__SUBAGENT_DONE_42__/);
+			assert.match(readFileSync(running.doneSentinelFile, "utf8"), /__SUBAGENT_DONE_42__/);
 		} finally {
 			if (originalPiCommand === undefined) delete process.env.PI_SUBAGENT_PI_COMMAND;
 			else process.env.PI_SUBAGENT_PI_COMMAND = originalPiCommand;
@@ -311,7 +320,10 @@ describe("Herdr interactive launch parity", () => {
 		assert.doesNotMatch(log, /pane send-keys w1:p2 Enter/);
 		const launchScript = readHerdrRunScript(log);
 		assert.match(launchScript, new RegExp(`cd '${childCwd.replace(/'/g, "'\\''")}' &&`));
-		assert.match(launchScript, new RegExp(`'--session' '${running.sessionFile.replace(/'/g, "'\\''")}'`));
+		assert.match(
+			launchScript,
+			new RegExp(`'--session' '${running.sessionFile.replace(/'/g, "'\\''")}'`),
+		);
 		assert.match(launchScript, /'--no-session'/);
 		assert.match(launchScript, /'--approve'/);
 		assert.match(launchScript, /CUSTOM_ENV='from-agent'/);
@@ -360,7 +372,10 @@ describe("Herdr interactive launch parity", () => {
 		);
 
 		assert.equal(running.surface, "w1:p2");
-		assert.equal(readSubagentLaunchMetadataForTest(running.sessionFile)?.herdrPlacementPolicy, "tab");
+		assert.equal(
+			readSubagentLaunchMetadataForTest(running.sessionFile)?.herdrPlacementPolicy,
+			"tab",
+		);
 		const log = readFileSync(logFile, "utf8");
 		assert.doesNotMatch(log, /pane layout|pane split/);
 		assert.match(log, /tab create --workspace w1/);
@@ -449,7 +464,13 @@ describe("Herdr interactive launch parity", () => {
 		const skillFile = join(skillDir, "SKILL.md");
 		writeFileSync(
 			skillFile,
-			["---", "name: review", "description: Review skill fixture.", "---", "Review skill body token."].join("\n"),
+			[
+				"---",
+				"name: review",
+				"description: Review skill fixture.",
+				"---",
+				"Review skill body token.",
+			].join("\n"),
 		);
 		writeFileSync(
 			join(cwd, ".pi", "agents", "capability-lifecycle.md"),
@@ -531,7 +552,13 @@ describe("Herdr interactive launch parity", () => {
 		assert.equal(metadata?.skills, "review");
 		assert.equal(metadata?.injectSkills, "review");
 		assert.deepEqual(metadata?.extensions, []);
-		assert.deepEqual(metadata?.denyTools, ["subagent", "subagent_resume", "subagent_kill", "grep", "set_tab_title"]);
+		assert.deepEqual(metadata?.denyTools, [
+			"subagent",
+			"subagent_resume",
+			"subagent_kill",
+			"grep",
+			"set_tab_title",
+		]);
 		assert.equal(metadata?.noContextFiles, true);
 		assert.equal(metadata?.inheritAppendSystem, false);
 
@@ -543,13 +570,19 @@ describe("Herdr interactive launch parity", () => {
 		assert.doesNotMatch(log, /pane send-keys w1:p2 Enter/);
 		const launchScript = readHerdrRunScript(log);
 		assert.match(launchScript, /PI_SUBAGENT_AUTO_EXIT='1'/);
-		assert.match(launchScript, /PI_DENY_TOOLS='subagent,subagent_resume,subagent_kill,grep,set_tab_title'/);
+		assert.match(
+			launchScript,
+			/PI_DENY_TOOLS='subagent,subagent_resume,subagent_kill,grep,set_tab_title'/,
+		);
 		assert.match(launchScript, /PI_SUBAGENT_EXTENSIONS=''/);
 		assert.match(launchScript, /--model 'zai-messages\/glm-5-turbo:off'/);
 		assert.match(launchScript, /--no-context-files/);
 		assert.match(launchScript, /--append-system-prompt ''/);
 		assert.match(launchScript, /'--no-extensions' '-e' '.*\/tools\/subagent-done\.ts'/);
-		assert.equal(launchScript.match(/'--tools' '([^']+)'/)?.[1], "read,grep,caller_ping,subagent_done");
+		assert.equal(
+			launchScript.match(/'--tools' '([^']+)'/)?.[1],
+			"read,grep,caller_ping,subagent_done",
+		);
 		assert.equal(
 			launchScript.match(/'--exclude-tools' '([^']+)'/)?.[1],
 			"subagent,subagent_resume,subagent_kill,grep,set_tab_title",
@@ -601,7 +634,7 @@ describe("Herdr interactive launch parity", () => {
 } >> "${childLogFile}"
 `,
 		);
-		process.env.PI_SUBAGENT_PI_COMMAND = fakePi;
+		process.env.PI_SUBAGENT_PI_COMMAND = fakePiCommand(fakePi);
 
 		const running = await launchBackgroundSubagent(
 			{

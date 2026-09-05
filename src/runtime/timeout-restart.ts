@@ -1,5 +1,9 @@
 import type { RunningSubagent } from "../types.ts";
-import { checkSubagentTimeout, getSubagentHardDeadlineAt, type ExpiredTimeoutBudget } from "./timeout-budget.ts";
+import {
+	checkSubagentTimeout,
+	type ExpiredTimeoutBudget,
+	getSubagentHardDeadlineAt,
+} from "./timeout-budget.ts";
 
 export type TimeoutRestartOutcome =
 	| { kind: "started" }
@@ -29,11 +33,15 @@ export async function startTimeoutWrapUpWithinDeadline(
 		const delay = hardDeadlineAt - Date.now();
 		if (delay <= 0) {
 			deadlineReached = true;
-			restartAbort.abort(new Error("The original sub-agent hard deadline was reached during wrap-up restart."));
+			restartAbort.abort(
+				new Error("The original sub-agent hard deadline was reached during wrap-up restart."),
+			);
 		} else {
 			deadlineTimer = setTimeout(() => {
 				deadlineReached = true;
-				restartAbort.abort(new Error("The original sub-agent hard deadline was reached during wrap-up restart."));
+				restartAbort.abort(
+					new Error("The original sub-agent hard deadline was reached during wrap-up restart."),
+				);
 			}, delay);
 			deadlineTimer.unref?.();
 		}
@@ -51,7 +59,9 @@ export async function startTimeoutWrapUpWithinDeadline(
 		}
 		const expiry = checkSubagentTimeout(
 			running,
-			deadlineReached && hardDeadlineAt !== undefined ? Math.max(Date.now(), hardDeadlineAt) : Date.now(),
+			deadlineReached && hardDeadlineAt !== undefined
+				? Math.max(Date.now(), hardDeadlineAt)
+				: Date.now(),
 		);
 		if (deadlineReached || expiry) {
 			const resolvedExpiry = expiry ?? checkSubagentTimeout(running, hardDeadlineAt ?? Date.now());

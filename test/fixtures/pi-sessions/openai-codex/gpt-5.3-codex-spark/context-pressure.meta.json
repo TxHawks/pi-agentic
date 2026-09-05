@@ -1,0 +1,32 @@
+{
+	"scenario": "context-pressure",
+	"source": "recorded",
+	"format": "Pi SessionManager JSONL (not stdout events)",
+	"piVersion": "0.85.0",
+	"requestedModel": "gpt-5.3-codex-spark",
+	"model": "openai-codex/gpt-5.3-codex-spark",
+	"recordedAt": "2026-09-05T12:05:42.002Z",
+	"recorder": "scripts/record-pi-session-fixtures.mjs",
+	"rawSessionSha256": "2bd695d4964b87d0c88acfafbbbf8fe66971562cae290f24fd3aee697e2c4094",
+	"transforms": [],
+	"fixtureExtension": {
+		"origin": "scripts/record-pi-session-fixtures.mjs",
+		"sha256": "ce3855a1a03fdaa9bfca34442f612ea365955bc188612515c808d3446cf5f930",
+		"callerPing": "Temporary tool; records real model arguments and allows a final reply.",
+		"completionMarker": "Temporary extension calls pi.appendEntry after agent_settled.",
+		"contextPressureForced": true
+	},
+	"providerExtensions": [],
+	"localProviderError": null,
+	"evidence": {
+		"model": "openai-codex/gpt-5.3-codex-spark",
+		"api": "openai-codex-responses",
+		"assistantCount": 1,
+		"outputTokens": [58],
+		"totalOutputTokens": 58,
+		"pingArguments": [],
+		"completionReasons": ["context-pressure"],
+		"terminalStopReason": "stop",
+		"terminalError": null
+	}
+}

@@ -18,7 +18,12 @@ export interface ZellijPaneSnapshot {
 }
 
 export type ZellijSplitDirection = "down" | "right";
-export type ZellijPlacementPolicy = "auto" | "right-stack" | "down-stack" | "floating" | "tab-stack";
+export type ZellijPlacementPolicy =
+	| "auto"
+	| "right-stack"
+	| "down-stack"
+	| "floating"
+	| "tab-stack";
 
 export interface ZellijPlacementContext {
 	groupKey: string;
@@ -98,7 +103,11 @@ export function selectLiveOwnedZellijAnchor(
 ): ZellijPaneSnapshot | null {
 	for (const paneId of ownedPaneIds) {
 		const pane = panes.find((candidate) => candidate.id === paneId);
-		if (pane && isUsableZellijTiledPane(pane) && (expectedTabId === undefined || pane.tab_id === expectedTabId)) {
+		if (
+			pane &&
+			isUsableZellijTiledPane(pane) &&
+			(expectedTabId === undefined || pane.tab_id === expectedTabId)
+		) {
 			return pane;
 		}
 	}
@@ -119,7 +128,11 @@ export function selectZellijFirstPlacement(
 		return { mode: "floating", parentPaneId, tabId: parentPane.tab_id };
 	}
 	const direction =
-		policy === "right-stack" ? "right" : policy === "down-stack" ? "down" : predictZellijSplitDirection(parentPane);
+		policy === "right-stack"
+			? "right"
+			: policy === "down-stack"
+				? "down"
+				: predictZellijSplitDirection(parentPane);
 	if (direction && canSplitZellijPaneInDirection(parentPane, direction, minColumns, minRows)) {
 		return {
 			mode: "split",

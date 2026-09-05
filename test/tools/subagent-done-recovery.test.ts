@@ -1,4 +1,5 @@
 import { mock } from "node:test";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
 	assert,
 	clearPublishedRunningSubagentCountForTest,
@@ -6,10 +7,10 @@ import {
 	describe,
 	it,
 	join,
+	publishRunningSubagentCountForTest,
 	readFileSync,
 	resetSubagentStateForTest,
 	rmSync,
-	publishRunningSubagentCountForTest,
 	sleep,
 	subagentDoneExtension,
 	writeFileSync,
@@ -22,8 +23,8 @@ describe("subagent-done.ts", () => {
 		// (message_end resetting the failure chain), not in the isolated controller,
 		// so controller-only tests could not catch it. These can.
 		function loadRecoveryChild(options: { interactive?: boolean } = {}) {
-			const handlers = new Map<string, any>();
-			const commands = new Map<string, any>();
+			const handlers = new Map<string, (...args: unknown[]) => unknown>();
+			const commands = new Map<string, Parameters<ExtensionAPI["registerCommand"]>[1]>();
 			const sentMessages: string[] = [];
 			const sentMessageOptions: unknown[] = [];
 			const statusUpdates: Array<{ key: string; text: string | undefined }> = [];
@@ -39,17 +40,17 @@ describe("subagent-done.ts", () => {
 			else delete process.env.PI_SUBAGENT_SURFACE;
 			process.env.PI_SUBAGENT_PROVIDER_RECOVERY_DELAYS_MS = "10,20,30";
 
-			subagentDoneExtension({
+			const pi = {
 				getAllTools: () => [],
 				getActiveTools: () => [],
 				setActiveTools() {},
-				registerTool(definition: { name: string }) {
+				registerTool(definition: Parameters<ExtensionAPI["registerTool"]>[0]) {
 					return definition;
 				},
-				registerCommand(name: string, definition: unknown) {
+				registerCommand(name: string, definition: Parameters<ExtensionAPI["registerCommand"]>[1]) {
 					commands.set(name, definition);
 				},
-				on(event: string, handler: any) {
+				on(event: string, handler: (...args: unknown[]) => unknown) {
 					handlers.set(event, handler);
 				},
 				sendUserMessage(message: string, options?: unknown) {
@@ -57,7 +58,9 @@ describe("subagent-done.ts", () => {
 					sentMessageOptions.push(options);
 				},
 				registerShortcut() {},
-			} as any);
+			};
+			// @ts-expect-error This fake Pi API supplies only the methods used by the child extension.
+			subagentDoneExtension(pi);
 
 			const ctx = {
 				isIdle: () => {
@@ -120,7 +123,10 @@ describe("subagent-done.ts", () => {
 				h.ctx,
 			);
 		}
-		function beginOverflowCompaction(h: ReturnType<typeof loadRecoveryChild>, signal = new AbortController().signal) {
+		function beginOverflowCompaction(
+			h: ReturnType<typeof loadRecoveryChild>,
+			signal = new AbortController().signal,
+		) {
 			h.handlers.get("session_before_compact")?.({
 				type: "session_before_compact",
 				reason: "overflow",
@@ -286,7 +292,10 @@ describe("subagent-done.ts", () => {
 			mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
 			const h = loadRecoveryChild();
 			try {
-				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "tooluse" }] }, h.ctx);
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "tooluse" }] },
+					h.ctx,
+				);
 
 				assert.deepEqual(h.sentMessages, ["continue"]);
 				assert.deepEqual(h.sentMessageOptions, [{ deliverAs: "steer" }]);
@@ -329,7 +338,10 @@ describe("subagent-done.ts", () => {
 					},
 					isError: false,
 				});
-				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
+					h.ctx,
+				);
 				mock.timers.tick(0);
 
 				assert.deepEqual(h.sentMessages, []);
@@ -356,7 +368,10 @@ describe("subagent-done.ts", () => {
 					},
 					isError: false,
 				});
-				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
+					h.ctx,
+				);
 				mock.timers.tick(0);
 
 				assert.deepEqual(h.sentMessages, []);
@@ -380,7 +395,10 @@ describe("subagent-done.ts", () => {
 					result: { content: [{ type: "text", text: "resumed" }], terminate: true },
 					isError: false,
 				});
-				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
+					h.ctx,
+				);
 				mock.timers.tick(0);
 
 				assert.equal(h.shutdowns, 0);
@@ -403,11 +421,18 @@ describe("subagent-done.ts", () => {
 					result: { content: [{ type: "text", text: "started" }], terminate: true },
 					isError: false,
 				});
-				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
+					h.ctx,
+				);
 
 				h.handlers.get("turn_start")?.({ type: "turn_start", turnIndex: 1 });
 				h.handlers.get("agent_end")?.(
-					{ messages: [{ role: "assistant", stopReason: "stop", content: [{ type: "text", text: "final" }] }] },
+					{
+						messages: [
+							{ role: "assistant", stopReason: "stop", content: [{ type: "text", text: "final" }] },
+						],
+					},
 					h.ctx,
 				);
 				mock.timers.tick(0);
@@ -432,7 +457,10 @@ describe("subagent-done.ts", () => {
 					result: { content: [{ type: "text", text: "started" }], terminate: true },
 					isError: false,
 				});
-				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
+					h.ctx,
+				);
 
 				h.handlers.get("turn_start")?.({ type: "turn_start", turnIndex: 1 });
 				h.handlers.get("tool_execution_end")?.({
@@ -442,7 +470,10 @@ describe("subagent-done.ts", () => {
 					result: { content: [{ type: "text", text: "done" }], terminate: true },
 					isError: false,
 				});
-				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
+					h.ctx,
+				);
 				mock.timers.tick(0);
 
 				assert.equal(h.shutdowns, 1);
@@ -472,7 +503,10 @@ describe("subagent-done.ts", () => {
 					result: { content: [{ type: "text", text: "done" }] },
 					isError: false,
 				});
-				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
+					h.ctx,
+				);
 
 				assert.deepEqual(h.sentMessages, ["continue"]);
 				assert.equal(h.shutdowns, 0);
@@ -491,7 +525,15 @@ describe("subagent-done.ts", () => {
 
 				h.handlers.get("turn_start")?.({ type: "turn_start", turnIndex: 1 });
 				h.handlers.get("agent_end")?.(
-					{ messages: [{ role: "assistant", stopReason: "stop", content: [{ type: "text", text: "first result" }] }] },
+					{
+						messages: [
+							{
+								role: "assistant",
+								stopReason: "stop",
+								content: [{ type: "text", text: "first result" }],
+							},
+						],
+					},
 					h.ctx,
 				);
 				mock.timers.tick(0);
@@ -512,13 +554,22 @@ describe("subagent-done.ts", () => {
 
 				h.handlers.get("agent_start")?.({ type: "agent_start" });
 				h.handlers.get("input")?.({ source: "interactive", streamingBehavior: "steer" }, h.ctx);
-				await h.commands.get("auto-exit")?.handler({}, h.ctx);
+				// @ts-expect-error This command test only needs the fake UI context.
+				await h.commands.get("auto-exit")?.handler("", h.ctx);
 
 				h.handlers.get("input")?.({ source: "extension", streamingBehavior: "steer" }, h.ctx);
 				h.handlers.get("agent_start")?.({ type: "agent_start" });
 				h.handlers.get("turn_start")?.({ type: "turn_start", turnIndex: 1 });
 				h.handlers.get("agent_end")?.(
-					{ messages: [{ role: "assistant", stopReason: "stop", content: [{ type: "text", text: "first child" }] }] },
+					{
+						messages: [
+							{
+								role: "assistant",
+								stopReason: "stop",
+								content: [{ type: "text", text: "first child" }],
+							},
+						],
+					},
 					h.ctx,
 				);
 				mock.timers.tick(0);
@@ -530,7 +581,15 @@ describe("subagent-done.ts", () => {
 				h.handlers.get("agent_start")?.({ type: "agent_start" });
 				h.handlers.get("turn_start")?.({ type: "turn_start", turnIndex: 2 });
 				h.handlers.get("agent_end")?.(
-					{ messages: [{ role: "assistant", stopReason: "stop", content: [{ type: "text", text: "last child" }] }] },
+					{
+						messages: [
+							{
+								role: "assistant",
+								stopReason: "stop",
+								content: [{ type: "text", text: "last child" }],
+							},
+						],
+					},
 					h.ctx,
 				);
 				mock.timers.tick(0);
@@ -548,7 +607,10 @@ describe("subagent-done.ts", () => {
 			const h = loadRecoveryChild();
 			try {
 				for (let attempt = 0; attempt < 3; attempt++) {
-					h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+					h.handlers.get("agent_end")?.(
+						{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
+						h.ctx,
+					);
 				}
 				mock.timers.tick(0);
 
@@ -569,7 +631,10 @@ describe("subagent-done.ts", () => {
 			const h = loadRecoveryChild();
 			try {
 				for (let attempt = 0; attempt < 2; attempt++) {
-					h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+					h.handlers.get("agent_end")?.(
+						{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
+						h.ctx,
+					);
 					h.handlers.get("agent_end")?.(
 						{
 							messages: [
@@ -585,7 +650,10 @@ describe("subagent-done.ts", () => {
 					mock.timers.tick(10_000);
 				}
 
-				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "toolUse" }] }, h.ctx);
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "toolUse" }] },
+					h.ctx,
+				);
 				mock.timers.tick(0);
 
 				assert.equal(h.shutdowns, 1);

@@ -4,7 +4,10 @@ import { EventEmitter } from "node:events";
 import { appendFileSync } from "node:fs";
 import { watchBackgroundSubagent } from "../../src/runtime/background-watch.ts";
 import { stopRunningSubagent } from "../../src/runtime/running-registry.ts";
-import { hasSubagentExitSidecar, writeSubagentExitSidecar } from "../../src/session/exit-sidecar.ts";
+import {
+	hasSubagentExitSidecar,
+	writeSubagentExitSidecar,
+} from "../../src/session/exit-sidecar.ts";
 import { readSubagentTimeoutSidecar } from "../../src/session/timeout-sidecar.ts";
 import type { RunningSubagent, SubagentTimeoutBudget } from "../../src/types.ts";
 import {
@@ -31,8 +34,9 @@ const spawnedGroups: number[] = [];
 function spawnDetachedGroup(): number {
 	const proc = spawn("sleep", ["30"], { detached: true, stdio: "ignore" });
 	proc.unref();
-	spawnedGroups.push(proc.pid!);
-	return proc.pid!;
+	assert.ok(proc.pid);
+	spawnedGroups.push(proc.pid);
+	return proc.pid;
 }
 
 function spawnLeaderWithStubbornDescendant(): ChildProcess {
@@ -47,7 +51,8 @@ setInterval(() => {}, 1000);`,
 		],
 		{ detached: true, stdio: "ignore" },
 	);
-	spawnedGroups.push(proc.pid!);
+	assert.ok(proc.pid);
+	spawnedGroups.push(proc.pid);
 	return proc;
 }
 
@@ -77,7 +82,10 @@ function settleWithin<T>(promise: Promise<T>, ms: number, label: string): Promis
 	return Promise.race([
 		promise,
 		new Promise<never>((_resolve, reject) => {
-			const timer = setTimeout(() => reject(new Error(`watcher did not settle within ${ms}ms: ${label}`)), ms);
+			const timer = setTimeout(
+				() => reject(new Error(`watcher did not settle within ${ms}ms: ${label}`)),
+				ms,
+			);
 			timer.unref?.();
 		}),
 	]);
@@ -239,7 +247,12 @@ describe("background watcher timeout budgets", () => {
 	it("records the resume block the agent asked for", async () => {
 		const sessionFile = makeSession();
 		const child = new EventEmitter() as ChildProcess;
-		const running = makeRunning(sessionFile, child, { timeoutSeconds: 1 }, { timeoutBlocksResume: true });
+		const running = makeRunning(
+			sessionFile,
+			child,
+			{ timeoutSeconds: 1 },
+			{ timeoutBlocksResume: true },
+		);
 
 		const result = await watchBackgroundSubagent(
 			running,
@@ -262,7 +275,9 @@ describe("background watcher timeout budgets", () => {
 
 		const result = await watchBackgroundSubagent(
 			running,
-			makeRuntime([], child, sessionFile, { sidecar: { type: "ping", name: "child", message: "stuck" } }),
+			makeRuntime([], child, sessionFile, {
+				sidecar: { type: "ping", name: "child", message: "stuck" },
+			}),
 			new AbortController().signal,
 		);
 
@@ -335,10 +350,18 @@ describe("background watcher timeout budgets", () => {
 		// Parent-written user messages, including a wrap-up prompt, are not child
 		// progress. Counting one would buy a silent child a fresh full interval.
 		await sleep(1200);
-		appendRuntimeSteer(sessionFile, "warn", "You have produced no output for 1s of your 2s idle budget.");
+		appendRuntimeSteer(
+			sessionFile,
+			"warn",
+			"You have produced no output for 1s of your 2s idle budget.",
+		);
 		await sleep(1400);
 
-		assert.deepEqual(signals, ["SIGTERM"], "the parent prompt must not buy the child a second budget");
+		assert.deepEqual(
+			signals,
+			["SIGTERM"],
+			"the parent prompt must not buy the child a second budget",
+		);
 		const result = await settleWithin(resultPromise, 5000, "warned idle child");
 		assert.equal(result.timedOut, "idle-timeout");
 	});
@@ -349,12 +372,9 @@ describe("background watcher timeout budgets", () => {
 		const wrapUpChild = new EventEmitter() as ChildProcess;
 		const signals: Array<NodeJS.Signals> = [];
 		let restarts = 0;
-		const running = makeRunning(
-			sessionFile,
-			firstChild,
-			{ timeoutSeconds: 2 },
-			{ timeoutWarnThreshold: 50 } as Partial<RunningSubagent>,
-		);
+		const running = makeRunning(sessionFile, firstChild, { timeoutSeconds: 2 }, {
+			timeoutWarnThreshold: 50,
+		} as Partial<RunningSubagent>);
 
 		const result = await settleWithin(
 			watchBackgroundSubagent(
@@ -363,7 +383,11 @@ describe("background watcher timeout budgets", () => {
 					async restartForTimeoutWrapUp(current) {
 						restarts += 1;
 						current.childProcess = wrapUpChild;
-						appendAssistantEntry(sessionFile, "wrap-up", "Reported the committed work after interruption.");
+						appendAssistantEntry(
+							sessionFile,
+							"wrap-up",
+							"Reported the committed work after interruption.",
+						);
 						writeSubagentExitSidecar(sessionFile, { type: "done" });
 						setTimeout(() => wrapUpChild.emit("exit", 0), 50);
 					},
@@ -379,19 +403,19 @@ describe("background watcher timeout budgets", () => {
 		assert.equal(result.timedOut, undefined);
 		assert.deepEqual(result.timeoutWrapUp, { kind: "timeout", seconds: 2, threshold: 50 });
 		assert.match(result.summary, /Reported the committed work after interruption/);
-		assert.ok(result.elapsed < 2, "the wrap-up must use the original deadline rather than receive a fresh budget");
+		assert.ok(
+			result.elapsed < 2,
+			"the wrap-up must use the original deadline rather than receive a fresh budget",
+		);
 	});
 
 	it("honors a short soft deadline before the hard timeout", async () => {
 		const sessionFile = makeSession();
 		const firstChild = new EventEmitter() as ChildProcess;
 		const wrapUpChild = new EventEmitter() as ChildProcess;
-		const running = makeRunning(
-			sessionFile,
-			firstChild,
-			{ timeoutSeconds: 1 },
-			{ timeoutWarnThreshold: 50 } as Partial<RunningSubagent>,
-		);
+		const running = makeRunning(sessionFile, firstChild, { timeoutSeconds: 1 }, {
+			timeoutWarnThreshold: 50,
+		} as Partial<RunningSubagent>);
 
 		const result = await settleWithin(
 			watchBackgroundSubagent(
@@ -417,16 +441,14 @@ describe("background watcher timeout budgets", () => {
 	it("does not restart until the interrupted process group is fully gone", async () => {
 		const sessionFile = makeSession();
 		const firstChild = spawnLeaderWithStubbornDescendant();
-		const firstPid = firstChild.pid!;
+		assert.ok(firstChild.pid);
+		const firstPid = firstChild.pid;
 		const wrapUpChild = new EventEmitter() as ChildProcess;
 		const signals: Array<NodeJS.Signals> = [];
 		let groupAliveAtRestart = true;
-		const running = makeRunning(
-			sessionFile,
-			firstChild,
-			{ timeoutSeconds: 2 },
-			{ timeoutWarnThreshold: 50 } as Partial<RunningSubagent>,
-		);
+		const running = makeRunning(sessionFile, firstChild, { timeoutSeconds: 2 }, {
+			timeoutWarnThreshold: 50,
+		} as Partial<RunningSubagent>);
 
 		const result = await settleWithin(
 			watchBackgroundSubagent(
@@ -455,7 +477,11 @@ describe("background watcher timeout budgets", () => {
 		);
 
 		assert.deepEqual(signals, ["SIGTERM", "SIGKILL"]);
-		assert.equal(groupAliveAtRestart, false, "the replacement must not overlap a stubborn old descendant");
+		assert.equal(
+			groupAliveAtRestart,
+			false,
+			"the replacement must not overlap a stubborn old descendant",
+		);
 		assert.equal(result.timedOut, undefined);
 	});
 
@@ -464,12 +490,9 @@ describe("background watcher timeout budgets", () => {
 		const firstChild = new EventEmitter() as ChildProcess;
 		const wrapUpChild = new EventEmitter() as ChildProcess;
 		const signals: Array<NodeJS.Signals> = [];
-		const running = makeRunning(
-			sessionFile,
-			firstChild,
-			{ timeoutSeconds: 2 },
-			{ timeoutWarnThreshold: 50 } as Partial<RunningSubagent>,
-		);
+		const running = makeRunning(sessionFile, firstChild, { timeoutSeconds: 2 }, {
+			timeoutWarnThreshold: 50,
+		} as Partial<RunningSubagent>);
 
 		const result = await settleWithin(
 			watchBackgroundSubagent(
@@ -500,7 +523,10 @@ describe("background watcher timeout budgets", () => {
 
 		assert.equal(result.timedOut, "timeout");
 		assert.equal(result.timedOutAfter, 2);
-		assert.ok(signals.length >= 2, "the late replacement must be terminated rather than reported as success");
+		assert.ok(
+			signals.length >= 2,
+			"the late replacement must be terminated rather than reported as success",
+		);
 	});
 
 	it("cancels a replacement created after manual stop during restart", async () => {
@@ -513,12 +539,10 @@ describe("background watcher timeout budgets", () => {
 		const entered = new Promise<void>((resolve) => {
 			restartEntered = resolve;
 		});
-		const running = makeRunning(
-			sessionFile,
-			firstChild,
-			{ timeoutSeconds: 4 },
-			{ timeoutWarnThreshold: 25, abortController: controller } as Partial<RunningSubagent>,
-		);
+		const running = makeRunning(sessionFile, firstChild, { timeoutSeconds: 4 }, {
+			timeoutWarnThreshold: 25,
+			abortController: controller,
+		} as Partial<RunningSubagent>);
 
 		const resultPromise = watchBackgroundSubagent(
 			running,
@@ -537,7 +561,11 @@ describe("background watcher timeout budgets", () => {
 					restartEntered();
 					await sleep(100);
 					current.childProcess = wrapUpChild;
-					appendAssistantEntry(sessionFile, "cancelled-wrap-up", "Must not be reported as complete.");
+					appendAssistantEntry(
+						sessionFile,
+						"cancelled-wrap-up",
+						"Must not be reported as complete.",
+					);
 					setTimeout(() => wrapUpChild.emit("exit", 0), 20);
 				},
 			},
@@ -594,7 +622,11 @@ describe("background watcher timeout budgets", () => {
 		assert.equal(result.timedOut, "timeout");
 		assert.equal(result.sessionFile, undefined);
 		assert.equal(readSubagentTimeoutSidecar(sessionFile), null);
-		assert.equal(hasSubagentExitSidecar(sessionFile), false, "an ephemeral child must leave no sidecar residue");
+		assert.equal(
+			hasSubagentExitSidecar(sessionFile),
+			false,
+			"an ephemeral child must leave no sidecar residue",
+		);
 	});
 
 	it("escalates to SIGKILL when the child ignores the first signal", async () => {
@@ -614,8 +646,9 @@ describe("background watcher timeout budgets", () => {
 				terminateBackgroundChildProcess(_running: RunningSubagent, signal: NodeJS.Signals) {
 					signals.push(signal);
 					if (signal === "SIGKILL") {
+						assert.ok(child.pid);
 						try {
-							process.kill(-child.pid!, signal);
+							process.kill(-child.pid, signal);
 						} catch {}
 					}
 				},
@@ -649,8 +682,9 @@ describe("background watcher timeout budgets", () => {
 					// running after publishing it must still be reaped.
 					if (signal === "SIGTERM") writeSubagentExitSidecar(sessionFile, { type: "done" });
 					if (signal === "SIGKILL") {
+						assert.ok(child.pid);
 						try {
-							process.kill(-child.pid!, signal);
+							process.kill(-child.pid, signal);
 						} catch {}
 					}
 				},

@@ -15,7 +15,15 @@
  * with terminate:undefined and the parent continues running.
  */
 import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+	copyFileSync,
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import process from "node:process";
@@ -97,7 +105,9 @@ function getToolResults(events, toolName) {
 	return events
 		.filter(
 			(event) =>
-				event.type === "message" && event.message?.role === "toolResult" && event.message.toolName === toolName,
+				event.type === "message" &&
+				event.message?.role === "toolResult" &&
+				event.message.toolName === toolName,
 		)
 		.map((event) => event.message);
 }
@@ -180,8 +190,14 @@ try {
 	const enabledSubagentResults = getToolResults(enabledSession.events, "subagent");
 	const enabledBashResults = getToolResults(enabledSession.events, "bash");
 
-	assert(enabledSubagentResults.length === 1, `Expected 1 subagent result, got ${enabledSubagentResults.length}`);
-	assert(enabledBashResults.length === 1, `Expected 1 bash result, got ${enabledBashResults.length}`);
+	assert(
+		enabledSubagentResults.length === 1,
+		`Expected 1 subagent result, got ${enabledSubagentResults.length}`,
+	);
+	assert(
+		enabledBashResults.length === 1,
+		`Expected 1 bash result, got ${enabledBashResults.length}`,
+	);
 
 	// With coordinator-only-turn enabled, the message_end classifier marks
 	// the mixed batch blocking. The subagent tool awaits, returns a
@@ -210,8 +226,14 @@ try {
 	const disabledSubagentResults = getToolResults(disabledSession.events, "subagent");
 	const disabledBashResults = getToolResults(disabledSession.events, "bash");
 
-	assert(disabledSubagentResults.length === 1, `Expected 1 subagent result, got ${disabledSubagentResults.length}`);
-	assert(disabledBashResults.length === 1, `Expected 1 bash result, got ${disabledBashResults.length}`);
+	assert(
+		disabledSubagentResults.length === 1,
+		`Expected 1 subagent result, got ${disabledSubagentResults.length}`,
+	);
+	assert(
+		disabledBashResults.length === 1,
+		`Expected 1 bash result, got ${disabledBashResults.length}`,
+	);
 
 	// pi -p forces synchronous subagent launches regardless of frontmatter
 	// (see shouldForceSynchronousLaunch). The live mixed-batch script can only

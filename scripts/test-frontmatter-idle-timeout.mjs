@@ -88,17 +88,25 @@ try {
 	if (!killedDetails) throw new Error("Could not find the subagent result for fm-idle-child.");
 
 	if (killedDetails.timedOut !== "idle-timeout") {
-		throw new Error(`Expected details.timedOut === "idle-timeout", got ${JSON.stringify(killedDetails.timedOut)}.`);
+		throw new Error(
+			`Expected details.timedOut === "idle-timeout", got ${JSON.stringify(killedDetails.timedOut)}.`,
+		);
 	}
 	if (killedDetails.timedOutAfter !== 12) {
-		throw new Error(`Expected details.timedOutAfter === 12, got ${JSON.stringify(killedDetails.timedOutAfter)}.`);
+		throw new Error(
+			`Expected details.timedOutAfter === 12, got ${JSON.stringify(killedDetails.timedOutAfter)}.`,
+		);
 	}
 	if (typeof killedDetails.elapsed !== "number" || killedDetails.elapsed > 90) {
 		throw new Error(`Child elapsed ${killedDetails.elapsed}s is far past a 12s idle budget.`);
 	}
 
 	const killedText = getAllSubagentText(parent.events);
-	if (!/stopped producing output, so the system stopped it after .*limit of 12s without output/s.test(killedText)) {
+	if (
+		!/stopped producing output, so the system stopped it after .*limit of 12s without output/s.test(
+			killedText,
+		)
+	) {
 		console.log(`Parent-visible text: ${JSON.stringify(killedText)}`);
 		throw new Error("Parent was not told the child was stopped on its no-output limit.");
 	}
@@ -112,7 +120,9 @@ try {
 	}
 	const verdict = readTimeoutSidecar(killedDetails.sessionFile);
 	if (verdict?.kind !== "idle-timeout") {
-		throw new Error(`Expected an idle-timeout verdict beside the child session, got ${JSON.stringify(verdict)}.`);
+		throw new Error(
+			`Expected an idle-timeout verdict beside the child session, got ${JSON.stringify(verdict)}.`,
+		);
 	}
 
 	const busyDetails = findSubagentChild(parent.events, "fm-idle-busy-child");

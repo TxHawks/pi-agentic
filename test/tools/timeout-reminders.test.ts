@@ -1,13 +1,13 @@
 import {
 	formatTimeoutWarning,
 	installSubagentTimeoutReminders,
-	parseTimeoutSeconds,
-	parseTimeoutWarnThreshold,
 	PI_SUBAGENT_IDLE_TIMEOUT,
 	PI_SUBAGENT_TIMEOUT,
 	PI_SUBAGENT_TIMEOUT_STARTED_AT,
-	PI_SUBAGENT_TIMEOUT_WRAP_UP,
 	PI_SUBAGENT_TIMEOUT_WARN_THRESHOLD,
+	PI_SUBAGENT_TIMEOUT_WRAP_UP,
+	parseTimeoutSeconds,
+	parseTimeoutWarnThreshold,
 } from "../../src/tools/timeout-reminders.ts";
 import { afterEach, assert, describe, it, sleep } from "../support/index.ts";
 
@@ -25,13 +25,13 @@ function clearTimeoutEnv(): void {
 
 interface FakePi {
 	sent: string[];
-	handlers: Map<string, Array<(...args: any[]) => unknown>>;
+	handlers: Map<string, Array<(...args: unknown[]) => unknown>>;
 	sendUserMessage(message: string, options?: unknown): void;
-	on(event: string, handler: (...args: any[]) => unknown): void;
+	on(event: string, handler: (...args: unknown[]) => unknown): void;
 }
 
 function makeFakePi(): FakePi {
-	const handlers = new Map<string, Array<(...args: any[]) => unknown>>();
+	const handlers = new Map<string, Array<(...args: unknown[]) => unknown>>();
 	return {
 		sent: [],
 		handlers,
@@ -105,7 +105,10 @@ describe("timeout warning text", () => {
 
 	it("states time spent and time left for the idle budget", () => {
 		const text = formatTimeoutWarning("idle-timeout", 300, 240);
-		assert.match(text, /Idle limit: you have produced no output for 240s, and your limit is 300s without output/);
+		assert.match(
+			text,
+			/Idle limit: you have produced no output for 240s, and your limit is 300s without output/,
+		);
 		assert.match(text, /Output means a message from you or a completed tool result/);
 		assert.match(text, /long tool call counts as silence/i);
 		assert.match(text, /About 60s remain/);
@@ -123,7 +126,8 @@ describe("timeout reminder installation", () => {
 		clearTimeoutEnv();
 		process.env[PI_SUBAGENT_TIMEOUT] = "1";
 		const pi = makeFakePi();
-		installSubagentTimeoutReminders(pi as never);
+		// @ts-expect-error This fake Pi API only supplies the methods used by timeout reminders.
+		installSubagentTimeoutReminders(pi);
 		await sleep(300);
 		assert.deepEqual(pi.sent, []);
 		assert.equal(pi.handlers.size, 0);
@@ -133,7 +137,8 @@ describe("timeout reminder installation", () => {
 		clearTimeoutEnv();
 		process.env[PI_SUBAGENT_TIMEOUT_WARN_THRESHOLD] = "80%";
 		const pi = makeFakePi();
-		installSubagentTimeoutReminders(pi as never);
+		// @ts-expect-error This fake Pi API only supplies the methods used by timeout reminders.
+		installSubagentTimeoutReminders(pi);
 		await sleep(300);
 		assert.deepEqual(pi.sent, []);
 	});
@@ -145,14 +150,21 @@ describe("timeout reminder installation", () => {
 		const startedAt = Date.now() - 900;
 		process.env[PI_SUBAGENT_TIMEOUT_STARTED_AT] = String(startedAt);
 		const pi = makeFakePi();
-		installSubagentTimeoutReminders(pi as never);
+		// @ts-expect-error This fake Pi API only supplies the methods used by timeout reminders.
+		installSubagentTimeoutReminders(pi);
 
 		const handler = pi.handlers.get("before_agent_start")?.[0];
 		assert.ok(handler, "the child must know its clock before it starts work");
 		const result = (await handler({ systemPrompt: "base" }, {})) as { systemPrompt?: string };
-		assert.match(result.systemPrompt ?? "", new RegExp(new Date(startedAt).toISOString().slice(0, 19)));
+		assert.match(
+			result.systemPrompt ?? "",
+			new RegExp(new Date(startedAt).toISOString().slice(0, 19)),
+		);
 		assert.match(result.systemPrompt ?? "", /process restart.*will not reset/i);
-		assert.match(result.systemPrompt ?? "", /conversation inherited or forked.*consumed zero seconds/i);
+		assert.match(
+			result.systemPrompt ?? "",
+			/conversation inherited or forked.*consumed zero seconds/i,
+		);
 		assert.match(result.systemPrompt ?? "", /parent runtime will interrupt.*50%/i);
 		assert.deepEqual(pi.sent, []);
 	});
@@ -162,10 +174,15 @@ describe("timeout reminder installation", () => {
 		process.env[PI_SUBAGENT_TIMEOUT_WARN_THRESHOLD] = "50%";
 		process.env[PI_SUBAGENT_IDLE_TIMEOUT] = "1";
 		const pi = makeFakePi();
-		installSubagentTimeoutReminders(pi as never);
+		// @ts-expect-error This fake Pi API only supplies the methods used by timeout reminders.
+		installSubagentTimeoutReminders(pi);
 
 		await sleep(700);
-		assert.deepEqual(pi.sent, [], "the parent-owned deadline must not be blocked by this event loop");
+		assert.deepEqual(
+			pi.sent,
+			[],
+			"the parent-owned deadline must not be blocked by this event loop",
+		);
 	});
 
 	it("blocks new tools in a forced wrap-up continuation", async () => {
@@ -174,7 +191,8 @@ describe("timeout reminder installation", () => {
 		process.env[PI_SUBAGENT_TIMEOUT] = "1";
 		process.env[PI_SUBAGENT_TIMEOUT_WRAP_UP] = "1";
 		const pi = makeFakePi();
-		installSubagentTimeoutReminders(pi as never);
+		// @ts-expect-error This fake Pi API only supplies the methods used by timeout reminders.
+		installSubagentTimeoutReminders(pi);
 
 		const handler = pi.handlers.get("tool_call")?.[0];
 		assert.ok(handler, "wrap-up mode must install a tool gate");

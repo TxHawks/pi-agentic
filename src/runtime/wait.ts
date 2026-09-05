@@ -12,7 +12,10 @@ export interface WaitRuntime {
 	runningSubagents: Map<string, RunningSubagent>;
 	completedSubagentResults: Map<string, CompletedSubagentResult>;
 	findTrackedSubagent(query: string): TrackedSubagentMatch;
-	cacheCompletedSubagentResult(running: RunningSubagent, result: SubagentResult): CompletedSubagentResult;
+	cacheCompletedSubagentResult(
+		running: RunningSubagent,
+		result: SubagentResult,
+	): CompletedSubagentResult;
 	updateWidget(): void;
 	deliverCompletedSubagentResultViaSteer(
 		pi: Pick<ExtensionAPI, "sendMessage">,

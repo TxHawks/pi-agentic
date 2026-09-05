@@ -266,7 +266,17 @@ function readSnapshot(agentName) {
 try {
 	execFileSync(
 		piBin,
-		["-p", "--model", LIVE_TEST_MODEL, "--no-extensions", "-e", extensionSource, "--session-dir", sessionDir, prompt],
+		[
+			"-p",
+			"--model",
+			LIVE_TEST_MODEL,
+			"--no-extensions",
+			"-e",
+			extensionSource,
+			"--session-dir",
+			sessionDir,
+			prompt,
+		],
 		{
 			cwd: repoRoot,
 			encoding: "utf8",
@@ -324,7 +334,9 @@ try {
 	const managedDetails = byName.get("live-managed-child");
 	const gitDetails = byName.get("live-git-child");
 	if (!defaultDetails || !allowDetails || !managedDetails || !gitDetails) {
-		throw new Error(`Missing expected child results. Names seen: ${JSON.stringify([...byName.keys()])}`);
+		throw new Error(
+			`Missing expected child results. Names seen: ${JSON.stringify([...byName.keys()])}`,
+		);
 	}
 
 	const defaultEvents = parseJsonl(defaultDetails.sessionFile);
@@ -342,7 +354,9 @@ try {
 	}
 	if (
 		!getToolResults(managedEvents, "managed_probe_tool").some((message) =>
-			message.content?.some((part) => part.type === "text" && part.text.includes("MANAGED_PACKAGE_VERSION_9.9.9")),
+			message.content?.some(
+				(part) => part.type === "text" && part.text.includes("MANAGED_PACKAGE_VERSION_9.9.9"),
+			),
 		)
 	) {
 		throw new Error("Managed child did not execute the configured managed package tool.");
@@ -351,30 +365,50 @@ try {
 		throw new Error("Git child did not produce LIVE_EXT_GIT_OK.");
 	}
 	if (!getToolResults(gitEvents, "visual_explainer").some((message) => message.isError !== true)) {
-		throw new Error("Git child did not successfully execute visual_explainer from the managed checkout.");
+		throw new Error(
+			"Git child did not successfully execute visual_explainer from the managed checkout.",
+		);
 	}
-	const gitExtensionEntry = JSON.parse(readFileSync(`${gitDetails.sessionFile}.ext`, "utf8").trim());
+	const gitExtensionEntry = JSON.parse(
+		readFileSync(`${gitDetails.sessionFile}.ext`, "utf8").trim(),
+	);
 	if (!gitExtensionEntry.extensions?.includes(managedGitRoot)) {
-		throw new Error(`Git child did not persist the managed checkout path. Entry: ${JSON.stringify(gitExtensionEntry)}`);
+		throw new Error(
+			`Git child did not persist the managed checkout path. Entry: ${JSON.stringify(gitExtensionEntry)}`,
+		);
 	}
 
 	const defaultSnapshot = readSnapshot("live-e2e-ext-default");
 	const allowSnapshot = readSnapshot("live-e2e-ext-allow");
 
-	if (!defaultSnapshot.all?.includes("allowed_probe_tool") || !defaultSnapshot.all?.includes("blocked_probe_tool")) {
-		throw new Error(`Default child did not load all probe extensions. Snapshot: ${JSON.stringify(defaultSnapshot)}`);
+	if (
+		!defaultSnapshot.all?.includes("allowed_probe_tool") ||
+		!defaultSnapshot.all?.includes("blocked_probe_tool")
+	) {
+		throw new Error(
+			`Default child did not load all probe extensions. Snapshot: ${JSON.stringify(defaultSnapshot)}`,
+		);
 	}
 	if (
 		!defaultSnapshot.active?.includes("allowed_probe_tool") ||
 		!defaultSnapshot.active?.includes("blocked_probe_tool")
 	) {
-		throw new Error(`Default child did not keep both probe tools active. Snapshot: ${JSON.stringify(defaultSnapshot)}`);
+		throw new Error(
+			`Default child did not keep both probe tools active. Snapshot: ${JSON.stringify(defaultSnapshot)}`,
+		);
 	}
 	if (!allowSnapshot.all?.includes("allowed_probe_tool")) {
-		throw new Error(`Allowlist child did not load allowed_probe_tool. Snapshot: ${JSON.stringify(allowSnapshot)}`);
+		throw new Error(
+			`Allowlist child did not load allowed_probe_tool. Snapshot: ${JSON.stringify(allowSnapshot)}`,
+		);
 	}
-	if (allowSnapshot.all?.includes("blocked_probe_tool") || allowSnapshot.active?.includes("blocked_probe_tool")) {
-		throw new Error(`Allowlist child still loaded blocked_probe_tool. Snapshot: ${JSON.stringify(allowSnapshot)}`);
+	if (
+		allowSnapshot.all?.includes("blocked_probe_tool") ||
+		allowSnapshot.active?.includes("blocked_probe_tool")
+	) {
+		throw new Error(
+			`Allowlist child still loaded blocked_probe_tool. Snapshot: ${JSON.stringify(allowSnapshot)}`,
+		);
 	}
 	console.log(
 		`live extensions ok: unrestricted child loaded both probe tools, allowlisted child loaded only allowed_probe_tool, configured npm allowlist reused ${managedPackageRoot}, configured Git allowlist reused ${managedGitRoot} (${defaultDetails.id}, ${allowDetails.id}, ${managedDetails.id}, ${gitDetails.id})`,

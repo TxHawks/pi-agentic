@@ -1,19 +1,30 @@
+import assert from "node:assert/strict";
 import { existsSync, statSync } from "node:fs";
 import { getTerminalAssistantSummary, shouldReapStableTerminalSummary } from "../agents/titles.ts";
 import { consumeSubagentExitSignal } from "../mux.ts";
 import { hasSubagentExitSidecar } from "../session/exit-sidecar.ts";
-import { findLastSubagentOutputWithSource, getEntries, getEntryCount, getNewEntries } from "../session/session.ts";
+import {
+	findLastSubagentOutputWithSource,
+	getEntries,
+	getEntryCount,
+	getNewEntries,
+} from "../session/session.ts";
 import { writeSubagentTimeoutSidecar } from "../session/timeout-sidecar.ts";
-import type { RunningSubagent, SessionEntryLike, SubagentResult, SubagentSummarySource } from "../types.ts";
+import type {
+	RunningSubagent,
+	SessionEntryLike,
+	SubagentResult,
+	SubagentSummarySource,
+} from "../types.ts";
 import { resolveFinalContextUsage } from "./final-context-usage.ts";
 import {
-	TIMEOUT_KILL_ESCALATION_MS,
 	checkSubagentTimeout,
 	checkSubagentTimeoutWrapUp,
 	type ExpiredTimeoutBudget,
 	getSubagentNextDeadlineAt,
 	hasChildProgress,
 	observeSubagentProgress,
+	TIMEOUT_KILL_ESCALATION_MS,
 } from "./timeout-budget.ts";
 import { startTimeoutWrapUpWithinDeadline } from "./timeout-restart.ts";
 
@@ -31,24 +42,14 @@ export interface BackgroundWatchOptions {
 type BackgroundGenerationOutcome = { kind: "restart" } | { kind: "result"; result: SubagentResult };
 
 function terminateChildProcessGroup(running: RunningSubagent, signal: NodeJS.Signals): void {
-	const child = running.childProcess!;
+	const child = running.childProcess;
+	assert.ok(child, "A background run must have a child process.");
 	if (!child.pid) return;
 	try {
 		process.kill(-child.pid, signal);
 	} catch {
 		child.kill(signal);
 	}
-}
-
-/**
- * True while any process in the child's group still exists.
- *
- * The group, not the leader: a leader can exit while the descendants it
- * spawned keep running, and those are the processes still burning the budget.
- */
-function isChildProcessGroupAlive(running: RunningSubagent): boolean {
-	const pid = running.childProcess?.pid;
-	return pid ? isProcessGroupAlive(pid) : false;
 }
 
 function isProcessGroupAlive(pid: number): boolean {
@@ -184,7 +185,8 @@ function watchBackgroundGeneration(
 	signal: AbortSignal,
 	options: BackgroundWatchOptions,
 ): Promise<BackgroundGenerationOutcome> {
-	const child = running.childProcess!;
+	const child = running.childProcess;
+	assert.ok(child, "A background run must have a child process.");
 	const processGroupPid = child.pid;
 	const terminalGraceMs = 1000;
 	const killEscalationMs = options.timeoutKillEscalationMs ?? TIMEOUT_KILL_ESCALATION_MS;
@@ -248,7 +250,8 @@ function watchBackgroundGeneration(
 			if (!due || running.timeoutWrapUpMode) return false;
 			if (hasSubagentExitSidecar(running.sessionFile)) return false;
 			running.timeoutWrapUp = due;
-			const baseline = due.kind === "timeout" ? running.startTime : (running.lastProgressAt ?? running.startTime);
+			const baseline =
+				due.kind === "timeout" ? running.startTime : (running.lastProgressAt ?? running.startTime);
 			running.timeoutWrapUpDeadlineAt = baseline + due.seconds * 1000;
 			beginKill();
 			return true;
@@ -266,7 +269,9 @@ function watchBackgroundGeneration(
 				const previousEntries = running.entries ?? 0;
 				const entries = getEntryCount(running.sessionFile);
 				const produced =
-					entries > previousEntries ? hasChildProgress(getNewEntries(running.sessionFile, previousEntries)) : false;
+					entries > previousEntries
+						? hasChildProgress(getNewEntries(running.sessionFile, previousEntries))
+						: false;
 				observeSubagentProgress(running, stat.size, now, produced);
 				running.entries = entries;
 				return !running.noSession || running.timeoutWarnThreshold !== undefined;
@@ -282,13 +287,16 @@ function watchBackgroundGeneration(
 				deadlineTimer = undefined;
 				return;
 			}
-			deadlineTimer = setTimeout(() => {
-				deadlineTimer = undefined;
-				const now = Date.now();
-				observeSession(now);
-				checkTimeoutDeadlines(now);
-				armDeadlineTimer();
-			}, Math.max(1, deadlineAt - Date.now()));
+			deadlineTimer = setTimeout(
+				() => {
+					deadlineTimer = undefined;
+					const now = Date.now();
+					observeSession(now);
+					checkTimeoutDeadlines(now);
+					armDeadlineTimer();
+				},
+				Math.max(1, deadlineAt - Date.now()),
+			);
 			deadlineTimer.unref?.();
 		};
 
@@ -302,7 +310,9 @@ function watchBackgroundGeneration(
 			try {
 				if (!shouldReapStableTerminalSummary(running)) return;
 				const summary = getTerminalAssistantSummary(
-					(getEntries(running.sessionFile) as SessionEntryLike[]).slice(running.launchEntryCount ?? 0),
+					(getEntries(running.sessionFile) as SessionEntryLike[]).slice(
+						running.launchEntryCount ?? 0,
+					),
 				);
 				if (!summary) {
 					terminalSummary = null;
@@ -344,17 +354,21 @@ function watchBackgroundGeneration(
 			const elapsed = Math.floor((Date.now() - running.startTime) / 1000);
 			// A ping is child-initiated and asks the parent for help, so it still
 			// outranks the kill. A `done` at this point does not: see above.
-			const timedOut = running.timeoutExpiry && exitSignal?.reason !== "ping" ? running.timeoutExpiry : undefined;
+			const timedOut =
+				running.timeoutExpiry && exitSignal?.reason !== "ping" ? running.timeoutExpiry : undefined;
 			// A child shut down by the runtime often exits cleanly. Reporting that
 			// as exit 0 would file a killed runaway as a success.
-			const exitCode = timedOut ? (code || 1) : (exitSignal?.exitCode ?? code ?? 1);
+			const exitCode = timedOut ? code || 1 : (exitSignal?.exitCode ?? code ?? 1);
 			const errorMessage = exitSignal?.reason === "error" ? exitSignal.errorMessage : undefined;
 			const finalContextUsage = resolveFinalContextUsage(running, exitSignal);
 			const stderr = running.stderrTail?.trim();
 			const stdout = running.stdoutTail?.trim();
 			let summary = `Background agent exited with code ${exitCode}`;
 			let summarySource: SubagentSummarySource = "runtime";
-			if ((!running.noSession || running.timeoutWarnThreshold !== undefined) && existsSync(running.sessionFile)) {
+			if (
+				(!running.noSession || running.timeoutWarnThreshold !== undefined) &&
+				existsSync(running.sessionFile)
+			) {
 				const allEntries = getNewEntries(running.sessionFile, running.launchEntryCount ?? 0);
 				const output = findLastSubagentOutputWithSource(allEntries);
 				if (output) {
@@ -385,25 +399,25 @@ function watchBackgroundGeneration(
 			finish({
 				kind: "result",
 				result: {
-				name: running.name,
-				task: running.task,
-				summary,
-				summarySource,
-				sessionFile: running.noSession ? undefined : running.sessionFile,
-				exitCode,
-				elapsed,
-				outputTokens: exitSignal?.outputTokens,
-				...finalContextUsage,
-				...(timedOut
-					? {
-							timedOut: timedOut.kind,
-							timedOutAfter: timedOut.seconds,
-							...(running.timeoutBlocksResume === true ? { timeoutBlocksResume: true } : {}),
-						}
-					: {}),
-				...(running.timeoutWrapUp ? { timeoutWrapUp: running.timeoutWrapUp } : {}),
-				ping: exitSignal?.ping,
-				errorMessage,
+					name: running.name,
+					task: running.task,
+					summary,
+					summarySource,
+					sessionFile: running.noSession ? undefined : running.sessionFile,
+					exitCode,
+					elapsed,
+					outputTokens: exitSignal?.outputTokens,
+					...finalContextUsage,
+					...(timedOut
+						? {
+								timedOut: timedOut.kind,
+								timedOutAfter: timedOut.seconds,
+								...(running.timeoutBlocksResume === true ? { timeoutBlocksResume: true } : {}),
+							}
+						: {}),
+					...(running.timeoutWrapUp ? { timeoutWrapUp: running.timeoutWrapUp } : {}),
+					ping: exitSignal?.ping,
+					errorMessage,
 				},
 			});
 		};
@@ -417,7 +431,7 @@ function watchBackgroundGeneration(
 				if (!groupExitPoll) {
 					groupExitPoll = setInterval(() => {
 						if (isProcessGroupAlive(processGroupPid)) return;
-						clearInterval(groupExitPoll!);
+						clearInterval(groupExitPoll);
 						groupExitPoll = undefined;
 						finalizeExit(code, exitSignal);
 					}, 25);
@@ -428,22 +442,27 @@ function watchBackgroundGeneration(
 			finalizeExit(code, exitSignal);
 		};
 		const onError = (error: Error) => {
-			if (running.timeoutWrapUp && !running.timeoutWrapUpMode && !running.timeoutExpiry && !signal.aborted) {
+			if (
+				running.timeoutWrapUp &&
+				!running.timeoutWrapUpMode &&
+				!running.timeoutExpiry &&
+				!signal.aborted
+			) {
 				finish({ kind: "restart" });
 				return;
 			}
 			finish({
 				kind: "result",
 				result: {
-				name: running.name,
-				task: running.task,
-				summary: `Background agent failed to start: ${error.message}`,
-				summarySource: "runtime",
-				sessionFile: running.noSession ? undefined : running.sessionFile,
-				exitCode: 1,
-				elapsed: Math.floor((Date.now() - running.startTime) / 1000),
-				error: error.message,
-				...(running.timeoutWrapUp ? { timeoutWrapUp: running.timeoutWrapUp } : {}),
+					name: running.name,
+					task: running.task,
+					summary: `Background agent failed to start: ${error.message}`,
+					summarySource: "runtime",
+					sessionFile: running.noSession ? undefined : running.sessionFile,
+					exitCode: 1,
+					elapsed: Math.floor((Date.now() - running.startTime) / 1000),
+					error: error.message,
+					...(running.timeoutWrapUp ? { timeoutWrapUp: running.timeoutWrapUp } : {}),
 				},
 			});
 		};

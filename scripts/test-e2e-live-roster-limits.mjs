@@ -99,11 +99,20 @@ try {
 	const roster = findRosterContent(ctx1.sessionDir);
 	check("run 1: ambient roster message present in parent session", roster !== null);
 	if (roster) {
-		const limitedBlock = roster.slice(roster.indexOf("`smoke-limited`"), roster.indexOf("`smoke-plain`"));
-		const plainBlock = roster.slice(roster.indexOf("`smoke-plain`"), roster.indexOf("</subagent-roster>"));
+		const limitedBlock = roster.slice(
+			roster.indexOf("`smoke-limited`"),
+			roster.indexOf("`smoke-plain`"),
+		);
+		const plainBlock = roster.slice(
+			roster.indexOf("`smoke-plain`"),
+			roster.indexOf("</subagent-roster>"),
+		);
 		check("run 1: limited agent shows timeout: 15m", limitedBlock.includes("timeout: 15m"));
 		check("run 1: limited agent shows idle-timeout: 3m", limitedBlock.includes("idle-timeout: 3m"));
-		check("run 1: limited agent shows context-warn: 80%", limitedBlock.includes("context-warn: 80%"));
+		check(
+			"run 1: limited agent shows context-warn: 80%",
+			limitedBlock.includes("context-warn: 80%"),
+		);
 		check(
 			"run 1: limited agent shows report-context-usage: false",
 			limitedBlock.includes("report-context-usage: false"),
@@ -121,7 +130,9 @@ try {
 			"run 1: rules warn a forked context-warn agent starts with a partly full window",
 			roster.includes("already using part of its window"),
 		);
-		const plainHasLimits = /timeout:|idle-timeout:|context-warn:|report-context-usage:/.test(plainBlock);
+		const plainHasLimits = /timeout:|idle-timeout:|context-warn:|report-context-usage:/.test(
+			plainBlock,
+		);
 		check("run 1: plain agent carries no limit lines", !plainHasLimits);
 	}
 } finally {

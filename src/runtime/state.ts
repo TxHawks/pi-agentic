@@ -1,6 +1,11 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 import { getSubagentTerminalStopReason } from "../session/session.ts";
-import type { CompletedSubagentResult, RunningSubagent, SubagentCompletionStatus, SubagentResult } from "../types.ts";
+import type {
+	CompletedSubagentResult,
+	RunningSubagent,
+	SubagentCompletionStatus,
+	SubagentResult,
+} from "../types.ts";
 import { releaseSpawnWidthSlot, resetSpawnWidthForTest } from "./spawn-width.ts";
 import { SubagentWidgetManager } from "./widget.ts";
 
@@ -27,14 +32,21 @@ function getSubagentCompletionStatus(
 	// non-zero status; if the child already produced a real final assistant message
 	// and the watcher did not hit an error path, that close is a successful operator
 	// close rather than a crash.
-	if (running?.mode === "interactive" && running.autoExit === false && !result.error && hasRealSubagentOutput(result)) {
+	if (
+		running?.mode === "interactive" &&
+		running.autoExit === false &&
+		!result.error &&
+		hasRealSubagentOutput(result)
+	) {
 		return "completed";
 	}
 	return "failed";
 }
 
 /** True when the summary came from the child rather than runtime diagnostics. */
-export function hasRealSubagentOutput(result: Pick<SubagentResult, "summary" | "summarySource">): boolean {
+export function hasRealSubagentOutput(
+	result: Pick<SubagentResult, "summary" | "summarySource">,
+): boolean {
 	return result.summarySource !== "runtime" && result.summary.trim() !== "";
 }
 
@@ -136,17 +148,24 @@ export function getCoordinatorOnlyTurnPrompt(): string {
 }
 
 export function getSubagentBatchStopMetadata(): { terminate?: true } {
-	return stopAfterCurrentSubagentBatch && !currentSubagentBatchHasBlocking ? { terminate: true } : {};
+	return stopAfterCurrentSubagentBatch && !currentSubagentBatchHasBlocking
+		? { terminate: true }
+		: {};
 }
 
-export function withSubagentBatchStop<T extends AgentToolResult<unknown>>(result: T): T & { terminate?: true } {
+export function withSubagentBatchStop<T extends AgentToolResult<unknown>>(
+	result: T,
+): T & { terminate?: true } {
 	return {
 		...result,
 		...getSubagentBatchStopMetadata(),
 	};
 }
 
-export function getWatcherSignal(_running: RunningSubagent, watcherAbort: AbortController): AbortSignal {
+export function getWatcherSignal(
+	_running: RunningSubagent,
+	watcherAbort: AbortController,
+): AbortSignal {
 	return watcherAbort.signal;
 }
 

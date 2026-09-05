@@ -1,3 +1,4 @@
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
 	assert,
 	createTestDir,
@@ -23,22 +24,9 @@ import {
 //   - an idle prompt starts a FRESH run (runAgentLoopContinue -> new agent_start)
 //   - Escape (agent.abort) fires NO input event; it is observed at agent_end.
 
-interface Harness {
-	handlers: Map<string, any>;
-	commands: Map<string, any>;
-	notifies: { msg: string; tone?: string }[];
-	statusSets: { key: string; msg?: string }[];
-	ctx: () => any;
-	sessionFile: string;
-	shutdowns: () => number;
-	disabledNotifies: () => { msg: string; tone?: string }[];
-	sidecarExists: () => boolean;
-	restore: () => void;
-}
-
-function buildAutoExitHarness(opts: { interactive?: boolean } = {}): Harness {
-	const handlers = new Map<string, any>();
-	const commands = new Map<string, any>();
+function buildAutoExitHarness(opts: { interactive?: boolean } = {}) {
+	const handlers = new Map<string, (...args: unknown[]) => unknown>();
+	const commands = new Map<string, Parameters<ExtensionAPI["registerCommand"]>[1]>();
 	const dir = createTestDir();
 	const sessionFile = join(dir, "child.jsonl");
 	writeFileSync(sessionFile, "");
@@ -54,21 +42,23 @@ function buildAutoExitHarness(opts: { interactive?: boolean } = {}): Harness {
 	const statusSets: { key: string; msg?: string }[] = [];
 	let shutdowns = 0;
 
-	subagentDoneExtension({
+	const pi = {
 		getAllTools: () => [],
 		getActiveTools: () => [],
 		setActiveTools() {},
-		registerTool(definition: { name: string }) {
+		registerTool(definition: Parameters<ExtensionAPI["registerTool"]>[0]) {
 			return definition;
 		},
-		on(event: string, handler: any) {
+		on(event: string, handler: (...args: unknown[]) => unknown) {
 			handlers.set(event, handler);
 		},
 		registerShortcut() {},
-		registerCommand(name: string, def: any) {
+		registerCommand(name: string, def: Parameters<ExtensionAPI["registerCommand"]>[1]) {
 			commands.set(name, def);
 		},
-	} as any);
+	};
+	// @ts-expect-error This fake Pi API supplies only the methods used by the child extension.
+	subagentDoneExtension(pi);
 
 	const ctx = () => ({
 		shutdown() {
@@ -121,13 +111,19 @@ describe("auto-exit operator-takeover notification", () => {
 		try {
 			// Escape disables auto-exit first (notifies once, session stays open).
 			h.handlers.get("agent_start")?.({});
-			h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "aborted" }] }, h.ctx());
+			h.handlers.get("agent_end")?.(
+				{ messages: [{ role: "assistant", stopReason: "aborted" }] },
+				h.ctx(),
+			);
 			// Idle operator input (no streamingBehavior) starts a fresh run via
 			// runAgentLoopContinue. The takeover episode was already announced, so
 			// this input must not emit the same warning again.
 			h.handlers.get("input")?.({ source: "interactive" }, h.ctx());
 			h.handlers.get("agent_start")?.({});
-			h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "stop" }] }, h.ctx());
+			h.handlers.get("agent_end")?.(
+				{ messages: [{ role: "assistant", stopReason: "stop" }] },
+				h.ctx(),
+			);
 			await sleep(0);
 			assert.equal(h.disabledNotifies().length, 1, "idle input after disable must not spam");
 			assert.equal(h.sidecarExists(), false, "session stays open");
@@ -144,8 +140,17 @@ describe("auto-exit operator-takeover notification", () => {
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());
 			await sleep(0);
-			assert.equal(h.disabledNotifies().length, 1, "repeat input while already disabled must not spam");
-			assert.equal(h.statusSets.filter((s) => s.msg === "Auto-exit disabled — close manually or /auto-exit to re-enable").length, 1);
+			assert.equal(
+				h.disabledNotifies().length,
+				1,
+				"repeat input while already disabled must not spam",
+			);
+			assert.equal(
+				h.statusSets.filter(
+					(s) => s.msg === "Auto-exit disabled — close manually or /auto-exit to re-enable",
+				).length,
+				1,
+			);
 		} finally {
 			h.restore();
 		}
@@ -159,7 +164,10 @@ describe("auto-exit operator-takeover notification", () => {
 			// agent_start), so the input-time notify must not double up with any
 			// agent_end branch.
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());
-			h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "stop" }] }, h.ctx());
+			h.handlers.get("agent_end")?.(
+				{ messages: [{ role: "assistant", stopReason: "stop" }] },
+				h.ctx(),
+			);
 			await sleep(0);
 			assert.equal(h.disabledNotifies().length, 1, "steer notifies once, not twice");
 			assert.equal(h.sidecarExists(), false);
@@ -173,13 +181,19 @@ describe("auto-exit operator-takeover notification", () => {
 		try {
 			h.handlers.get("agent_start")?.({});
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx()); // disables + notifies
-			await h.commands.get("auto-exit").handler({}, h.ctx()); // re-arm
+			const autoExit = h.commands.get("auto-exit");
+			assert.ok(autoExit);
+			// @ts-expect-error This command test only needs the fake UI context.
+			await autoExit.handler("", h.ctx()); // re-arm
 			const before = h.disabledNotifies().length;
 			// The input that consumes the re-arm is the granted "free" input; it must
 			// NOT notify, and the next normal completion auto-exits.
 			h.handlers.get("input")?.({ source: "interactive" }, h.ctx());
 			h.handlers.get("agent_start")?.({});
-			h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "stop" }] }, h.ctx());
+			h.handlers.get("agent_end")?.(
+				{ messages: [{ role: "assistant", stopReason: "stop" }] },
+				h.ctx(),
+			);
 			await sleep(0);
 			assert.equal(h.disabledNotifies().length, before, "re-arm-consuming input must not notify");
 			assert.equal(h.sidecarExists(), true, "re-arm lets the next completion auto-exit");
@@ -196,9 +210,16 @@ describe("auto-exit operator-takeover notification", () => {
 			// Extension recovery nudge: source "extension" is not operator input.
 			h.handlers.get("agent_start")?.({});
 			h.handlers.get("input")?.({ source: "extension", streamingBehavior: "steer" }, h.ctx());
-			h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "stop" }] }, h.ctx());
+			h.handlers.get("agent_end")?.(
+				{ messages: [{ role: "assistant", stopReason: "stop" }] },
+				h.ctx(),
+			);
 			await sleep(0);
-			assert.equal(h.disabledNotifies().length, 0, "initial task and extension nudges must not notify or disable");
+			assert.equal(
+				h.disabledNotifies().length,
+				0,
+				"initial task and extension nudges must not notify or disable",
+			);
 			assert.equal(h.sidecarExists(), true, "auto-exit proceeds normally");
 		} finally {
 			h.restore();
@@ -210,11 +231,18 @@ describe("auto-exit operator-takeover notification", () => {
 		try {
 			h.handlers.get("agent_start")?.({});
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());
-			h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "stop" }] }, h.ctx());
+			h.handlers.get("agent_end")?.(
+				{ messages: [{ role: "assistant", stopReason: "stop" }] },
+				h.ctx(),
+			);
 			await sleep(0);
 			assert.equal(h.notifies.length, 0, "background child never notifies");
 			assert.equal(h.statusSets.length, 0, "background child never sets status");
-			assert.equal(h.sidecarExists(), false, "operator input still disables auto-exit (stays open)");
+			assert.equal(
+				h.sidecarExists(),
+				false,
+				"operator input still disables auto-exit (stays open)",
+			);
 		} finally {
 			h.restore();
 		}
@@ -233,7 +261,10 @@ describe("auto-exit operator-takeover notification", () => {
 			await sleep(0);
 			assert.equal(h.disabledNotifies().length, 1);
 			// Operator re-arms /auto-exit mid-stream.
-			await h.commands.get("auto-exit").handler({}, h.ctx());
+			const autoExit = h.commands.get("auto-exit");
+			assert.ok(autoExit);
+			// @ts-expect-error This command test only needs the fake UI context.
+			await autoExit.handler("", h.ctx());
 			// The queued steer drains as the next input, consuming the one-shot
 			// re-arm. Pi fires agent_start for the new run before the input, and the
 			// model turn then begins with turn_start.
@@ -241,9 +272,16 @@ describe("auto-exit operator-takeover notification", () => {
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());
 			h.handlers.get("turn_start")?.({});
 			// The new turn completes normally: the re-arm must now actually fire.
-			h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "stop" }] }, h.ctx());
+			h.handlers.get("agent_end")?.(
+				{ messages: [{ role: "assistant", stopReason: "stop" }] },
+				h.ctx(),
+			);
 			await sleep(0);
-			assert.equal(h.sidecarExists(), true, "re-armed auto-exit must engage after the consumed-steer completion");
+			assert.equal(
+				h.sidecarExists(),
+				true,
+				"re-armed auto-exit must engage after the consumed-steer completion",
+			);
 			assert.equal(h.shutdowns(), 1, "re-armed auto-exit must shut the child down");
 		} finally {
 			h.restore();
@@ -259,13 +297,23 @@ describe("auto-exit operator-takeover notification", () => {
 			h.handlers.get("agent_start")?.({});
 			h.handlers.get("turn_start")?.({});
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());
-			await h.commands.get("auto-exit").handler({}, h.ctx());
+			const autoExit = h.commands.get("auto-exit");
+			assert.ok(autoExit);
+			// @ts-expect-error This command test only needs the fake UI context.
+			await autoExit.handler("", h.ctx());
 			h.handlers.get("agent_start")?.({});
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());
 			// No turn_start: the answer completes without tools.
-			h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "stop" }] }, h.ctx());
+			h.handlers.get("agent_end")?.(
+				{ messages: [{ role: "assistant", stopReason: "stop" }] },
+				h.ctx(),
+			);
 			await sleep(0);
-			assert.equal(h.sidecarExists(), true, "re-armed auto-exit engages on the first clean completion");
+			assert.equal(
+				h.sidecarExists(),
+				true,
+				"re-armed auto-exit engages on the first clean completion",
+			);
 		} finally {
 			h.restore();
 		}
@@ -278,7 +326,10 @@ describe("auto-exit operator-takeover notification", () => {
 			{ name: "steer then re-arm", inputs: [{ streamingBehavior: "steer" }] },
 			{ name: "follow-up then re-arm", inputs: [{ streamingBehavior: "followUp" }] },
 			{ name: "idle prompt then re-arm", inputs: [{ source: "interactive" }] },
-			{ name: "steer then follow-up then re-arm", inputs: [{ streamingBehavior: "steer" }, { streamingBehavior: "followUp" }] },
+			{
+				name: "steer then follow-up then re-arm",
+				inputs: [{ streamingBehavior: "steer" }, { streamingBehavior: "followUp" }],
+			},
 		];
 
 		for (const c of cases) {
@@ -290,10 +341,16 @@ describe("auto-exit operator-takeover notification", () => {
 				}
 				await sleep(0);
 				assert.equal(h.disabledNotifies().length, 1, `${c.name}: input must disable auto-exit`);
-				await h.commands.get("auto-exit").handler({}, h.ctx());
+				const autoExit = h.commands.get("auto-exit");
+				assert.ok(autoExit);
+				// @ts-expect-error This command test only needs the fake UI context.
+				await autoExit.handler("", h.ctx());
 				h.handlers.get("agent_start")?.({});
 				h.handlers.get("turn_start")?.({});
-				h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "stop" }] }, h.ctx());
+				h.handlers.get("agent_end")?.(
+					{ messages: [{ role: "assistant", stopReason: "stop" }] },
+					h.ctx(),
+				);
 				await sleep(0);
 				assert.equal(h.sidecarExists(), true, `${c.name}: re-arm must auto-exit`);
 			} finally {
@@ -311,12 +368,18 @@ describe("auto-exit operator-takeover notification", () => {
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());
 			await sleep(0);
 			assert.equal(h.disabledNotifies().length, 1);
-			await h.commands.get("auto-exit").handler({}, h.ctx());
+			const autoExit = h.commands.get("auto-exit");
+			assert.ok(autoExit);
+			// @ts-expect-error This command test only needs the fake UI context.
+			await autoExit.handler("", h.ctx());
 			h.handlers.get("agent_start")?.({});
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());
 			h.handlers.get("input")?.({ streamingBehavior: "steer" }, h.ctx());
 			h.handlers.get("turn_start")?.({});
-			h.handlers.get("agent_end")?.({ messages: [{ role: "assistant", stopReason: "stop" }] }, h.ctx());
+			h.handlers.get("agent_end")?.(
+				{ messages: [{ role: "assistant", stopReason: "stop" }] },
+				h.ctx(),
+			);
 			await sleep(0);
 			assert.equal(h.sidecarExists(), true, "re-arm must survive multiple queued inputs");
 		} finally {

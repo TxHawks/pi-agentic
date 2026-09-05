@@ -48,9 +48,12 @@ function herdrResult(operation, args) {
 	try {
 		envelope = JSON.parse(output);
 	} catch (error) {
-		throw new Error(`herdr ${operation} returned invalid JSON: ${error instanceof Error ? error.message : error}`);
+		throw new Error(
+			`herdr ${operation} returned invalid JSON: ${error instanceof Error ? error.message : error}`,
+		);
 	}
-	if (envelope?.error) throw new Error(`herdr ${operation} failed: ${JSON.stringify(envelope.error)}`);
+	if (envelope?.error)
+		throw new Error(`herdr ${operation} failed: ${JSON.stringify(envelope.error)}`);
 	if (!envelope?.result || typeof envelope.result !== "object") {
 		throw new Error(`herdr ${operation} returned no result`);
 	}
@@ -153,7 +156,9 @@ function getSubagentResult(events) {
 	return events
 		.filter(
 			(event) =>
-				event.type === "message" && event.message?.role === "toolResult" && event.message.toolName === "subagent",
+				event.type === "message" &&
+				event.message?.role === "toolResult" &&
+				event.message.toolName === "subagent",
 		)
 		.map((event) => event.message)
 		.at(-1);
@@ -168,7 +173,17 @@ function paneMatches(pane, childName, agentName) {
 
 function getScreen(paneId) {
 	try {
-		return runHerdr(["pane", "read", paneId, "--source", "recent", "--lines", "100", "--format", "text"]);
+		return runHerdr([
+			"pane",
+			"read",
+			paneId,
+			"--source",
+			"recent",
+			"--lines",
+			"100",
+			"--format",
+			"text",
+		]);
 	} catch (error) {
 		return error instanceof Error ? error.message : String(error);
 	}
@@ -176,7 +191,10 @@ function getScreen(paneId) {
 
 function copyUserConfig(configDir) {
 	const configured = process.env.PI_CODING_AGENT_DIR;
-	const source = configured && existsSync(join(configured, "auth.json")) ? configured : join(homedir(), ".pi", "agent");
+	const source =
+		configured && existsSync(join(configured, "auth.json"))
+			? configured
+			: join(homedir(), ".pi", "agent");
 	for (const name of ["auth.json", "settings.json", "models.json", "mcp.json"]) {
 		if (existsSync(join(source, name))) copyFileSync(join(source, name), join(configDir, name));
 	}
@@ -190,7 +208,8 @@ function createContext() {
 	const sessionDir = join(tmpRoot, "sessions");
 	const snapshotsDir = join(tmpRoot, "snapshots");
 	const workDir = join(tmpRoot, "work");
-	for (const dir of [agentsDir, extensionsDir, sessionDir, snapshotsDir, workDir]) mkdirSync(dir, { recursive: true });
+	for (const dir of [agentsDir, extensionsDir, sessionDir, snapshotsDir, workDir])
+		mkdirSync(dir, { recursive: true });
 	copyUserConfig(configDir);
 	return { tmpRoot, configDir, agentsDir, extensionsDir, sessionDir, snapshotsDir, workDir };
 }
@@ -308,7 +327,12 @@ async function submitPrompt(ctx, parentPane, marker) {
 		while (Date.now() < settle) {
 			await sleep(POLL_MS);
 			const parent = findParentSession(ctx.sessionDir, marker);
-			if (parent?.events.some((event) => event.type === "message" && event.message?.role === "assistant")) return;
+			if (
+				parent?.events.some(
+					(event) => event.type === "message" && event.message?.role === "assistant",
+				)
+			)
+				return;
 		}
 	}
 	throw new Error("Parent never submitted the live prompt.");
@@ -337,7 +361,8 @@ async function runLive(ctx, model) {
 		]);
 		parentPane = created.root_pane?.pane_id ?? created.pane?.pane_id ?? "";
 		parentTab = created.tab?.tab_id ?? "";
-		if (!parentPane || !parentTab) throw new Error(`Herdr did not create the parent surface: ${JSON.stringify(created)}`);
+		if (!parentPane || !parentTab)
+			throw new Error(`Herdr did not create the parent surface: ${JSON.stringify(created)}`);
 
 		const command = buildParentCommand(ctx, model, join(ctx.tmpRoot, "trace.log"));
 		runHerdr(["pane", "run", parentPane, command]);
@@ -360,7 +385,11 @@ async function runLive(ctx, model) {
 			}
 			const parent = findParentSession(ctx.sessionDir, marker);
 			const result = parent ? getSubagentResult(parent.events) : undefined;
-			if (parent && result?.details?.status === "completed" && getAssistantTexts(parent.events).includes(marker)) {
+			if (
+				parent &&
+				result?.details?.status === "completed" &&
+				getAssistantTexts(parent.events).includes(marker)
+			) {
 				finalParent = parent;
 				finalResult = result;
 				break;
@@ -371,7 +400,9 @@ async function runLive(ctx, model) {
 			await sleep(POLL_MS);
 		}
 		if (!finalParent || !finalResult) {
-			throw new Error(`Timed out waiting for interactive wrap-up. Parent screen:\n${getScreen(parentPane)}`);
+			throw new Error(
+				`Timed out waiting for interactive wrap-up. Parent screen:\n${getScreen(parentPane)}`,
+			);
 		}
 
 		const details = finalResult.details;
@@ -383,16 +414,21 @@ async function runLive(ctx, model) {
 			details.timeoutWrapUp?.seconds !== 60 ||
 			details.timeoutWrapUp?.threshold !== 50
 		) {
-			throw new Error(`Missing interactive wrap-up metadata: ${JSON.stringify(details.timeoutWrapUp)}`);
+			throw new Error(
+				`Missing interactive wrap-up metadata: ${JSON.stringify(details.timeoutWrapUp)}`,
+			);
 		}
 		if (details.timedOut !== undefined || details.elapsed < 29 || details.elapsed >= 60) {
 			throw new Error(`Interactive wrap-up missed its original clock: ${JSON.stringify(details)}`);
 		}
 		if (observedChildPanes.size < 2) {
-			throw new Error(`Expected the blocked pane and a replacement wrap-up pane, observed ${[...observedChildPanes]}`);
+			throw new Error(
+				`Expected the blocked pane and a replacement wrap-up pane, observed ${[...observedChildPanes]}`,
+			);
 		}
 		const child = findChildSession(ctx.sessionDir, childName);
-		if (!child || child.file !== details.sessionFile) throw new Error("The replacement did not continue the same session.");
+		if (!child || child.file !== details.sessionFile)
+			throw new Error("The replacement did not continue the same session.");
 		const userText = getText(child.events, "user");
 		if (!userText.includes("interrupted your previous active operation")) {
 			throw new Error("The replacement pane never received the report-only prompt.");
@@ -401,14 +437,15 @@ async function runLive(ctx, model) {
 			throw new Error("The replacement pane produced no report.");
 		}
 		const toolCount = Number(readFileSync(join(ctx.snapshotsDir, "tool-count"), "utf8"));
-		if (toolCount !== 1) throw new Error(`The blocked tool executed ${toolCount} times instead of once.`);
+		if (toolCount !== 1)
+			throw new Error(`The blocked tool executed ${toolCount} times instead of once.`);
 		await sleep(1500);
 		if (listPanes().some((pane) => paneMatches(pane, childName, agentName))) {
 			throw new Error("A child pane remained after the report-only continuation completed.");
 		}
 		console.log(
 			`live Herdr timeout wrap-up ok: closed blocked pane, opened report pane, and completed in ${details.elapsed}s ` +
-			`inside the original 60s clock (${model})`,
+				`inside the original 60s clock (${model})`,
 		);
 	} finally {
 		sweepTabs(labels);
@@ -431,7 +468,8 @@ async function main() {
 		await runLive(ctx, process.env[LIVE_MODEL_ENV]);
 	} finally {
 		releaseLock();
-		if (process.env.PI_SUBAGENT_KEEP_E2E_TMP === "1") console.error(`kept temp dir: ${ctx.tmpRoot}`);
+		if (process.env.PI_SUBAGENT_KEEP_E2E_TMP === "1")
+			console.error(`kept temp dir: ${ctx.tmpRoot}`);
 		else rmSync(ctx.tmpRoot, { recursive: true, force: true });
 	}
 }

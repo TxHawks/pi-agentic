@@ -13,7 +13,9 @@ const CANDIDATE_ID = "sc-001";
 const CANDIDATE_TEXT =
 	"Refactored auth module — split JWT validation into separate middleware, added integration tests for token refresh.";
 
-function makeSummaryCandidate(overrides?: Partial<SummaryCandidateEventData>): SummaryCandidateEventData {
+function makeSummaryCandidate(
+	overrides?: Partial<SummaryCandidateEventData>,
+): SummaryCandidateEventData {
 	return {
 		event: "summary_candidate",
 		id: CANDIDATE_ID,
@@ -200,7 +202,9 @@ describe("ForkSessionManager", () => {
 		it("prefers stashed summary over in-flight when both exist (should not happen in practice)", () => {
 			// Edge case: after stashing, a new in-flight candidate arrives
 			// before fork_ready. The stash should still take priority.
-			manager.handleSummaryCandidate(makeSummaryCandidate({ id: CANDIDATE_ID, text: CANDIDATE_TEXT }));
+			manager.handleSummaryCandidate(
+				makeSummaryCandidate({ id: CANDIDATE_ID, text: CANDIDATE_TEXT }),
+			);
 			manager.handleContextPrune(makeContextPruneWithFork());
 			manager.handleSummaryCandidate(makeSummaryCandidate({ id: "sc-new", text: "Newer summary" }));
 
@@ -213,13 +217,17 @@ describe("ForkSessionManager", () => {
 
 		it("can replay multiple cycles of stash and fork_ready", () => {
 			// Cycle 1
-			manager.handleSummaryCandidate(makeSummaryCandidate({ id: "sc-cycle-1", text: "Cycle 1 summary" }));
+			manager.handleSummaryCandidate(
+				makeSummaryCandidate({ id: "sc-cycle-1", text: "Cycle 1 summary" }),
+			);
 			manager.handleContextPrune(makeContextPruneWithFork());
 			let payload = manager.handleForkReady(makeForkReady());
 			assert.equal(payload.stashedSummary, "Cycle 1 summary");
 
 			// Cycle 2 — second fork with a different candidate
-			manager.handleSummaryCandidate(makeSummaryCandidate({ id: "sc-cycle-2", text: "Cycle 2 summary" }));
+			manager.handleSummaryCandidate(
+				makeSummaryCandidate({ id: "sc-cycle-2", text: "Cycle 2 summary" }),
+			);
 			manager.handleContextPrune(makeContextPruneWithFork());
 			payload = manager.handleForkReady(makeForkReady());
 			assert.equal(payload.stashedSummary, "Cycle 2 summary");

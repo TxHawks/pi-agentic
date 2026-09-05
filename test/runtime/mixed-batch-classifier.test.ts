@@ -40,12 +40,14 @@ function loaderForAgent(defs: AgentDefaults | null) {
 	return (_agent: string | undefined): AgentDefaults | null => defs;
 }
 
-beforeEach(() => {
-	resetSubagentBatchStopRequest();
-	delete process.env.PI_SUBAGENT_DISABLE_COORDINATOR_ONLY_TURN;
-});
-
 describe("classifyAssistantMessageForMixedBatch", () => {
+	// Inside the describe so the hook scopes to this suite only; the shared
+	// test entry point runs every suite in one process.
+	beforeEach(() => {
+		resetSubagentBatchStopRequest();
+		delete process.env.PI_SUBAGENT_DISABLE_COORDINATOR_ONLY_TURN;
+	});
+
 	it("does not mark a pure async subagent batch as blocking", () => {
 		const msg = message(call("subagent", { agent: "scout" }));
 
@@ -82,7 +84,10 @@ describe("classifyAssistantMessageForMixedBatch", () => {
 	});
 
 	it("marks an async subagent_resume + bash batch as blocking", () => {
-		const msg = message(call("subagent_resume", { sessionFile: "/tmp/x.jsonl" }), call("bash", { command: "ls" }));
+		const msg = message(
+			call("subagent_resume", { sessionFile: "/tmp/x.jsonl" }),
+			call("bash", { command: "ls" }),
+		);
 
 		classifyAssistantMessageForMixedBatch(msg as never, loaderForAgent(null));
 
@@ -184,7 +189,10 @@ describe("classifyAssistantMessageForMixedBatch", () => {
 		// the parent to await — the original race condition does not apply
 		// because there is no side-effecting sibling competing for the
 		// parent's attention.
-		const msg = message(call("subagent", { agent: "scout" }), call("set_tab_title", { title: "Sticky test" }));
+		const msg = message(
+			call("subagent", { agent: "scout" }),
+			call("set_tab_title", { title: "Sticky test" }),
+		);
 
 		classifyAssistantMessageForMixedBatch(msg as never, loaderForAgent(asyncAgentDefs()));
 
@@ -194,7 +202,10 @@ describe("classifyAssistantMessageForMixedBatch", () => {
 	it("does not mark a subagent + subagent_kill batch as blocking", () => {
 		// subagent_kill is a pi-subagents-internal control tool. Same logic:
 		// no side-effecting sibling work, no race to prevent.
-		const msg = message(call("subagent", { agent: "scout" }), call("subagent_kill", { id: "child-1" }));
+		const msg = message(
+			call("subagent", { agent: "scout" }),
+			call("subagent_kill", { id: "child-1" }),
+		);
 
 		classifyAssistantMessageForMixedBatch(msg as never, loaderForAgent(asyncAgentDefs()));
 

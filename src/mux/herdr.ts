@@ -129,7 +129,11 @@ function parseHerdrJson(operation: string, output: string): unknown {
 	}
 }
 
-function formatHerdrApiError(operation: string, error: unknown, fallback: string): HerdrCommandError {
+function formatHerdrApiError(
+	operation: string,
+	error: unknown,
+	fallback: string,
+): HerdrCommandError {
 	if (!isRecord(error)) {
 		return new HerdrCommandError(operation, `Herdr ${operation} failed: ${fallback}`);
 	}
@@ -163,7 +167,9 @@ function runHerdrJson(operation: string, args: string[]): unknown {
 		parsed = parseHerdrJson(operation, output);
 	} catch (error) {
 		if (result.status && result.status !== 0) {
-			throw new Error(`Herdr ${operation} failed with exit code ${result.status}: ${trimForError(output)}`);
+			throw new Error(
+				`Herdr ${operation} failed with exit code ${result.status}: ${trimForError(output)}`,
+			);
 		}
 		throw error;
 	}
@@ -173,7 +179,9 @@ function runHerdrJson(operation: string, args: string[]): unknown {
 	}
 
 	if (result.status && result.status !== 0) {
-		throw new Error(`Herdr ${operation} failed with exit code ${result.status}: ${trimForError(output)}`);
+		throw new Error(
+			`Herdr ${operation} failed with exit code ${result.status}: ${trimForError(output)}`,
+		);
 	}
 
 	return parsed;
@@ -197,7 +205,9 @@ function runHerdrText(operation: string, args: string[]): string {
 		throw new Error(`Herdr ${operation} failed to start: ${result.error.message}`);
 	}
 	if (typeof result.status === "number" && result.status !== 0) {
-		throw new Error(`Herdr ${operation} failed with exit code ${result.status}: ${trimForError(getOutput(result))}`);
+		throw new Error(
+			`Herdr ${operation} failed with exit code ${result.status}: ${trimForError(getOutput(result))}`,
+		);
 	}
 	return typeof result.stdout === "string" ? result.stdout : "";
 }
@@ -217,7 +227,9 @@ function runHerdrVoid(operation: string, args: string[]): void {
 			parsed = parseHerdrJson(operation, output);
 		} catch (error) {
 			if (result.status && result.status !== 0) {
-				throw new Error(`Herdr ${operation} failed with exit code ${result.status}: ${trimForError(output)}`);
+				throw new Error(
+					`Herdr ${operation} failed with exit code ${result.status}: ${trimForError(output)}`,
+				);
 			}
 			throw error;
 		}
@@ -227,7 +239,9 @@ function runHerdrVoid(operation: string, args: string[]): void {
 	}
 
 	if (typeof result.status === "number" && result.status !== 0) {
-		throw new Error(`Herdr ${operation} failed with exit code ${result.status}: ${trimForError(output) || "(empty)"}`);
+		throw new Error(
+			`Herdr ${operation} failed with exit code ${result.status}: ${trimForError(output) || "(empty)"}`,
+		);
 	}
 }
 
@@ -242,7 +256,10 @@ async function runHerdrTextAsync(operation: string, args: string[]): Promise<str
 		if (execError.code === "ENOENT") {
 			throw new Error(`Herdr ${operation} failed to start: ${execError.message}`);
 		}
-		const output = outputText(execError.stdout).trim() || outputText(execError.stderr).trim() || execError.message;
+		const output =
+			outputText(execError.stdout).trim() ||
+			outputText(execError.stderr).trim() ||
+			execError.message;
 		throw new Error(`Herdr ${operation} failed: ${trimForError(output)}`);
 	}
 }
@@ -340,7 +357,10 @@ function closeHerdrTabQuiet(tabId: string): void {
 	} catch {}
 }
 
-function parseCreatedTabSurface(result: Record<string, unknown>, operation: string): HerdrCreatedTabSurface {
+function parseCreatedTabSurface(
+	result: Record<string, unknown>,
+	operation: string,
+): HerdrCreatedTabSurface {
 	const tab = parseTab(result.tab, operation);
 	try {
 		return {
@@ -473,7 +493,10 @@ export function readHerdrPaneScreenAsync(paneId: string, lines: number): Promise
 }
 
 function isAlreadyClosedHerdrPane(error: unknown): boolean {
-	return error instanceof HerdrCommandError && (error.code === "pane_not_found" || error.code === "not_found");
+	return (
+		error instanceof HerdrCommandError &&
+		(error.code === "pane_not_found" || error.code === "not_found")
+	);
 }
 
 export function closeHerdrPane(paneId: string): void {
@@ -502,7 +525,8 @@ export function renameHerdrWorkspace(workspaceId: string, title: string): void {
 }
 
 export function isHerdrRuntimeAvailable(
-	hasCommand: (command: string) => boolean = (command) => defaultMuxRuntimeProbe.hasCommand(command),
+	hasCommand: (command: string) => boolean = (command) =>
+		defaultMuxRuntimeProbe.hasCommand(command),
 ): boolean {
 	if (!hasCommand("herdr")) return false;
 	try {

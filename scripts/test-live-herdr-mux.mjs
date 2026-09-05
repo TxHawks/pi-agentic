@@ -66,9 +66,12 @@ function runHerdrJson(operation, args, options = {}) {
 	const parsed = parseHerdrJson(operation, output);
 	if (parsed && typeof parsed === "object" && "error" in parsed) {
 		const error = parsed.error;
-		const code = error && typeof error === "object" && typeof error.code === "string" ? error.code : "unknown";
+		const code =
+			error && typeof error === "object" && typeof error.code === "string" ? error.code : "unknown";
 		const message =
-			error && typeof error === "object" && typeof error.message === "string" ? error.message : trimForError(output);
+			error && typeof error === "object" && typeof error.message === "string"
+				? error.message
+				: trimForError(output);
 		throw new Error(`herdr ${operation} failed: ${code}: ${message}`);
 	}
 	return parsed;
@@ -76,7 +79,12 @@ function runHerdrJson(operation, args, options = {}) {
 
 function herdrResult(operation, args) {
 	const envelope = runHerdrJson(operation, args);
-	if (!envelope || typeof envelope !== "object" || !envelope.result || typeof envelope.result !== "object") {
+	if (
+		!envelope ||
+		typeof envelope !== "object" ||
+		!envelope.result ||
+		typeof envelope.result !== "object"
+	) {
 		throw new Error(`herdr ${operation} returned malformed API envelope`);
 	}
 	return envelope.result;
@@ -124,7 +132,11 @@ function restoreWorkspaceQuiet(workspaceId, label) {
 
 function sweepMarkedTabs(marker) {
 	for (const tab of listTabs()) {
-		if (typeof tab?.label === "string" && tab.label.includes(marker) && typeof tab.tab_id === "string") {
+		if (
+			typeof tab?.label === "string" &&
+			tab.label.includes(marker) &&
+			typeof tab.tab_id === "string"
+		) {
 			closeTabQuiet(tab.tab_id);
 		}
 	}
@@ -198,7 +210,9 @@ async function waitForScreen(readFn, paneId, needle) {
 		if (lastScreen.includes(needle)) return lastScreen;
 		await sleep(POLL_INTERVAL_MS);
 	}
-	throw new Error(`Timed out waiting for ${needle} in Herdr pane ${paneId}. Last screen:\n${trimForError(lastScreen)}`);
+	throw new Error(
+		`Timed out waiting for ${needle} in Herdr pane ${paneId}. Last screen:\n${trimForError(lastScreen)}`,
+	);
 }
 
 async function runInner() {
@@ -216,7 +230,9 @@ async function runInner() {
 		sendCommand,
 		sendShellCommand,
 	} = await import("../src/mux.ts");
-	const { getHerdrCurrentPane, getHerdrTab, getHerdrWorkspace } = await import("../src/mux/herdr.ts");
+	const { getHerdrCurrentPane, getHerdrTab, getHerdrWorkspace } = await import(
+		"../src/mux/herdr.ts"
+	);
 
 	let childPaneId = "";
 	let childTabId = "";
@@ -243,7 +259,9 @@ async function runInner() {
 		renameCurrentTab(renamedTabLabel);
 		const parentTabAfterRename = getHerdrTab(parentPane.tabId);
 		if (parentTabAfterRename.label !== renamedTabLabel) {
-			throw new Error(`Expected parent tab label ${renamedTabLabel}, got ${parentTabAfterRename.label ?? "(missing)"}`);
+			throw new Error(
+				`Expected parent tab label ${renamedTabLabel}, got ${parentTabAfterRename.label ?? "(missing)"}`,
+			);
 		}
 
 		let workspaceRenameVerified = false;
@@ -275,11 +293,16 @@ async function runInner() {
 			);
 		}
 		if (childPane.workspace_id !== workspaceId) {
-			throw new Error(`Expected child workspace ${workspaceId}, got ${childPane.workspace_id ?? "(missing)"}`);
+			throw new Error(
+				`Expected child workspace ${workspaceId}, got ${childPane.workspace_id ?? "(missing)"}`,
+			);
 		}
-		const childTitle = childPane.label ?? childPane.terminal_title_stripped ?? childPane.terminal_title ?? "";
+		const childTitle =
+			childPane.label ?? childPane.terminal_title_stripped ?? childPane.terminal_title ?? "";
 		if (!childTitle.includes(marker)) {
-			throw new Error(`Expected child pane title to include ${marker}, got ${childTitle || "(missing)"}`);
+			throw new Error(
+				`Expected child pane title to include ${marker}, got ${childTitle || "(missing)"}`,
+			);
 		}
 
 		splitPaneId = createSurfaceSplit(`${marker} split`, "right", childPaneId);
@@ -290,7 +313,9 @@ async function runInner() {
 			);
 		}
 		if (splitPane.workspace_id !== workspaceId) {
-			throw new Error(`Expected split workspace ${workspaceId}, got ${splitPane.workspace_id ?? "(missing)"}`);
+			throw new Error(
+				`Expected split workspace ${workspaceId}, got ${splitPane.workspace_id ?? "(missing)"}`,
+			);
 		}
 
 		process.env.PI_SUBAGENT_HERDR_MIN_COLUMNS = "100000";
@@ -299,7 +324,9 @@ async function runInner() {
 		const overflowPane = paneFromResult("pane get", ["pane", "get", overflowPaneId]);
 		overflowTabId = overflowPane.tab_id ?? "";
 		if (!overflowTabId || overflowTabId === parentPane.tabId) {
-			throw new Error(`Expected unsafe auto placement to use a dedicated tab: ${JSON.stringify(overflowPane)}`);
+			throw new Error(
+				`Expected unsafe auto placement to use a dedicated tab: ${JSON.stringify(overflowPane)}`,
+			);
 		}
 		closeSurface(overflowPaneId);
 		overflowPaneId = "";
@@ -391,7 +418,9 @@ async function runOuter() {
 		const parentPane = created.root_pane ?? created.pane;
 		const parentTab = created.tab;
 		if (!parentPane || typeof parentPane.pane_id !== "string") {
-			throw new Error(`herdr tab create did not return a parent root pane: ${JSON.stringify(created)}`);
+			throw new Error(
+				`herdr tab create did not return a parent root pane: ${JSON.stringify(created)}`,
+			);
 		}
 		if (!parentTab || typeof parentTab.tab_id !== "string") {
 			throw new Error(`herdr tab create did not return a parent tab: ${JSON.stringify(created)}`);
@@ -421,10 +450,14 @@ async function runOuter() {
 			throw new Error(`Inner Herdr mux smoke failed: ${JSON.stringify(result, null, 2)}`);
 		}
 		if (result.parentTabId !== parentTabId) {
-			throw new Error(`Inner smoke ran in unexpected parent tab ${result.parentTabId}; expected ${parentTabId}`);
+			throw new Error(
+				`Inner smoke ran in unexpected parent tab ${result.parentTabId}; expected ${parentTabId}`,
+			);
 		}
 		if (result.sameTabPlacementVerified !== true || result.childTabId !== parentTabId) {
-			throw new Error(`Herdr createSurface did not prove same-tab auto placement: ${JSON.stringify(result, null, 2)}`);
+			throw new Error(
+				`Herdr createSurface did not prove same-tab auto placement: ${JSON.stringify(result, null, 2)}`,
+			);
 		}
 		if (
 			!result.smallWindowFallbackVerified ||
@@ -434,7 +467,9 @@ async function runOuter() {
 			!result.closeCleanupVerified ||
 			!result.splitPaneVerified
 		) {
-			throw new Error(`Herdr mux live smoke did not verify all required behavior: ${JSON.stringify(result, null, 2)}`);
+			throw new Error(
+				`Herdr mux live smoke did not verify all required behavior: ${JSON.stringify(result, null, 2)}`,
+			);
 		}
 
 		console.log(

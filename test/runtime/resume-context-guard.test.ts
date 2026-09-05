@@ -1,9 +1,18 @@
 import { join } from "node:path";
 import { describe, it } from "node:test";
+import type { ExtensionAPI, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { resumeSubagentSession } from "../../src/runtime/resume-service.ts";
-import { SUBAGENT_COMPLETION_ENTRY } from "../../src/tools/context-reminders.ts";
+import { SUBAGENT_COMPLETION_ENTRY } from "../../src/session/session.ts";
 import { registerSubagentResumeTool } from "../../src/tools/resume-tool.ts";
-import { assert, createTestDir, existsSync, writeExecutable, writeFileSync } from "../support/index.ts";
+import type { RunningSubagent } from "../../src/types.ts";
+import {
+	assert,
+	createTestDir,
+	existsSync,
+	fakePiCommand,
+	writeExecutable,
+	writeFileSync,
+} from "../support/index.ts";
 
 const SPAWN_GRANT_VARS = [
 	"PI_SUBAGENT_SPAWNABLE",
@@ -56,46 +65,55 @@ function createResumeRuntime() {
 		getShellReadyDelayMs: () => 0,
 		watchBackgroundSubagent: empty,
 		watchSubagent: empty,
-		getWatcherSignal: (_running: any, controller: AbortController) => controller.signal,
+		getWatcherSignal: (_running: RunningSubagent, controller: AbortController) => controller.signal,
 		startWidgetRefresh: () => {},
 		getContextWindow: () => undefined,
-		runningSubagents: new Map<string, any>(),
+		runningSubagents: new Map<string, RunningSubagent>(),
 		wireSubagentSteerBack: () => {},
 		getLaunchedSubagentResult: async () => ({ content: [], details: {} }),
 	};
 }
 
 function registerResumeTool(runtime: ReturnType<typeof createResumeRuntime>) {
-	const tools = new Map<string, any>();
-	registerSubagentResumeTool(
-		{
-			registerTool(definition: any) {
-				tools.set(definition.name, definition);
-				return definition;
-			},
-		} as any,
-		() => true,
-		runtime as any,
-	);
-	return tools.get("subagent_resume");
+	const tools = new Map<string, Pick<ToolDefinition, "execute">>();
+	const pi: Pick<ExtensionAPI, "registerTool"> = {
+		registerTool(definition) {
+			tools.set(definition.name, definition);
+			return definition;
+		},
+	};
+	// @ts-expect-error: This test API includes only the methods used to register and run the tool.
+	registerSubagentResumeTool(pi, () => true, runtime);
+	const tool = tools.get("subagent_resume");
+	assert.ok(tool);
+	return tool;
 }
 
 describe("context-exhausted resume guard", () => {
 	it("refuses an agent-initiated resume and never starts the child", async () => {
 		const dir = createTestDir();
 		const spawnMarker = join(dir, "child-started.txt");
-		const bin = writeExecutable(dir, "marker-pi", `#!/usr/bin/env bash\nprintf started > ${JSON.stringify(spawnMarker)}\n`);
+		const bin = writeExecutable(
+			dir,
+			"marker-pi",
+			`#!/usr/bin/env bash\nprintf started > ${JSON.stringify(spawnMarker)}\n`,
+		);
 		const originalCommand = process.env.PI_SUBAGENT_PI_COMMAND;
-		process.env.PI_SUBAGENT_PI_COMMAND = bin;
+		process.env.PI_SUBAGENT_PI_COMMAND = fakePiCommand(bin);
 		try {
 			const sessionFile = writeExhaustedSession(dir, "exhausted-child.jsonl");
 			const tool = registerResumeTool(createResumeRuntime());
 
 			await assert.rejects(
+				// @ts-expect-error: The resume guard does not use an update callback or a context.
 				() => tool.execute("call-1", { sessionFile }, undefined),
 				/stopped early as instructed by its context-warning policy[\s\S]*fresh sub-agent/,
 			);
-			assert.equal(existsSync(spawnMarker), false, "the guard must refuse before any child is started");
+			assert.equal(
+				existsSync(spawnMarker),
+				false,
+				"the guard must refuse before any child is started",
+			);
 		} finally {
 			if (originalCommand == null) delete process.env.PI_SUBAGENT_PI_COMMAND;
 			else process.env.PI_SUBAGENT_PI_COMMAND = originalCommand;
@@ -106,13 +124,13 @@ describe("context-exhausted resume guard", () => {
 		const dir = createTestDir();
 		const bin = writeExecutable(dir, "quiet-pi", `#!/usr/bin/env bash\nexit 0\n`);
 		const originalCommand = process.env.PI_SUBAGENT_PI_COMMAND;
-		process.env.PI_SUBAGENT_PI_COMMAND = bin;
+		process.env.PI_SUBAGENT_PI_COMMAND = fakePiCommand(bin);
 		try {
 			const sessionFile = writeExhaustedSession(dir, "overlay-child.jsonl");
 
 			// The overlay controller calls the service directly; the guard is agent-facing only.
 			const running = await withoutAmbientSpawnGrant(() =>
-				resumeSubagentSession({ sessionFile, mode: "background" }, createResumeRuntime() as any),
+				resumeSubagentSession({ sessionFile, mode: "background" }, createResumeRuntime()),
 			);
 
 			assert.equal(running.sessionFile, sessionFile);
@@ -127,7 +145,7 @@ describe("context-exhausted resume guard", () => {
 		const dir = createTestDir();
 		const bin = writeExecutable(dir, "plain-pi", `#!/usr/bin/env bash\nexit 0\n`);
 		const originalCommand = process.env.PI_SUBAGENT_PI_COMMAND;
-		process.env.PI_SUBAGENT_PI_COMMAND = bin;
+		process.env.PI_SUBAGENT_PI_COMMAND = fakePiCommand(bin);
 		try {
 			const sessionFile = join(dir, "plain-child.jsonl");
 			writeFileSync(
@@ -145,10 +163,11 @@ describe("context-exhausted resume guard", () => {
 			// Without an explicit mode this session has no launch metadata, so the
 			// resume falls back to interactive and would open a real mux pane.
 			const result = await withoutAmbientSpawnGrant(() =>
+				// @ts-expect-error: The resume tool does not use an update callback or a context.
 				tool.execute("call-2", { sessionFile, mode: "background" }, undefined),
 			);
 
-			assert.equal(result.details.status, "started");
+			assert.equal((result.details as { status: string }).status, "started");
 		} finally {
 			if (originalCommand == null) delete process.env.PI_SUBAGENT_PI_COMMAND;
 			else process.env.PI_SUBAGENT_PI_COMMAND = originalCommand;

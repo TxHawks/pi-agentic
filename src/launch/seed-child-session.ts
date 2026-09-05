@@ -19,7 +19,9 @@ function getChildSeedMode(
 	return sessionMode === "standalone" ? null : sessionMode;
 }
 
-function shouldWriteChildContextBoundary(seedMode: Exclude<SubagentSessionMode, "standalone"> | null): boolean {
+function shouldWriteChildContextBoundary(
+	seedMode: Exclude<SubagentSessionMode, "standalone"> | null,
+): boolean {
 	return seedMode === "fork" && !isChildContextBoundaryDisabled();
 }
 
@@ -52,7 +54,9 @@ export function seedPreparedSubagentSession(
 			const spawnPolicy = prepared.spawnPolicy;
 			const boundaryOptions = {
 				name: params.name,
-				spawningAllowed: spawnPolicy ? spawnPolicy.childBudget !== null : !!prepared.agentDefs?.spawning,
+				spawningAllowed: spawnPolicy
+					? spawnPolicy.childBudget !== null
+					: !!prepared.agentDefs?.spawning,
 				spawnableAgents: spawnPolicy?.spawnableAgents ?? [],
 				spawnBudget: spawnPolicy?.childBudget ?? null,
 				spawnWidth: spawnPolicy?.effectiveWidth ?? null,

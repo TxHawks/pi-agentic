@@ -8,6 +8,7 @@ import {
 	createTestDir,
 	describe,
 	existsSync,
+	fakePiCommand,
 	it,
 	join,
 	readFileSync,
@@ -97,7 +98,7 @@ printf '%s\n' "$@" > "${argvFile}"
 cat > "${stdinFile}"
 `,
 		);
-		process.env.PI_SUBAGENT_PI_COMMAND = pi;
+		process.env.PI_SUBAGENT_PI_COMMAND = fakePiCommand(pi);
 
 		const sessionFile = join(dir, "child.jsonl");
 		writeFileSync(
@@ -108,7 +109,7 @@ cat > "${stdinFile}"
 
 		await restartSubagentForTimeoutWrapUp(running, { getShellReadyDelayMs: () => 0 });
 		assert.ok(running.childProcess);
-		await once(running.childProcess!, "exit");
+		await once(running.childProcess, "exit");
 
 		assert.equal(
 			await readNonEmptyFileEventually(envFile),
@@ -162,7 +163,8 @@ esac
 			);
 			const running = makeRunning(dir, sessionFile);
 			running.mode = "interactive";
-			running.launchMetadata = { ...running.launchMetadata!, mode: "interactive" };
+			assert.ok(running.launchMetadata);
+			running.launchMetadata = { ...running.launchMetadata, mode: "interactive" };
 
 			await assert.rejects(
 				restartSubagentForTimeoutWrapUp(running, { getShellReadyDelayMs: () => 0 }),
@@ -171,7 +173,11 @@ esac
 
 			const log = readFileSync(tmuxLog, "utf8");
 			assert.match(log, /new-window/);
-			assert.match(log, /kill-pane -t %42/, "a partially created wrap-up pane must be closed on launch failure");
+			assert.match(
+				log,
+				/kill-pane -t %42/,
+				"a partially created wrap-up pane must be closed on launch failure",
+			);
 		} finally {
 			if (originalPath === undefined) delete process.env.PATH;
 			else process.env.PATH = originalPath;

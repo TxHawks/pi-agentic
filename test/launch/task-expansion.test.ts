@@ -4,6 +4,7 @@ import {
 	createTestDir,
 	describe,
 	existsSync,
+	fakePiCommand,
 	it,
 	join,
 	mkdirSync,
@@ -63,7 +64,7 @@ async function launchAndReadTaskArtifact(options: {
 printf '%s\n' "$*" > '${childLog}'
 `,
 	);
-	process.env.PI_SUBAGENT_PI_COMMAND = fakeBin;
+	process.env.PI_SUBAGENT_PI_COMMAND = fakePiCommand(fakeBin);
 
 	await launchBackgroundSubagent(
 		{
@@ -133,11 +134,11 @@ describe("subagent task expansion", () => {
 
 	it("runs commands from the child cwd and exposes PI_WORKSPACE without shell-source substitution", async () => {
 		const base = createTestDir();
-		const cwd = join(base, "workspace-$(touch${IFS}injected)");
+		const cwd = join(base, `workspace-$(touch\${IFS}injected)`);
 		const { taskArtifact } = await launchAndReadTaskArtifact({
 			cwd,
 			agentFrontmatter: ["task-expansion: shell"],
-			task: 'Workspace: !`printf "%s" "${PI_WORKSPACE}"`',
+			task: `Workspace: !\`printf "%s" "\${PI_WORKSPACE}"\``,
 		});
 
 		assert.match(taskArtifact, /Workspace: /);

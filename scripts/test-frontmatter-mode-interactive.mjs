@@ -18,7 +18,14 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+	copyFileSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	writeFileSync,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -37,7 +44,9 @@ const workDir = join(tmpRoot, "work");
 const tmuxSession = `pi-fm-interactive-${process.pid}`;
 const envConfigDir = process.env.PI_CODING_AGENT_DIR;
 const sourceConfigDir =
-	envConfigDir && existsSync(join(envConfigDir, "auth.json")) ? envConfigDir : join(homedir(), ".pi", "agent");
+	envConfigDir && existsSync(join(envConfigDir, "auth.json"))
+		? envConfigDir
+		: join(homedir(), ".pi", "agent");
 const keepTmp = process.env.PI_SUBAGENT_KEEP_E2E_TMP === "1";
 
 try {
@@ -100,7 +109,9 @@ function hasTmuxSession() {
 
 function getPaneCount() {
 	try {
-		return execTmux(["list-panes", "-t", tmuxSession, "-F", "#{pane_id}"]).split("\n").filter(Boolean).length;
+		return execTmux(["list-panes", "-t", tmuxSession, "-F", "#{pane_id}"])
+			.split("\n")
+			.filter(Boolean).length;
 	} catch {
 		return 0;
 	}
@@ -179,7 +190,19 @@ try {
 
 	// Start tmux session containing the pi -p parent
 	const piCmdStr = `cd ${shellQuote(workDir)} && env PI_SUBAGENT_MUX=tmux PI_SUBAGENT_DISABLE_AMBIENT_AWARENESS=1 ${piCommand}`;
-	execTmux(["new-session", "-d", "-s", tmuxSession, "-x", "120", "-y", "40", "bash", "-c", piCmdStr]);
+	execTmux([
+		"new-session",
+		"-d",
+		"-s",
+		tmuxSession,
+		"-x",
+		"120",
+		"-y",
+		"40",
+		"bash",
+		"-c",
+		piCmdStr,
+	]);
 	console.log(`Started tmux session ${tmuxSession}`);
 
 	// Count panes before to compare
@@ -220,7 +243,9 @@ try {
 			"Interactive child should NOT open a tmux pane in pi -p headless mode (it should degrade to background).",
 		);
 	}
-	console.log(`Pane count unchanged (${panesBefore} → ${panesAfter}) — interactive correctly degraded to background.`);
+	console.log(
+		`Pane count unchanged (${panesBefore} → ${panesAfter}) — interactive correctly degraded to background.`,
+	);
 
 	// Find any child session to verify it was created
 	const { readdirSync } = await import("node:fs");
@@ -232,7 +257,9 @@ try {
 	});
 
 	if (childSessions.length === 0) {
-		throw new Error("No child session was created. Interactive child may not have launched at all.");
+		throw new Error(
+			"No child session was created. Interactive child may not have launched at all.",
+		);
 	}
 
 	// Check at least one child session has activity
@@ -246,7 +273,9 @@ try {
 			console.log(`Interactive child session active: ${file}`);
 
 			// Child metadata should show the mode
-			const metadata = events.find((e) => e.type === "custom" && e.customType === "pi-subagents_launch_metadata");
+			const metadata = events.find(
+				(e) => e.type === "custom" && e.customType === "pi-subagents_launch_metadata",
+			);
 			const launchMode = metadata?.data?.mode;
 			console.log(`Child launch mode from metadata: ${launchMode}`);
 			break;
@@ -254,11 +283,15 @@ try {
 	}
 
 	if (!childActive) {
-		console.log("Note: child session has limited text output (background degradation with auto-exit).");
+		console.log(
+			"Note: child session has limited text output (background degradation with auto-exit).",
+		);
 	}
 
 	verified = true;
-	console.log(`frontmatter "mode: interactive" ok: interactive agent degrades to background in pi -p mode`);
+	console.log(
+		`frontmatter "mode: interactive" ok: interactive agent degrades to background in pi -p mode`,
+	);
 } finally {
 	await cleanup();
 }

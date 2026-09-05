@@ -891,8 +891,16 @@ Zellij 0.44.x needs a short focus transaction for directional and stacked placem
 Unit tests:
 
 ```bash
-bunx tsc --noEmit
-npm test
+pnpm check:types
+pnpm test
+```
+
+Session-reader tests use recorded session JSONL files in `test/fixtures/pi-sessions/`.
+These tests do not call a model, locally or in CI. To record the files again, choose
+a model from your own Pi config and run:
+
+```bash
+pnpm fixtures:record-sessions --model provider/model
 ```
 
 Herdr-focused fake tests:

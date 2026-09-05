@@ -11,7 +11,10 @@ import {
 	resetZellijPlacementStateForTests,
 	type ZellijPlacementContext,
 } from "../../src/mux/zellij-placement.ts";
-import { getZellijShellCommand, resolveZellijTargetFromSessions } from "../../src/mux/zellij-runtime.ts";
+import {
+	getZellijShellCommand,
+	resolveZellijTargetFromSessions,
+} from "../../src/mux/zellij-runtime.ts";
 import { watchSubagent } from "../../src/runtime/interactive-watch.ts";
 import type { RunningSubagent } from "../../src/types.ts";
 
@@ -37,7 +40,10 @@ const originalEnv = Object.fromEntries(trackedEnv.map((key) => [key, process.env
 	string | undefined
 >;
 
-function terminalPane(id: number, overrides: Record<string, unknown> = {}): Record<string, unknown> {
+function terminalPane(
+	id: number,
+	overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
 	return {
 		id,
 		is_plugin: false,
@@ -182,16 +188,20 @@ fi
 	});
 
 	it("splits only the parent for the first child and stacks siblings on the owned pane", async () => {
-		writePanes(panesFile, [terminalPane(10), terminalPane(20, { pane_columns: 300, title: "nvim" })]);
+		writePanes(panesFile, [
+			terminalPane(10),
+			terminalPane(20, { pane_columns: 300, title: "nvim" }),
+		]);
 		const context: ZellijPlacementContext = {
 			groupKey: "parent-session-a",
 			parentPaneId: 10,
 			policy: "right-stack",
 		};
+		assert.ok(process.env.ZELLIJ_SESSION_NAME);
 		assert.equal(
 			await createZellijCommandSurface(
 				"first",
-				{ sessionName: process.env.ZELLIJ_SESSION_NAME!, parentPaneId: 10 },
+				{ sessionName: process.env.ZELLIJ_SESSION_NAME, parentPaneId: 10 },
 				["/bin/bash", "--noprofile", "--norc", "-c", "pi"],
 				context,
 			),
@@ -202,7 +212,10 @@ fi
 
 		const log = readFileSync(logFile, "utf8");
 		assert.match(log, /focus-pane-id terminal_10/);
-		assert.match(log, /new-pane --direction right --tab-id 1.*-- \/bin\/bash --noprofile --norc -c pi/);
+		assert.match(
+			log,
+			/new-pane --direction right --tab-id 1.*-- \/bin\/bash --noprofile --norc -c pi/,
+		);
 		assert.match(log, /new-pane --stacked --near-current-pane.*\| pane=30/);
 		assert.match(log, /focus-previous-pane/);
 		assert.doesNotMatch(log, /--stacked.*\| pane=20/);
@@ -256,10 +269,11 @@ fi
 			parentPaneId: 10,
 			policy: "down-stack",
 		};
+		assert.ok(process.env.ZELLIJ_SESSION_NAME);
 		assert.equal(
 			await createZellijCommandSurface(
 				"first",
-				{ sessionName: process.env.ZELLIJ_SESSION_NAME!, parentPaneId: 10 },
+				{ sessionName: process.env.ZELLIJ_SESSION_NAME, parentPaneId: 10 },
 				["/bin/bash", "--noprofile", "--norc", "-c", "pi"],
 				context,
 			),
@@ -284,6 +298,7 @@ fi
 		writePanes(panesFile, [terminalPane(10), terminalPane(30, { exited: true })]);
 		const sessionFile = join(dir, "child.jsonl");
 		writeFileSync(sessionFile, "");
+		assert.ok(process.env.ZELLIJ_SESSION_NAME);
 		const running: RunningSubagent = {
 			id: "dead-zellij-pane",
 			name: "Dead pane",
@@ -296,7 +311,7 @@ fi
 			sessionFile,
 			surface: "pane:30",
 			zellijTarget: {
-				sessionName: process.env.ZELLIJ_SESSION_NAME!,
+				sessionName: process.env.ZELLIJ_SESSION_NAME,
 				parentPaneId: 10,
 			},
 		};

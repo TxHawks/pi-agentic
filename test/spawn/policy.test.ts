@@ -1,8 +1,12 @@
-import { afterEach, assert, describe, it, resetSubagentStateForTest } from "../support/index.ts";
-import { getBaseSubagentEnvVars } from "../../src/launch/prep.ts";
-import { parseSpawnEnv, resolveSpawnPolicy, type SpawnPolicyInput } from "../../src/spawn/policy.ts";
 import type { AgentDefaults } from "../../src/agents/definitions.ts";
 import type { PreparedSubagentLaunch } from "../../src/launch/prep.ts";
+import { getBaseSubagentEnvVars } from "../../src/launch/prep.ts";
+import {
+	parseSpawnEnv,
+	resolveSpawnPolicy,
+	type SpawnPolicyInput,
+} from "../../src/spawn/policy.ts";
+import { afterEach, assert, describe, it, resetSubagentStateForTest } from "../support/index.ts";
 
 function resolvePolicy(overrides: Partial<SpawnPolicyInput> = {}) {
 	return resolveSpawnPolicy({
@@ -40,7 +44,11 @@ describe("spawn policy", () => {
 	});
 
 	it("decrements the caller budget and stops nested spawning at zero", () => {
-		const cases: Array<{ name: string; input: Partial<SpawnPolicyInput>; childBudget: number | null }> = [
+		const cases: Array<{
+			name: string;
+			input: Partial<SpawnPolicyInput>;
+			childBudget: number | null;
+		}> = [
 			{
 				name: "root to A",
 				input: { callerAgent: null, targetAgent: "agent-a", targetSpawnDepth: 1 },
@@ -48,8 +56,16 @@ describe("spawn policy", () => {
 			},
 			{ name: "A(1) to B", input: { callerBudget: 1, targetSpawnDepth: 1 }, childBudget: null },
 			{ name: "A(2) to B(2)", input: { callerBudget: 2, targetSpawnDepth: 2 }, childBudget: 1 },
-			{ name: "environment ceiling wins", input: { targetSpawnDepth: 5, envDepthCeiling: 2 }, childBudget: 2 },
-			{ name: "caller budget wins", input: { callerBudget: 2, targetSpawnDepth: 5 }, childBudget: 1 },
+			{
+				name: "environment ceiling wins",
+				input: { targetSpawnDepth: 5, envDepthCeiling: 2 },
+				childBudget: 2,
+			},
+			{
+				name: "caller budget wins",
+				input: { callerBudget: 2, targetSpawnDepth: 5 },
+				childBudget: 1,
+			},
 		];
 		for (const testCase of cases) {
 			assert.equal(resolvePolicy(testCase.input).childBudget, testCase.childBudget, testCase.name);
@@ -69,7 +85,10 @@ describe("spawn policy", () => {
 	});
 
 	it("denies a target outside the caller spawnable list", () => {
-		assert.equal(resolvePolicy({ callerSpawnable: ["agent-b"], targetAgent: "agent-b" }).allowed, true);
+		assert.equal(
+			resolvePolicy({ callerSpawnable: ["agent-b"], targetAgent: "agent-b" }).allowed,
+			true,
+		);
 		const rejected = resolvePolicy({ callerSpawnable: ["agent-b"], targetAgent: "agent-c" });
 		assert.equal(rejected.allowed, false);
 		assert.equal(rejected.failingSide, "whitelist");
@@ -82,9 +101,18 @@ describe("spawn policy", () => {
 		assert.equal(rootOnly.allowed, false);
 		assert.equal(rootOnly.failingSide, "visible-to");
 		assert.equal(resolvePolicy({ callerAgent: null, targetVisibleTo: ["root"] }).allowed, true);
-		assert.equal(resolvePolicy({ callerAgent: "agent-a", targetVisibleTo: ["agent-a"] }).allowed, true);
-		assert.equal(resolvePolicy({ callerAgent: "agent-a", targetVisibleTo: ["root", "agent-a"] }).allowed, true);
-		assert.equal(resolvePolicy({ callerAgent: "agent-b", targetVisibleTo: ["agent-a"] }).allowed, false);
+		assert.equal(
+			resolvePolicy({ callerAgent: "agent-a", targetVisibleTo: ["agent-a"] }).allowed,
+			true,
+		);
+		assert.equal(
+			resolvePolicy({ callerAgent: "agent-a", targetVisibleTo: ["root", "agent-a"] }).allowed,
+			true,
+		);
+		assert.equal(
+			resolvePolicy({ callerAgent: "agent-b", targetVisibleTo: ["agent-a"] }).allowed,
+			false,
+		);
 	});
 
 	it("clamps width and represents an unlimited width as null", () => {

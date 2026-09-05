@@ -21,7 +21,10 @@ export function splitModelRef(ref: string): {
  * string already carries a valid thinking suffix, it wins and `thinking` is
  * ignored. Returns undefined when no model is given.
  */
-export function buildModelRef(model: string | undefined, thinking: string | undefined): string | undefined {
+export function buildModelRef(
+	model: string | undefined,
+	thinking: string | undefined,
+): string | undefined {
 	const trimmedModel = model?.trim();
 	if (!trimmedModel) return undefined;
 	if (splitModelRef(trimmedModel).thinking) return trimmedModel;
@@ -46,7 +49,9 @@ export function assertModelAllowed(
 	if (explicitAllowedModels.length === 0) return;
 	const allowedModels = [...implicitAllowedModelRefs.filter(Boolean), ...explicitAllowedModels];
 	if (!effectiveModelRef) {
-		throw new Error(`Agent '${agentName ?? "subagent"}' defines allowed-models but no model was resolved.`);
+		throw new Error(
+			`Agent '${agentName ?? "subagent"}' defines allowed-models but no model was resolved.`,
+		);
 	}
 	if (allowedModels.some((entry) => isModelAllowed(effectiveModelRef, entry))) return;
 	throw new Error(

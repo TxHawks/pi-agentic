@@ -1,6 +1,7 @@
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { runningSubagents } from "../../src/runtime/state.ts";
 import { buildCompletedItems } from "../../src/tools/overlay/data.ts";
 import { wrapPlainText } from "../../src/tools/overlay/render-helpers.ts";
@@ -16,7 +17,7 @@ import {
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-const testRuntime = {
+const testRuntime: ConstructorParameters<typeof SubagentsOverlay>[3] = {
 	getShellReadyDelayMs: () => 800,
 	isMuxAvailable: () => false,
 	watchBackgroundSubagent: async () => ({
@@ -33,16 +34,16 @@ const testRuntime = {
 		exitCode: 0,
 		elapsed: 0,
 	}),
-	getWatcherSignal: (_r: any, c: AbortController) => c.signal,
+	getWatcherSignal: (_r: unknown, c: AbortController) => c.signal,
 	startWidgetRefresh: () => {},
 	getContextWindow: () => undefined,
 	runningSubagents: new Map(),
-	pi: { on() {} } as any,
+	// @ts-expect-error These overlay tests only need the event registration method.
+	pi: { on() {} },
 	wireSubagentSteerBack: () => {},
 };
 
-function createOverlay(): SubagentsOverlay {
-	const done = () => {};
+function createOverlay(done = () => {}): SubagentsOverlay {
 	const ctx = {
 		cwd: "/tmp",
 		ui: {
@@ -53,14 +54,15 @@ function createOverlay(): SubagentsOverlay {
 		sessionManager: {
 			getSessionFile: () => null,
 		},
-	} as any;
+	};
 	const theme = {
 		fg: (_t: string, text: string) => text,
 		bg: (_c: string, text: string) => text,
 		bold: (text: string) => text,
 	};
-	const tui = { requestRender: () => {}, terminal: { columns: 80 } } as any;
-	return new SubagentsOverlay(done as any, ctx, theme, testRuntime as any, tui);
+	const tui = { requestRender: () => {}, terminal: { columns: 80 } };
+	// @ts-expect-error The fake context and terminal omit methods this overlay does not use.
+	return new SubagentsOverlay(done, ctx, theme, testRuntime, tui);
 }
 
 function simulateKey(overlay: SubagentsOverlay, key: string): void {
@@ -72,7 +74,8 @@ function renderLines(overlay: SubagentsOverlay, width = 80): string[] {
 }
 
 function stripAnsi(str: string): string {
-	return str.replace(new RegExp("\\x1b\\[[0-9;]*[a-zA-Z]", "g"), "");
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: the escape character is the ANSI marker this helper strips
+	return str.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "");
 }
 
 // ── Helpers to avoid direct key imports ────────────────────────────
@@ -186,7 +189,7 @@ describe("subagents-view overlay", () => {
 				startTime: Date.now(),
 				sessionFile: "/tmp/test-1.jsonl",
 				abortController: firstAbort,
-			} as any);
+			});
 			setRunningSubagentForTest({
 				id: "test-2",
 				name: "second-scout",
@@ -198,7 +201,7 @@ describe("subagents-view overlay", () => {
 				startTime: Date.now(),
 				sessionFile: "/tmp/test-2.jsonl",
 				abortController: secondAbort,
-			} as any);
+			});
 
 			const overlay = createOverlay();
 
@@ -228,7 +231,7 @@ describe("subagents-view overlay", () => {
 				startTime: Date.now(),
 				sessionFile: "/tmp/test.jsonl",
 				abortController,
-			} as any);
+			});
 
 			const overlay = createOverlay();
 			simulateKey(overlay, "k");
@@ -253,7 +256,7 @@ describe("subagents-view overlay", () => {
 				parentClosePolicy: "terminate",
 				startTime: Date.now(),
 				sessionFile: "/tmp/test.jsonl",
-			} as any);
+			});
 
 			const overlay = createOverlay();
 			const lines = renderLines(overlay);
@@ -279,7 +282,7 @@ describe("subagents-view overlay", () => {
 				totalTokens: 1_800_000,
 				contextTokens: 171_000,
 				modelContextWindow: 1_000_000,
-			} as any);
+			});
 
 			const overlay = createOverlay();
 			try {
@@ -296,7 +299,7 @@ describe("subagents-view overlay", () => {
 			const sessionFile = join(dir, "child.jsonl");
 			writeFileSync(
 				sessionFile,
-				JSON.stringify({
+				`${JSON.stringify({
 					type: "custom",
 					customType: "pi-subagents_launch_metadata",
 					data: {
@@ -318,7 +321,7 @@ describe("subagents-view overlay", () => {
 						noSession: false,
 						boundarySystemPrompt: false,
 					},
-				}) + "\n",
+				})}\n`,
 			);
 			setRunningSubagentForTest({
 				id: "test-override",
@@ -330,7 +333,7 @@ describe("subagents-view overlay", () => {
 				parentClosePolicy: "terminate",
 				startTime: Date.now(),
 				sessionFile,
-			} as any);
+			});
 
 			const overlay = createOverlay();
 			try {
@@ -360,7 +363,7 @@ describe("subagents-view overlay", () => {
 				parentClosePolicy: "terminate",
 				startTime: Date.now(),
 				sessionFile: "/tmp/test.jsonl",
-			} as any);
+			});
 			setRunningSubagentForTest({
 				id: "test-2",
 				name: "reviewer",
@@ -371,7 +374,7 @@ describe("subagents-view overlay", () => {
 				parentClosePolicy: "terminate",
 				startTime: Date.now(),
 				sessionFile: "/tmp/test2.jsonl",
-			} as any);
+			});
 
 			const overlay = createOverlay();
 			const lines1 = renderLines(overlay);
@@ -398,7 +401,7 @@ describe("subagents-view overlay", () => {
 				parentClosePolicy: "terminate",
 				startTime: Date.now(),
 				sessionFile: "/tmp/test.jsonl",
-			} as any);
+			});
 
 			const overlay = createOverlay();
 			pressUp(overlay); // Should stay on first item
@@ -431,7 +434,7 @@ describe("subagents-view overlay", () => {
 				parentClosePolicy: "terminate",
 				startTime: Date.now(),
 				sessionFile: "/tmp/test.jsonl",
-			} as any);
+			});
 
 			const overlay = createOverlay();
 			simulateKey(overlay, "i");
@@ -453,7 +456,7 @@ describe("subagents-view overlay", () => {
 				parentClosePolicy: "terminate",
 				startTime: Date.now(),
 				sessionFile: "/tmp/test.jsonl",
-			} as any);
+			});
 
 			const overlay = createOverlay();
 			simulateKey(overlay, "i");
@@ -476,7 +479,7 @@ describe("subagents-view overlay", () => {
 				parentClosePolicy: "terminate",
 				startTime: Date.now(),
 				sessionFile: "/tmp/test.jsonl",
-			} as any);
+			});
 
 			const overlay = createOverlay();
 			simulateKey(overlay, "i"); // Open detail
@@ -501,7 +504,7 @@ describe("subagents-view overlay", () => {
 				parentClosePolicy: "terminate",
 				startTime: Date.now(),
 				sessionFile: "/tmp/test.jsonl",
-			} as any);
+			});
 
 			const overlay = createOverlay();
 			const lines = renderLines(overlay);
@@ -534,12 +537,11 @@ describe("subagents-view overlay", () => {
 
 	describe("close", () => {
 		it("closes overlay with Escape", () => {
-			const overlay = createOverlay();
 			let closed = false;
 			const done = () => {
 				closed = true;
 			};
-			(overlay as any).done = done;
+			const overlay = createOverlay(done);
 
 			simulateKey(overlay, "\x1b");
 			assert.equal(closed, true);
@@ -565,7 +567,7 @@ describe("subagents-view overlay", () => {
 				parentClosePolicy: "terminate",
 				startTime: Date.now() - 5000,
 				sessionFile: "/tmp/test.jsonl",
-			} as any);
+			});
 
 			const overlay = createOverlay();
 			const lines = renderLines(overlay);
@@ -586,12 +588,15 @@ describe("subagents-view overlay", () => {
 				startTime: Date.now(),
 				sessionFile: "/tmp/test.jsonl",
 				modelRef: "zai-messages/glm-5.1:high",
-			} as any);
+			});
 
 			const overlay = createOverlay();
 			const lines = renderLines(overlay);
 			const text = lines.map(stripAnsi).join("\n");
-			assert.ok(text.includes("zai-messages/glm-5.1:high"), `Expected model ref in list row:\n${text}`);
+			assert.ok(
+				text.includes("zai-messages/glm-5.1:high"),
+				`Expected model ref in list row:\n${text}`,
+			);
 			overlay.dispose();
 		});
 
@@ -648,20 +653,23 @@ describe("subagents-view overlay", () => {
 				},
 				cwd: "/tmp",
 				sessionManager: { getSessionFile: () => parentSession },
-			} as any;
+			};
 
+			// @ts-expect-error This fake context supplies only the UI and session methods used here.
 			const items = await buildCompletedItems(overlayCtx);
 			const item = items.find((i) => i.name === "scout");
 			assert.ok(item, "expected recovered completed item");
-			const ctxField = item!.detailSections.flatMap((s) => s.fields).find((f) => f.label === "context tokens");
+			const ctxField = item.detailSections
+				.flatMap((s) => s.fields)
+				.find((f) => f.label === "context tokens");
 			assert.equal(ctxField?.value, "150K");
 			assert.ok(
-				item!.stats.includes("150K ctx"),
-				`Expected snapshot ctx in stats, got: ${JSON.stringify(item!.stats)}`,
+				item.stats.includes("150K ctx"),
+				`Expected snapshot ctx in stats, got: ${JSON.stringify(item.stats)}`,
 			);
 			assert.ok(
-				!item!.stats.some((s) => s.includes("250K")),
-				`Should not show cumulative total, got: ${JSON.stringify(item!.stats)}`,
+				!item.stats.some((s) => s.includes("250K")),
+				`Should not show cumulative total, got: ${JSON.stringify(item.stats)}`,
 			);
 		});
 
@@ -726,12 +734,13 @@ describe("subagents-view overlay", () => {
 				},
 				cwd: "/tmp",
 				sessionManager: { getSessionFile: () => parentSession },
-			} as any;
+			};
 
+			// @ts-expect-error This fake context supplies only the UI and session methods used here.
 			const items = await buildCompletedItems(overlayCtx);
 			const item = items.find((i) => i.name === "forked-scout");
 			assert.ok(item, "expected recovered forked completed item");
-			const fields = item!.detailSections.flatMap((s) => s.fields);
+			const fields = item.detailSections.flatMap((s) => s.fields);
 			// Context snapshot = child's last turn (120K), not the parent's 900K.
 			assert.equal(fields.find((f) => f.label === "context tokens")?.value, "120K");
 			// Input/output are cumulative over CHILD activity only: 110K / 10K.
@@ -740,14 +749,14 @@ describe("subagents-view overlay", () => {
 			// Only the child's single assistant message is counted.
 			assert.equal(fields.find((f) => f.label === "messages")?.value, "1");
 			assert.ok(
-				!item!.stats.some((s) => s.includes("900K") || s.includes("1M")),
-				`Should not include inherited parent usage, got: ${JSON.stringify(item!.stats)}`,
+				!item.stats.some((s) => s.includes("900K") || s.includes("1M")),
+				`Should not include inherited parent usage, got: ${JSON.stringify(item.stats)}`,
 			);
 		});
 	});
 });
 
-const mockRuntime = {
+const mockRuntime: ConstructorParameters<typeof SubagentsOverlay>[3] = {
 	getShellReadyDelayMs: () => 800,
 	isMuxAvailable: () => false,
 	watchBackgroundSubagent: async () => ({
@@ -764,11 +773,12 @@ const mockRuntime = {
 		exitCode: 0,
 		elapsed: 0,
 	}),
-	getWatcherSignal: (_r: any, c: AbortController) => c.signal,
+	getWatcherSignal: (_r: unknown, c: AbortController) => c.signal,
 	startWidgetRefresh: () => {},
 	getContextWindow: () => undefined,
 	runningSubagents: new Map(),
-	pi: { on() {} } as any,
+	// @ts-expect-error These overlay tests only need the event registration method.
+	pi: { on() {} },
 	wireSubagentSteerBack: () => {},
 };
 
@@ -783,18 +793,18 @@ describe("subagents-view registration", () => {
 
 		const { registerSubagentsView } = await import("../../src/tools/subagents-view.ts");
 
-		registerSubagentsView(
-			{
-				registerCommand(name: string, opts: any) {
-					commands.push({ name, description: opts.description });
-				},
-				registerShortcut(_shortcut: string, _opts: any) {
-					shortcutRegistered = true;
-				},
-				on() {},
-			} as any,
-			mockRuntime,
-		);
+		const pi = {
+			registerCommand(name: string, opts: Parameters<ExtensionAPI["registerCommand"]>[1]) {
+				assert.ok(opts.description);
+				commands.push({ name, description: opts.description });
+			},
+			registerShortcut(_shortcut: string, _opts: Parameters<ExtensionAPI["registerShortcut"]>[1]) {
+				shortcutRegistered = true;
+			},
+			on() {},
+		};
+		// @ts-expect-error This fake Pi API only collects commands, shortcuts, and events.
+		registerSubagentsView(pi, mockRuntime);
 
 		assert.equal(commands.length, 1);
 		assert.equal(commands[0].name, "subagents");
@@ -813,24 +823,23 @@ describe("subagents-view registration", () => {
 			parentClosePolicy: "terminate",
 			startTime: Date.now(),
 			sessionFile: "/tmp/test.jsonl",
-		} as any);
-		let commandHandler: ((args: string, ctx: any) => Promise<void>) | null = null;
+		});
+		let commandHandler: Parameters<ExtensionAPI["registerCommand"]>[1]["handler"] | undefined;
 		let customOptions: unknown;
 		const { registerSubagentsView } = await import("../../src/tools/subagents-view.ts");
 
-		registerSubagentsView(
-			{
-				registerCommand(_name: string, opts: any) {
-					commandHandler = opts.handler;
-				},
-				registerShortcut() {},
-				on() {},
-			} as any,
-			mockRuntime,
-		);
+		const pi = {
+			registerCommand(_name: string, opts: Parameters<ExtensionAPI["registerCommand"]>[1]) {
+				commandHandler = opts.handler;
+			},
+			registerShortcut() {},
+			on() {},
+		};
+		// @ts-expect-error This fake Pi API only collects commands, shortcuts, and events.
+		registerSubagentsView(pi, mockRuntime);
 
 		assert.ok(commandHandler);
-		await (commandHandler as (args: string, ctx: any) => Promise<void>)("", {
+		const ctx = {
 			ui: {
 				notify: () => {},
 				custom: (_factory: unknown, options: unknown) => {
@@ -840,7 +849,9 @@ describe("subagents-view registration", () => {
 			},
 			sessionManager: { getSessionFile: () => null },
 			cwd: "/tmp",
-		});
+		};
+		// @ts-expect-error This command test supplies only the UI and session methods used here.
+		await commandHandler("", ctx);
 
 		assert.equal(customOptions, undefined);
 	});
@@ -849,30 +860,31 @@ describe("subagents-view registration", () => {
 		const notifications: string[] = [];
 		const { registerSubagentsView } = await import("../../src/tools/subagents-view.ts");
 
-		registerSubagentsView(
-			{
-				registerCommand(_name: string, opts: any) {
-					// Simulate running the command handler
-					opts.handler("", {
-						ui: {
-							notify: (msg: string, _type: string) => {
-								notifications.push(msg);
-							},
-							custom: async () => {
-								/* noop — won't be called when empty state hits */
-							},
+		const pi = {
+			registerCommand(_name: string, opts: Parameters<ExtensionAPI["registerCommand"]>[1]) {
+				// Simulate running the command handler
+				const ctx = {
+					ui: {
+						notify: (msg: string, _type: string) => {
+							notifications.push(msg);
 						},
-						sessionManager: {
-							getSessionFile: () => null,
+						custom: async () => {
+							/* noop — won't be called when empty state hits */
 						},
-						cwd: "/tmp",
-					});
-				},
-				registerShortcut() {},
-				on() {},
-			} as any,
-			mockRuntime,
-		);
+					},
+					sessionManager: {
+						getSessionFile: () => null,
+					},
+					cwd: "/tmp",
+				};
+				// @ts-expect-error This command test supplies only the UI and session methods used here.
+				opts.handler("", ctx);
+			},
+			registerShortcut() {},
+			on() {},
+		};
+		// @ts-expect-error This fake Pi API only collects commands, shortcuts, and events.
+		registerSubagentsView(pi, mockRuntime);
 
 		// Note: this test depends on the test environment not having
 		// global agent definitions. If global agents exist, openOverlay
@@ -885,46 +897,44 @@ describe("subagents-view registration", () => {
 	});
 
 	it("calls session_shutdown handler without error", async () => {
-		const handlers = new Map<string, Function>();
+		const handlers = new Map<string, (...args: unknown[]) => unknown>();
 		const { registerSubagentsView } = await import("../../src/tools/subagents-view.ts");
 
-		registerSubagentsView(
-			{
-				registerCommand() {},
-				registerShortcut() {},
-				on(event: string, handler: any) {
-					handlers.set(event, handler);
-				},
-			} as any,
-			mockRuntime,
-		);
+		const pi = {
+			registerCommand() {},
+			registerShortcut() {},
+			on(event: string, handler: (...args: unknown[]) => unknown) {
+				handlers.set(event, handler);
+			},
+		};
+		// @ts-expect-error This fake Pi API only collects commands, shortcuts, and events.
+		registerSubagentsView(pi, mockRuntime);
 
 		const shutdownHandler = handlers.get("session_shutdown");
 		assert.ok(shutdownHandler);
 		// Should not throw
-		(shutdownHandler as Function)();
+		shutdownHandler();
 	});
 
 	it("registers and invokes alt+s shortcut handler", async () => {
 		const notifications: string[] = [];
-		let shortcutHandler: ((ctx: any) => Promise<void>) | null = null;
+		let shortcutHandler: Parameters<ExtensionAPI["registerShortcut"]>[1]["handler"] | undefined;
 		const { registerSubagentsView } = await import("../../src/tools/subagents-view.ts");
 
-		registerSubagentsView(
-			{
-				registerCommand() {},
-				registerShortcut(_shortcut: string, opts: any) {
-					shortcutHandler = opts.handler;
-				},
-				on() {},
-			} as any,
-			mockRuntime,
-		);
+		const pi = {
+			registerCommand() {},
+			registerShortcut(_shortcut: string, opts: Parameters<ExtensionAPI["registerShortcut"]>[1]) {
+				shortcutHandler = opts.handler;
+			},
+			on() {},
+		};
+		// @ts-expect-error This fake Pi API only collects commands, shortcuts, and events.
+		registerSubagentsView(pi, mockRuntime);
 
 		assert.ok(shortcutHandler, "alt+s handler should be registered");
 
 		// First call — if no global agents, notifies about empty state
-		await (shortcutHandler as (ctx: any) => Promise<void>)({
+		const ctx = {
 			ui: {
 				notify: (msg: string) => {
 					notifications.push(msg);
@@ -933,7 +943,9 @@ describe("subagents-view registration", () => {
 			},
 			sessionManager: { getSessionFile: () => null },
 			cwd: "/tmp",
-		});
+		};
+		// @ts-expect-error This shortcut test supplies only the UI and session methods used here.
+		await shortcutHandler(ctx);
 		// Environment-dependent: if global agents exist, custom() is called instead
 		if (notifications.length > 0) {
 			assert.ok(notifications[0].includes("No subagents"));

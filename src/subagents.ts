@@ -18,8 +18,8 @@ import {
 } from "./launch/policy.ts";
 import { resolveSubagentCwd } from "./launch/runtime-paths.ts";
 import { getNoSessionSeedMode } from "./launch/seed-child-session.ts";
-import { initializeSpawnWidthForSession } from "./runtime/spawn-width.ts";
 import { publishRunningSubagentCount } from "./runtime/nested-lifecycle.ts";
+import { initializeSpawnWidthForSession } from "./runtime/spawn-width.ts";
 import { parseSpawnEnv } from "./spawn/policy.ts";
 
 export { resolveSubagentConfigDir } from "./launch/runtime-paths.ts";
@@ -76,7 +76,10 @@ import {
 } from "./runtime/state.ts";
 import { registerSubagentMessageRenderers } from "./tools/message-renderers.ts";
 import { registerSubagentResumeTool } from "./tools/resume-tool.ts";
-import { markInitialPromptLaunchComplete, registerSubagentCoreTools } from "./tools/subagent-tools.ts";
+import {
+	markInitialPromptLaunchComplete,
+	registerSubagentCoreTools,
+} from "./tools/subagent-tools.ts";
 import { registerSubagentsView } from "./tools/subagents-view.ts";
 import { ORCHESTRATOR_ALLOWED_TOOL_NAMES, SUBAGENT_TOOL_NAME } from "./tools/tool-names.ts";
 
@@ -113,7 +116,11 @@ function resolveEffectiveSessionMode(
 }
 
 function resolveTaskSessionMode(agentDefs: AgentDefaults | null): SubagentSessionMode {
-	return resolveTaskSessionModeFromSessionFiles(agentDefs, resolveSubagentNoSession, getNoSessionSeedMode);
+	return resolveTaskSessionModeFromSessionFiles(
+		agentDefs,
+		resolveSubagentNoSession,
+		getNoSessionSeedMode,
+	);
 }
 
 let lastAmbientRosterSignature: string | null = null;
@@ -182,7 +189,9 @@ export default function subagentsExtension(pi: ExtensionAPI) {
 		const entries = getAgentListEntries(ctx.cwd);
 		const signature = getAgentListSignature(entries);
 		if (entries.length === 0) {
-			const hasDescribedAgents = getEffectiveAgentDefinitions(ctx.cwd).some((agent) => agent.description?.trim());
+			const hasDescribedAgents = getEffectiveAgentDefinitions(ctx.cwd).some((agent) =>
+				agent.description?.trim(),
+			);
 			if (!hasDescribedAgents && lastAmbientRosterSignature === null) {
 				pendingAmbientRoster = null;
 				return;
@@ -297,7 +306,9 @@ Your most important job is synthesis: reading sub-agent outputs, understanding t
 
 		// Orchestrator mode: replace system prompt, but preserve user's APPEND_SYSTEM.md
 		const appendPrompt = event.systemPromptOptions?.appendSystemPrompt;
-		const systemPrompt = appendPrompt ? `${ORCHESTRATOR_BASE_PROMPT}\n\n${appendPrompt}` : ORCHESTRATOR_BASE_PROMPT;
+		const systemPrompt = appendPrompt
+			? `${ORCHESTRATOR_BASE_PROMPT}\n\n${appendPrompt}`
+			: ORCHESTRATOR_BASE_PROMPT;
 
 		return {
 			...(rosterResult ?? {}),
@@ -321,7 +332,9 @@ Your most important job is synthesis: reading sub-agent outputs, understanding t
 		// switch with the existing coordinator-only-turn behavior.
 		const message = event?.message;
 		if (!message) return;
-		classifyAssistantMessageForMixedBatch(message, (agent, cwd) => (agent ? loadAgentDefaults(agent, cwd) : null));
+		classifyAssistantMessageForMixedBatch(message, (agent, cwd) =>
+			agent ? loadAgentDefaults(agent, cwd) : null,
+		);
 	});
 
 	pi.on("tool_call", (event) => {
@@ -386,7 +399,8 @@ Your most important job is synthesis: reading sub-agent outputs, understanding t
 	const shouldRegister = (name: string) => !deniedTools.has(name);
 
 	registerSubagentCoreTools(pi, shouldRegister, {
-		loadAgentDefaults: (agentName, cwd) => (agentName ? loadAgentDefaults(agentName, undefined, cwd) : null),
+		loadAgentDefaults: (agentName, cwd) =>
+			agentName ? loadAgentDefaults(agentName, undefined, cwd) : null,
 		resolveEffectiveSessionMode,
 		resolveTaskSessionMode,
 		launchBackgroundSubagent,

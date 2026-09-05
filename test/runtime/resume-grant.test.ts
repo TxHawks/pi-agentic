@@ -1,26 +1,17 @@
-import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { afterEach, describe, it } from "node:test";
 import {
-	buildResumeSpawnEnv,
-	narrowSpawnBudget,
-} from "../../src/spawn/policy.ts";
-import {
+	type PersistedSubagentLaunchMetadata,
 	readSubagentLaunchMetadata,
 	writeSubagentLaunchMetadataEntry,
-	type PersistedSubagentLaunchMetadata,
 } from "../../src/session/session-files.ts";
+import { buildResumeSpawnEnv, narrowSpawnBudget } from "../../src/spawn/policy.ts";
 import { getPersistedSessionParityArgsForTest } from "../support/index.ts";
 
 const temporaryDirectories: string[] = [];
-
-afterEach(() => {
-	for (const directory of temporaryDirectories.splice(0)) {
-		rmSync(directory, { recursive: true, force: true });
-	}
-});
 
 function createSessionFile(): string {
 	const directory = mkdtempSync(join(tmpdir(), "pi-subagents-resume-grant-"));
@@ -65,6 +56,14 @@ function launchMetadata(
 }
 
 describe("resume spawn grant", () => {
+	// Inside the describe so the hook scopes to this suite only; the shared
+	// test entry point runs every suite in one process.
+	afterEach(() => {
+		for (const directory of temporaryDirectories.splice(0)) {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
 	it("uses the first valid launch metadata entry for spawn authority", () => {
 		const sessionFile = createSessionFile();
 		writeSubagentLaunchMetadataEntry(sessionFile, launchMetadata(sessionFile, 0));
@@ -117,23 +116,27 @@ describe("resume spawn grant", () => {
 		};
 
 		assert.equal(narrowedGranted > 0, true);
-		assert.deepEqual(buildResumeSpawnEnv({ spawnableAgents: true }, narrowedGranted, null).denyToolsToAdd, []);
-		assert.deepEqual(await getPersistedSessionParityArgsForTest(metadata, "background", narrowedGranted > 0), [
-			"--tools",
-			"exec_command,caller_ping,subagent_done,subagent,subagent_resume,subagent_kill",
-			"--no-approve",
-		]);
+		assert.deepEqual(
+			buildResumeSpawnEnv({ spawnableAgents: true }, narrowedGranted, null).denyToolsToAdd,
+			[],
+		);
+		assert.deepEqual(
+			await getPersistedSessionParityArgsForTest(metadata, "background", narrowedGranted > 0),
+			[
+				"--tools",
+				"exec_command,caller_ping,subagent_done,subagent,subagent_resume,subagent_kill",
+				"--no-approve",
+			],
+		);
 
 		assert.equal(narrowedExhausted > 0, false);
-		assert.deepEqual(buildResumeSpawnEnv({ spawnableAgents: true }, narrowedExhausted, null).denyToolsToAdd, [
-			"subagent",
-			"subagent_resume",
-			"subagent_kill",
-		]);
-		assert.deepEqual(await getPersistedSessionParityArgsForTest(metadata, "background", narrowedExhausted > 0), [
-			"--tools",
-			"exec_command,caller_ping,subagent_done",
-			"--no-approve",
-		]);
+		assert.deepEqual(
+			buildResumeSpawnEnv({ spawnableAgents: true }, narrowedExhausted, null).denyToolsToAdd,
+			["subagent", "subagent_resume", "subagent_kill"],
+		);
+		assert.deepEqual(
+			await getPersistedSessionParityArgsForTest(metadata, "background", narrowedExhausted > 0),
+			["--tools", "exec_command,caller_ping,subagent_done", "--no-approve"],
+		);
 	});
 });

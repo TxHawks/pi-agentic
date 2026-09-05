@@ -1,7 +1,16 @@
 import { chmodSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { getEntries } from "../../src/session/session.ts";
+
+/** The committed Pi event fixture streams in test/fixtures/pi-events/. */
+export const piEventFixturesDir = join(
+	dirname(fileURLToPath(import.meta.url)),
+	"..",
+	"fixtures",
+	"pi-events",
+);
 
 export function createTestDir(): string {
 	return mkdtempSync(join(tmpdir(), "subagents-test-"));
@@ -23,6 +32,43 @@ export function writeExecutable(dir: string, name: string, content: string): str
 	writeFileSync(file, content);
 	chmodSync(file, 0o755);
 	return file;
+}
+
+/**
+ * Wait until a spawned fake process has written the file, then return its
+ * content. Bounded poll; throws with the last content when the budget ends.
+ */
+export async function readNonEmptyFileEventually(path: string): Promise<string> {
+	let lastText = "";
+	for (let attempt = 0; attempt < 50; attempt++) {
+		if (existsSync(path)) {
+			lastText = readFileSync(path, "utf8");
+			if (lastText.length > 0) return lastText;
+		}
+		await sleep(10);
+	}
+	throw new Error(`Timed out waiting for ${path}; last content: ${lastText}`);
+}
+
+/** Poll a read until it answers non-null. Bounded; throws when the budget ends. */
+export async function waitForValue<T>(read: () => T | null, what: string): Promise<T> {
+	for (let attempt = 0; attempt < 400; attempt++) {
+		const value = read();
+		if (value !== null) return value;
+		await sleep(10);
+	}
+	throw new Error(`Timed out waiting for ${what}`);
+}
+
+/**
+ * Command string for PI_SUBAGENT_PI_COMMAND that runs a fake pi script
+ * through /bin/bash. Running a fresh script file directly makes macOS
+ * check the new executable on its first start (~300ms, seconds under
+ * load), which pushes short test waits past their budget. /bin/bash is
+ * a known binary, so that check never runs.
+ */
+export function fakePiCommand(scriptPath: string): string {
+	return `/bin/bash '${scriptPath}'`;
 }
 
 export function getAgentConfigDirForTest(): string {
@@ -60,11 +106,13 @@ export function _loadAgentDefaultsForTest(agentName: string, cwdHint?: string | 
 		const extensionsRaw = get("extensions");
 		const modeRaw = get("mode");
 		return {
-			systemPromptMode: systemPromptRaw === "append" || systemPromptRaw === "replace" ? systemPromptRaw : undefined,
+			systemPromptMode:
+				systemPromptRaw === "append" || systemPromptRaw === "replace" ? systemPromptRaw : undefined,
 			cwd: get("cwd"),
 			cwdBase,
 			extensions: extensionsRaw,
-			noContextFiles: noContextFilesRaw === "true" ? true : noContextFilesRaw === "false" ? false : undefined,
+			noContextFiles:
+				noContextFilesRaw === "true" ? true : noContextFilesRaw === "false" ? false : undefined,
 			noSession: noSessionRaw === "true" ? true : noSessionRaw === "false" ? false : undefined,
 			mode: modeRaw === "background" || modeRaw === "interactive" ? modeRaw : undefined,
 		};
@@ -72,12 +120,18 @@ export function _loadAgentDefaultsForTest(agentName: string, cwdHint?: string | 
 	return null;
 }
 
-export function createForkSessionFileForTest(parentSessionFile: string, childSessionFile: string): void {
-	const entries = getEntries(parentSessionFile) as any[];
+export function createForkSessionFileForTest(
+	parentSessionFile: string,
+	childSessionFile: string,
+): void {
+	const entries = getEntries(parentSessionFile);
 	let truncateAt = entries.length;
 	for (let i = entries.length - 1; i >= 0; i--) {
 		const entry = entries[i];
-		if (entry.type === "message" && entry.message?.role === "user") {
+		if (
+			entry.type === "message" &&
+			(entry.message as { role?: string } | undefined)?.role === "user"
+		) {
 			truncateAt = i;
 			break;
 		}
@@ -92,7 +146,10 @@ export function createForkSessionFileForTest(parentSessionFile: string, childSes
 		cwd: process.cwd(),
 		parentSession: parentSessionFile,
 	};
-	writeFileSync(childSessionFile, `${[header, ...contentEntries].map((entry) => JSON.stringify(entry)).join("\n")}\n`);
+	writeFileSync(
+		childSessionFile,
+		`${[header, ...contentEntries].map((entry) => JSON.stringify(entry)).join("\n")}\n`,
+	);
 }
 
 export const SESSION_HEADER = { type: "session", id: "sess-001", version: 3 };

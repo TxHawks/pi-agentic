@@ -54,7 +54,13 @@ async function readPanes(runtime: ZellijTarget): Promise<ZellijPaneSnapshot[]> {
 	let lastError: unknown;
 	for (let attempt = 0; attempt < 3; attempt++) {
 		try {
-			const output = await action(runtime, ["list-panes", "--json", "--geometry", "--state", "--tab"]);
+			const output = await action(runtime, [
+				"list-panes",
+				"--json",
+				"--geometry",
+				"--state",
+				"--tab",
+			]);
 			if (!output.trim()) throw new Error("Unexpected zellij list-panes output: empty");
 			const parsed = JSON.parse(output);
 			if (!Array.isArray(parsed)) {
@@ -101,15 +107,20 @@ async function focusPane(runtime: ZellijTarget, surface: string): Promise<void> 
 	}
 }
 
-async function restoreFocus(runtime: ZellijTarget, surface: string, tabPosition?: number): Promise<void> {
+async function restoreFocus(
+	runtime: ZellijTarget,
+	surface: string,
+	tabPosition?: number,
+): Promise<void> {
 	try {
 		await action(runtime, ["focus-previous-pane"]);
 	} catch {}
 	try {
 		const position =
 			tabPosition ??
-			(await readPanes(runtime)).find((candidate) => !candidate.is_plugin && candidate.id === surfacePaneId(surface))
-				?.tab_position;
+			(await readPanes(runtime)).find(
+				(candidate) => !candidate.is_plugin && candidate.id === surfacePaneId(surface),
+			)?.tab_position;
 		if (typeof position === "number") {
 			await action(runtime, ["go-to-tab", String(position + 1)]);
 		}
@@ -123,7 +134,11 @@ async function restoreFocus(runtime: ZellijTarget, surface: string, tabPosition?
 	}
 }
 
-async function waitForPane(runtime: ZellijTarget, surface: string, timeoutMs = 2000): Promise<void> {
+async function waitForPane(
+	runtime: ZellijTarget,
+	surface: string,
+	timeoutMs = 2000,
+): Promise<void> {
 	const paneId = surfacePaneId(surface);
 	const deadline = Date.now() + timeoutMs;
 	while (Date.now() <= deadline) {
@@ -152,7 +167,17 @@ async function createSplit(
 				await action(
 					runtime,
 					withPaneCommand(
-						["new-pane", "--direction", direction, "--tab-id", String(tabId), "--name", name, "--cwd", process.cwd()],
+						[
+							"new-pane",
+							"--direction",
+							direction,
+							"--tab-id",
+							String(tabId),
+							"--name",
+							name,
+							"--cwd",
+							process.cwd(),
+						],
 						command,
 					),
 				)
@@ -179,7 +204,15 @@ async function createStacked(
 				await action(
 					runtime,
 					withPaneCommand(
-						["new-pane", "--stacked", "--near-current-pane", "--name", name, "--cwd", process.cwd()],
+						[
+							"new-pane",
+							"--stacked",
+							"--near-current-pane",
+							"--name",
+							name,
+							"--cwd",
+							process.cwd(),
+						],
 						command,
 					),
 					anchorSurface,
@@ -205,7 +238,17 @@ async function createFloating(
 			await action(
 				runtime,
 				withPaneCommand(
-					["new-pane", "--floating", "--pinned", "true", "--near-current-pane", "--name", name, "--cwd", process.cwd()],
+					[
+						"new-pane",
+						"--floating",
+						"--pinned",
+						"true",
+						"--near-current-pane",
+						"--name",
+						name,
+						"--cwd",
+						process.cwd(),
+					],
 					command,
 				),
 				parentSurface,
@@ -226,7 +269,9 @@ async function createTab(
 	const originalTabPosition = (await readPanes(runtime)).find(
 		(candidate) => !candidate.is_plugin && candidate.id === surfacePaneId(original),
 	)?.tab_position;
-	const tabIdRaw = (await action(runtime, ["new-tab", "--name", name, "--cwd", process.cwd()])).trim();
+	const tabIdRaw = (
+		await action(runtime, ["new-tab", "--name", name, "--cwd", process.cwd()])
+	).trim();
 	const tabId = Number(tabIdRaw);
 	if (!Number.isInteger(tabId)) {
 		throw new Error(`Unexpected zellij tab id from new-tab: ${tabIdRaw || "(empty)"}`);
@@ -234,7 +279,9 @@ async function createTab(
 	try {
 		const pane = (await readPanes(runtime)).find(
 			(candidate) =>
-				candidate.tab_id === tabId && isUsableZellijTiledPane(candidate) && typeof candidate.id === "number",
+				candidate.tab_id === tabId &&
+				isUsableZellijTiledPane(candidate) &&
+				typeof candidate.id === "number",
 		);
 		if (!pane) throw new Error(`Could not find initial pane for zellij tab ${tabId}`);
 		let surface = `pane:${pane.id}`;
@@ -243,7 +290,10 @@ async function createTab(
 				(
 					await action(
 						runtime,
-						withPaneCommand(["new-pane", "--tab-id", String(tabId), "--name", name, "--cwd", process.cwd()], command),
+						withPaneCommand(
+							["new-pane", "--tab-id", String(tabId), "--name", name, "--cwd", process.cwd()],
+							command,
+						),
 					)
 				).trim(),
 				"new-pane in new tab",
@@ -317,12 +367,16 @@ async function createZellijSurfaceOnce(
 ): Promise<string> {
 	return withSurfaceLock(runtime, async () => {
 		const context = providedContext ?? {
-			groupKey: process.env.PI_SUBAGENT_SESSION ?? process.env.PI_SUBAGENT_PARENT_SESSION ?? `process:${process.pid}`,
+			groupKey:
+				process.env.PI_SUBAGENT_SESSION ??
+				process.env.PI_SUBAGENT_PARENT_SESSION ??
+				`process:${process.pid}`,
 			parentPaneId: runtime.parentPaneId,
 			policy: resolveZellijPlacementPolicy(process.env.PI_SUBAGENT_ZELLIJ_PLACEMENT),
 		};
 		const parentPaneId = context.parentPaneId ?? runtime.parentPaneId;
-		const policy = context.policy ?? resolveZellijPlacementPolicy(process.env.PI_SUBAGENT_ZELLIJ_PLACEMENT);
+		const policy =
+			context.policy ?? resolveZellijPlacementPolicy(process.env.PI_SUBAGENT_ZELLIJ_PLACEMENT);
 		const panes = await readPanes(runtime);
 		if (policy === "floating") {
 			return Number.isInteger(parentPaneId)
@@ -331,11 +385,20 @@ async function createZellijSurfaceOnce(
 		}
 
 		const state = readZellijPlacementState(runtime.sessionName);
-		const groupId = zellijPlacementGroupId(context.groupKey, parentPaneId, policy, undefined, runtime.sessionName);
+		const groupId = zellijPlacementGroupId(
+			context.groupKey,
+			parentPaneId,
+			policy,
+			undefined,
+			runtime.sessionName,
+		);
 		const previous = state.groups[groupId];
 		const liveOwnedPaneIds =
-			previous?.paneIds.filter((paneId) => panes.some((pane) => pane.id === paneId && !pane.exited)) ?? [];
-		const anchor = previous?.policy === policy ? selectLiveOwnedZellijAnchor(panes, liveOwnedPaneIds) : null;
+			previous?.paneIds.filter((paneId) =>
+				panes.some((pane) => pane.id === paneId && !pane.exited),
+			) ?? [];
+		const anchor =
+			previous?.policy === policy ? selectLiveOwnedZellijAnchor(panes, liveOwnedPaneIds) : null;
 		if (anchor) {
 			const surface = await createStacked(runtime, name, `pane:${anchor.id}`, command);
 			state.groups[groupId] = {
@@ -359,7 +422,14 @@ async function createZellijSurfaceOnce(
 		let surface: string;
 		let tabId: number | undefined;
 		if (plan.mode === "split") {
-			surface = await createSplit(runtime, name, `pane:${plan.parentPaneId}`, plan.tabId, plan.direction, command);
+			surface = await createSplit(
+				runtime,
+				name,
+				`pane:${plan.parentPaneId}`,
+				plan.tabId,
+				plan.direction,
+				command,
+			);
 			tabId = plan.tabId;
 		} else if (plan.mode === "floating") {
 			surface = await createFloating(runtime, name, `pane:${plan.parentPaneId}`, command);
@@ -380,7 +450,10 @@ async function createZellijSurfaceOnce(
 	});
 }
 
-export function createZellijSurface(name: string, context?: ZellijPlacementContext): Promise<string> {
+export function createZellijSurface(
+	name: string,
+	context?: ZellijPlacementContext,
+): Promise<string> {
 	return resolveZellijTarget().then((target) => createZellijSurfaceOnce(name, target, context));
 }
 

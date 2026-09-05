@@ -34,7 +34,11 @@ export function resolveZellijTargetFromSessions(
 ): ZellijTarget {
 	const hasParent = (session: ZellijSessionIdentity, requirePi = false) =>
 		session.panes.some(
-			(pane) => pane.id === parentPaneId && !pane.is_plugin && !pane.exited && (!requirePi || isParentPiPane(pane)),
+			(pane) =>
+				pane.id === parentPaneId &&
+				!pane.is_plugin &&
+				!pane.exited &&
+				(!requirePi || isParentPiPane(pane)),
 		);
 	const candidates = sessions.filter((session) => hasParent(session));
 	if (candidates.length === 1) return { sessionName: candidates[0].name, parentPaneId };
@@ -45,7 +49,9 @@ export function resolveZellijTargetFromSessions(
 		candidates.find(({ name }) => name === preferredSessionName);
 	if (preferred) return { sessionName: preferred.name, parentPaneId };
 	if (candidates.length === 0) {
-		throw new Error(`Could not find the live Zellij session containing parent pane ${parentPaneId}.`);
+		throw new Error(
+			`Could not find the live Zellij session containing parent pane ${parentPaneId}.`,
+		);
 	}
 	throw new Error(
 		`Zellij parent pane ${parentPaneId} is ambiguous across sessions: ${candidates.map(({ name }) => name).join(", ")}.`,
@@ -77,8 +83,11 @@ async function listSessionNames(): Promise<string[]> {
 }
 async function inspectSession(name: string): Promise<ZellijSessionIdentity> {
 	const target = { sessionName: name, parentPaneId: 0 };
-	const panes = JSON.parse(await runZellij(["--session", name, "action", "list-panes", "--all", "--json"], target));
-	if (!Array.isArray(panes)) throw new Error(`Zellij returned an invalid pane list for session ${name}.`);
+	const panes = JSON.parse(
+		await runZellij(["--session", name, "action", "list-panes", "--all", "--json"], target),
+	);
+	if (!Array.isArray(panes))
+		throw new Error(`Zellij returned an invalid pane list for session ${name}.`);
 	return { name, panes };
 }
 export async function resolveZellijTarget(): Promise<ZellijTarget> {
@@ -86,8 +95,11 @@ export async function resolveZellijTarget(): Promise<ZellijTarget> {
 	if (!Number.isInteger(parentPaneId)) throw new Error("ZELLIJ_PANE_ID is missing or invalid.");
 	const before = await listSessionNames();
 	const inspected = await Promise.allSettled(before.map(inspectSession));
-	const failed = inspected.flatMap((result, index) => (result.status === "rejected" ? [before[index]] : []));
-	if (failed.length) throw new Error(`Could not inspect active Zellij sessions: ${failed.join(", ")}.`);
+	const failed = inspected.flatMap((result, index) =>
+		result.status === "rejected" ? [before[index]] : [],
+	);
+	if (failed.length)
+		throw new Error(`Could not inspect active Zellij sessions: ${failed.join(", ")}.`);
 	const after = await listSessionNames();
 	if ([...before].sort().join("\0") !== [...after].sort().join("\0")) {
 		throw new Error("Zellij sessions changed during live-session discovery.");
@@ -98,8 +110,19 @@ export async function resolveZellijTarget(): Promise<ZellijTarget> {
 		process.env.ZELLIJ_SESSION_NAME,
 	);
 }
-const PANE_ACTIONS = new Set(["close-pane", "dump-screen", "move-pane", "rename-pane", "write", "write-chars"]);
-export function runZellijAction(target: ZellijTarget, args: string[], surface?: string): Promise<string> {
+const PANE_ACTIONS = new Set([
+	"close-pane",
+	"dump-screen",
+	"move-pane",
+	"rename-pane",
+	"write",
+	"write-chars",
+]);
+export function runZellijAction(
+	target: ZellijTarget,
+	args: string[],
+	surface?: string,
+): Promise<string> {
 	const actionArgs =
 		surface && PANE_ACTIONS.has(args[0] ?? "") && !args.includes("--pane-id")
 			? [args[0], "--pane-id", paneId(surface), ...args.slice(1)]

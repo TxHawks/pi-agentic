@@ -81,7 +81,8 @@ try {
 
 	// Verify both completed
 	for (const c of [autoExitResult, noSessionResult]) {
-		if (c.status !== "completed") throw new Error(`${c.name}: expected completed, got ${c.status}.`);
+		if (c.status !== "completed")
+			throw new Error(`${c.name}: expected completed, got ${c.status}.`);
 		// No-session child may not have a persistent sessionFile (ephemeral)
 		if (c.name !== "FM NoSession Child" && (!c.sessionFile || !existsSync(c.sessionFile))) {
 			throw new Error(`${c.name}: missing sessionFile.`);
@@ -113,7 +114,7 @@ try {
 			: [];
 
 	// Check assistant text from the result summary
-	if (noSessionResult.summary && noSessionResult.summary.includes("FM_NOSESSION_OK")) {
+	if (noSessionResult.summary?.includes("FM_NOSESSION_OK")) {
 		console.log("No-session child produced FM_NOSESSION_OK (from summary).");
 	} else if (noSessionEvents.length > 0) {
 		const noSessionTexts = getAssistantTexts(noSessionEvents);
@@ -121,7 +122,9 @@ try {
 			throw new Error(`No-session child did not produce FM_NOSESSION_OK.`);
 		}
 	} else {
-		console.log("Note: Cannot verify child output directly. no-session session may have been cleaned up.");
+		console.log(
+			"Note: Cannot verify child output directly. no-session session may have been cleaned up.",
+		);
 	}
 
 	// The sessionFile path tells us about ephemeral behavior
@@ -141,7 +144,9 @@ try {
 	}
 
 	// Check launch metadata for no-session field
-	const nsMeta = noSessionEvents.find((e) => e.type === "custom" && e.customType === "pi-subagents_launch_metadata");
+	const nsMeta = noSessionEvents.find(
+		(e) => e.type === "custom" && e.customType === "pi-subagents_launch_metadata",
+	);
 	if (nsMeta?.data?.noSession === true) {
 		console.log("Launch metadata confirms noSession: true");
 	}

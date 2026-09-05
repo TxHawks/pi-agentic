@@ -122,7 +122,9 @@ export function resolveAvailableModelRef(
 			provider = matches[0]?.provider;
 			resolved = `${provider}/${id}`;
 		} else if (matches.length > 1 && parentProvider) {
-			const parentProviderMatch = matches.find((candidate) => candidate.provider === parentProvider);
+			const parentProviderMatch = matches.find(
+				(candidate) => candidate.provider === parentProvider,
+			);
 			if (parentProviderMatch) {
 				provider = parentProviderMatch.provider;
 				resolved = `${provider}/${id}`;
@@ -137,7 +139,9 @@ export function resolveAvailableModelRef(
 	} else {
 		provider = model.slice(0, slash);
 		id = model.slice(slash + 1);
-		const match = available.find((candidate) => candidate.provider === provider && candidate.id === id);
+		const match = available.find(
+			(candidate) => candidate.provider === provider && candidate.id === id,
+		);
 		if (!match) throw new Error(`Unknown model override '${model}'.`);
 	}
 	const match = available.find((candidate) => `${candidate.provider}/${candidate.id}` === resolved);
@@ -157,7 +161,9 @@ export function resolveAvailableModelRef(
 	return { model: resolved, thinking };
 }
 
-export async function buildChildLaunchPlan(options: ChildLaunchPlanOptions): Promise<ChildLaunchPlan> {
+export async function buildChildLaunchPlan(
+	options: ChildLaunchPlanOptions,
+): Promise<ChildLaunchPlan> {
 	const { params, agentDefs, parentCwd, parentSessionDir } = options;
 	const hasAllowedModels = !!agentDefs?.allowedModels?.trim();
 	const resolveRef = (
@@ -175,9 +181,16 @@ export async function buildChildLaunchPlan(options: ChildLaunchPlanOptions): Pro
 		// launch override or when this agent opts into allowed-models; otherwise
 		// pass it through untouched so agents without the feature keep Pi's native
 		// model resolution.
-		const shouldResolve = !!split.model && (opts.resolveAlways || (hasAllowedModels && !split.model.includes("/")));
+		const shouldResolve =
+			!!split.model && (opts.resolveAlways || (hasAllowedModels && !split.model.includes("/")));
 		const available = shouldResolve
-			? resolveAvailableModelRef(split.model, split.thinking, explicit, options.modelRegistry, options.parentModelRef)
+			? resolveAvailableModelRef(
+					split.model,
+					split.thinking,
+					explicit,
+					options.modelRegistry,
+					options.parentModelRef,
+				)
 			: split;
 		return normalizeModelRef(available.model, available.thinking);
 	};
@@ -207,7 +220,9 @@ export async function buildChildLaunchPlan(options: ChildLaunchPlanOptions): Pro
 
 	const runtimePaths = resolveSubagentRuntimePaths(params, agentDefs, parentCwd, parentSessionDir);
 	const subagentSessionFile = generateSubagentSessionFile(
-		resolveSubagentNoSession(agentDefs) ? join(tmpdir(), "pi-subagents", "sessions") : runtimePaths.sessionDir,
+		resolveSubagentNoSession(agentDefs)
+			? join(tmpdir(), "pi-subagents", "sessions")
+			: runtimePaths.sessionDir,
 	);
 	const tools = params.tools ?? agentDefs?.tools;
 	const skills = params.skills ?? agentDefs?.skills;

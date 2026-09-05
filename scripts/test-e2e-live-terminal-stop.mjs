@@ -130,7 +130,9 @@ function getToolResults(events, toolName) {
 	return events
 		.filter(
 			(event) =>
-				event.type === "message" && event.message?.role === "toolResult" && event.message.toolName === toolName,
+				event.type === "message" &&
+				event.message?.role === "toolResult" &&
+				event.message.toolName === toolName,
 		)
 		.map((event) => event.message);
 }
@@ -200,7 +202,10 @@ try {
 	if (resultDetails.status !== "failed") {
 		throw new Error(`Expected failed subagent status, got: ${JSON.stringify(resultDetails)}`);
 	}
-	if (resultText.includes("I'll review the diff now.") || parentText.includes("I'll review the diff now.")) {
+	if (
+		resultText.includes("I'll review the diff now.") ||
+		parentText.includes("I'll review the diff now.")
+	) {
 		throw new Error(`Parent used stale child status as completion: ${parentText}`);
 	}
 	console.log(`live terminal-stop ok: terminal no-text stop surfaced (${LIVE_TEST_MODEL})`);

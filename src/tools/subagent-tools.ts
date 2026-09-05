@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
@@ -8,15 +9,8 @@ import {
 	resolveSubagentBlocking,
 } from "../launch/policy.ts";
 import type { SubagentLaunchContext } from "../launch/prep.ts";
-import { parseSpawnEnv, resolveSpawnPolicy } from "../spawn/policy.ts";
 import { isMuxAvailable } from "../mux.ts";
 import { findRunningSubagent } from "../runtime/running-registry.ts";
-import {
-	asSubagentToolResult,
-	getCoordinatorOnlyTurnPrompt,
-	getSubagentBatchStopMetadata,
-	markSubagentBatchBlocking,
-} from "../runtime/state.ts";
 import {
 	claimSpawnWidthSlot,
 	getLiveSlotCount,
@@ -25,12 +19,27 @@ import {
 	releaseSpawnWidthSlotOnCompletion,
 	tryAcquireSlots,
 } from "../runtime/spawn-width.ts";
+import {
+	asSubagentToolResult,
+	getCoordinatorOnlyTurnPrompt,
+	getSubagentBatchStopMetadata,
+	markSubagentBatchBlocking,
+} from "../runtime/state.ts";
+import { parseSpawnEnv, resolveSpawnPolicy } from "../spawn/policy.ts";
 import type { RunningSubagent, SubagentParamsInput, SubagentResult } from "../types.ts";
 
-import { formatSubagentBatchLines, formatTaskPreview, renderSubagentCompletionText } from "./message-renderers.ts";
+import {
+	formatSubagentBatchLines,
+	formatTaskPreview,
+	renderSubagentCompletionText,
+} from "./message-renderers.ts";
 import { getSubagentToolsWarning } from "./policy.ts";
 import { registerSetTabTitleTool } from "./set-tab-title.ts";
-import { SET_TAB_TITLE_TOOL_NAME, SUBAGENT_KILL_TOOL_NAME, SUBAGENT_TOOL_NAME } from "./tool-names.ts";
+import {
+	SET_TAB_TITLE_TOOL_NAME,
+	SUBAGENT_KILL_TOOL_NAME,
+	SUBAGENT_TOOL_NAME,
+} from "./tool-names.ts";
 
 let initialPromptLaunchActive = isInitialPromptInvocation();
 
@@ -98,14 +107,24 @@ type ToolResult = ReturnType<typeof asSubagentToolResult>;
 
 export interface SubagentToolRuntime {
 	loadAgentDefaults(agentName: string | undefined, cwd: string): AgentDefaults | null;
-	resolveEffectiveSessionMode(params: Partial<SubagentParamsInput>, defs: AgentDefaults | null): string;
+	resolveEffectiveSessionMode(
+		params: Partial<SubagentParamsInput>,
+		defs: AgentDefaults | null,
+	): string;
 	resolveTaskSessionMode(defs: AgentDefaults): string;
-	launchBackgroundSubagent(params: SubagentParamsInput, ctx: SubagentLaunchContext): Promise<RunningSubagent>;
+	launchBackgroundSubagent(
+		params: SubagentParamsInput,
+		ctx: SubagentLaunchContext,
+	): Promise<RunningSubagent>;
 	launchSubagent(params: SubagentParamsInput, ctx: SubagentLaunchContext): Promise<RunningSubagent>;
 	watchBackgroundSubagent(running: RunningSubagent, signal: AbortSignal): Promise<SubagentResult>;
 	watchSubagent(running: RunningSubagent, signal: AbortSignal): Promise<SubagentResult>;
 	getWatcherSignal(running: RunningSubagent, controller: AbortController): AbortSignal;
-	wireSubagentSteerBack(pi: ExtensionAPI, running: RunningSubagent, promise: Promise<SubagentResult>): void;
+	wireSubagentSteerBack(
+		pi: ExtensionAPI,
+		running: RunningSubagent,
+		promise: Promise<SubagentResult>,
+	): void;
 	startWidgetRefresh(): void;
 	getLaunchedSubagentResult(running: RunningSubagent, signal?: AbortSignal): Promise<ToolResult>;
 	stopRunningSubagent(running: RunningSubagent): Promise<void>;
@@ -198,7 +217,8 @@ function getLaunchError(
 		envDepthCeiling: callerEnv.envDepthCeiling,
 		envWidthCeiling: callerEnv.envWidthCeiling,
 	});
-	if (!spawnPolicy.allowed) return `Error: ${spawnPolicy.reason ?? "Spawn policy denied this target."}`;
+	if (!spawnPolicy.allowed)
+		return `Error: ${spawnPolicy.reason ?? "Spawn policy denied this target."}`;
 	return null;
 }
 
@@ -211,7 +231,8 @@ async function launchOneSubagent(
 	pi: ExtensionAPI,
 ): Promise<RunningSubagent> {
 	const forceSynchronousLaunch = shouldForceSynchronousLaunch(ctx.hasUI);
-	const headlessAutoExit = forceSynchronousLaunch && agentDefs?.autoExit !== true ? true : undefined;
+	const headlessAutoExit =
+		forceSynchronousLaunch && agentDefs?.autoExit !== true ? true : undefined;
 	const effectiveParams = enforceAgentFrontmatter(params, agentDefs);
 	// In print/prompt-style runs there is no durable parent turn for async steer
 	// delivery. Force blocking so the child completes before the parent exits.
@@ -251,7 +272,7 @@ async function launchOneSubagent(
 		running.abortController = watcherAbort;
 		running.completionPromise = releaseSpawnWidthSlotOnCompletion(
 			running,
-		runtime.watchSubagent(running, runtime.getWatcherSignal(running, watcherAbort)),
+			runtime.watchSubagent(running, runtime.getWatcherSignal(running, watcherAbort)),
 		);
 	} else {
 		running = await runtime.launchBackgroundSubagent(effectiveParams, launchCtx);
@@ -260,7 +281,7 @@ async function launchOneSubagent(
 		running.abortController = watcherAbort;
 		running.completionPromise = releaseSpawnWidthSlotOnCompletion(
 			running,
-		runtime.watchBackgroundSubagent(running, runtime.getWatcherSignal(running, watcherAbort)),
+			runtime.watchBackgroundSubagent(running, runtime.getWatcherSignal(running, watcherAbort)),
 		);
 	}
 	return running;
@@ -329,11 +350,15 @@ export function markInitialPromptLaunchComplete(): void {
 }
 
 export function shouldForceSynchronousLaunch(hasUI: boolean, argv = process.argv): boolean {
-	const startupPromptActive = argv === process.argv ? initialPromptLaunchActive : isInitialPromptInvocation(argv);
+	const startupPromptActive =
+		argv === process.argv ? initialPromptLaunchActive : isInitialPromptInvocation(argv);
 	return !hasUI || isOneShotPromptInvocation(argv) || startupPromptActive;
 }
 
-function getToolWaitSignal(running: RunningSubagent, signal: AbortSignal | undefined): AbortSignal | undefined {
+function getToolWaitSignal(
+	running: RunningSubagent,
+	signal: AbortSignal | undefined,
+): AbortSignal | undefined {
 	return running.async === false ? undefined : signal;
 }
 
@@ -382,7 +407,8 @@ export function registerSubagentCoreTools(
 			execute: async (toolCallId, params, signal, _onUpdate, ctx) => {
 				const children = getRequestedChildren(params as SubagentToolParams);
 				const widthLimit = getSpawnWidthLimit();
-				if (children.length > widthLimit) return getBatchWidthValidationError(children.length, widthLimit);
+				if (children.length > widthLimit)
+					return getBatchWidthValidationError(children.length, widthLimit);
 				const currentAgent = parseSpawnEnv(process.env).callerAgent ?? undefined;
 				const prepared = children.map((child) => {
 					const agentDefs = runtime.loadAgentDefaults(child.agent, ctx.cwd);
@@ -395,7 +421,8 @@ export function registerSubagentCoreTools(
 						warning: getSubagentToolsWarning(agentDefs?.tools),
 					};
 				});
-				if (!tryAcquireSlots(children.length, widthLimit)) return getSpawnWidthLimitError(widthLimit);
+				if (!tryAcquireSlots(children.length, widthLimit))
+					return getSpawnWidthLimitError(widthLimit);
 				let unlaunchedSlots = children.length;
 				const hasBlockingChild = prepared.some((entry) => entry.blocking);
 				const launched: RunningSubagent[] = [];
@@ -405,10 +432,18 @@ export function registerSubagentCoreTools(
 					}
 
 					for (const entry of prepared) {
-						const running = await launchOneSubagent(toolCallId, entry.child, entry.agentDefs, ctx, runtime, pi);
+						const running = await launchOneSubagent(
+							toolCallId,
+							entry.child,
+							entry.agentDefs,
+							ctx,
+							runtime,
+							pi,
+						);
 						unlaunchedSlots--;
 						launched.push(running);
-						runtime.wireSubagentSteerBack(pi, running, running.completionPromise!);
+						assert.ok(running.completionPromise, "A launched run must have completion tracking.");
+						runtime.wireSubagentSteerBack(pi, running, running.completionPromise);
 					}
 				} catch (error) {
 					releaseSlots(unlaunchedSlots);
@@ -418,12 +453,17 @@ export function registerSubagentCoreTools(
 				const warnings = prepared.map((entry) => entry.warning?.message ?? "");
 				const warningPrefix = warnings.filter(Boolean).join("\n\n");
 				if (launched.length === 1) {
-					const result = await runtime.getLaunchedSubagentResult(launched[0], getToolWaitSignal(launched[0], signal));
+					const result = await runtime.getLaunchedSubagentResult(
+						launched[0],
+						getToolWaitSignal(launched[0], signal),
+					);
 					return withToolWarning(result, warningPrefix);
 				}
 
 				const results = await Promise.all(
-					launched.map((running) => runtime.getLaunchedSubagentResult(running, getToolWaitSignal(running, signal))),
+					launched.map((running) =>
+						runtime.getLaunchedSubagentResult(running, getToolWaitSignal(running, signal)),
+					),
 				);
 				const texts = results
 					.flatMap((result) => result.content)
@@ -444,14 +484,17 @@ export function registerSubagentCoreTools(
 							task: prepared[index]?.child.task,
 							title: prepared[index]?.child.title,
 							agent: prepared[index]?.child.agent,
-							name: (result.details as { name?: string } | undefined)?.name ?? prepared[index]?.child.name,
+							name:
+								(result.details as { name?: string } | undefined)?.name ??
+								prepared[index]?.child.name,
 						})),
 					},
 					...getSubagentBatchStopMetadata(),
 				});
 			},
 			renderCall(args, theme, context) {
-				const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+				const text =
+					context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
 				const children = Array.isArray(args.children) ? args.children : undefined;
 				if (children?.length) {
 					const lines = [
@@ -483,11 +526,18 @@ export function registerSubagentCoreTools(
 				const details = result.details as { status?: string; children?: unknown[] } | undefined;
 				if (details?.children) {
 					if (details.status !== "batch") return new Text("", 0, 0);
-					const component = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
-					component.setText(`\n${formatSubagentBatchLines(result, context.args, options, theme).join("\n")}`);
+					const component =
+						context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+					component.setText(
+						`\n${formatSubagentBatchLines(result, context.args, options, theme).join("\n")}`,
+					);
 					return component;
 				}
-				if (details?.status !== "completed" && details?.status !== "failed" && details?.status !== "cancelled") {
+				if (
+					details?.status !== "completed" &&
+					details?.status !== "failed" &&
+					details?.status !== "cancelled"
+				) {
 					return new Text("", 0, 0);
 				}
 				return renderSubagentCompletionText(
@@ -503,7 +553,8 @@ export function registerSubagentCoreTools(
 	pi.registerTool({
 		name: SUBAGENT_KILL_TOOL_NAME,
 		label: "Kill Subagent",
-		description: "Stop a running subagent by id or display name. Works for both background and interactive subagents.",
+		description:
+			"Stop a running subagent by id or display name. Works for both background and interactive subagents.",
 		promptSnippet:
 			"Stop a running subagent by id or display name. Works for both background and interactive subagents.",
 		parameters: SubagentKillParams,

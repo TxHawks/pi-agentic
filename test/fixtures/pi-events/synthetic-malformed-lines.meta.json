@@ -1,0 +1,5 @@
+{
+	"scenario": "synthetic-malformed-lines",
+	"source": "synthetic",
+	"note": "Hand-built from recorded Pi 0.85.0 lines. Good event lines around a non-JSON line, a JSON line that is not an object, and an unknown event type. The recording script never writes this file."
+}

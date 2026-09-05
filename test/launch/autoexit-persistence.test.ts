@@ -17,20 +17,20 @@ describe("auto-exit persistence (no headless override leakage)", () => {
 	});
 
 	it("preserves auto-exit: false in persisted metadata", async () => {
-		const dir = "/tmp/pi-subagent-test-" + Math.random().toString(16).slice(2);
+		const dir = `/tmp/pi-subagent-test-${Math.random().toString(16).slice(2)}`;
 		mkdirSync(dir, { recursive: true });
 		const sessionFile = join(dir, "child.jsonl");
 
 		// Write minimal session header
 		writeFileSync(
 			sessionFile,
-			JSON.stringify({
+			`${JSON.stringify({
 				type: "session",
 				version: 3,
 				id: "test-session",
 				timestamp: new Date().toISOString(),
 				cwd: dir,
-			}) + "\n",
+			})}\n`,
 		);
 
 		// Write metadata with auto-exit: false (as the agent file specifies)
@@ -59,27 +59,27 @@ describe("auto-exit persistence (no headless override leakage)", () => {
 		// Read back the metadata
 		const metadata = readSubagentLaunchMetadataForTest(sessionFile);
 		assert.ok(metadata, "metadata should be readable");
-		assert.equal(metadata!.autoExit, false, "autoExit should be false in persisted metadata");
-		assert.equal(metadata!.model, "nahcrof/deepseek-v4-flash", "model should be preserved");
-		assert.equal(metadata!.thinking, "low", "thinking should be preserved");
-		assert.equal(metadata!.tools, "read,bash,grep,find,ls", "tools should be preserved");
+		assert.equal(metadata.autoExit, false, "autoExit should be false in persisted metadata");
+		assert.equal(metadata.model, "nahcrof/deepseek-v4-flash", "model should be preserved");
+		assert.equal(metadata.thinking, "low", "thinking should be preserved");
+		assert.equal(metadata.tools, "read,bash,grep,find,ls", "tools should be preserved");
 	});
 
 	it("correctly reads auto-exit: false on resume", async () => {
-		const dir = "/tmp/pi-subagent-test-" + Math.random().toString(16).slice(2);
+		const dir = `/tmp/pi-subagent-test-${Math.random().toString(16).slice(2)}`;
 		mkdirSync(dir, { recursive: true });
 		const sessionFile = join(dir, "child.jsonl");
 
 		// Session header
 		writeFileSync(
 			sessionFile,
-			JSON.stringify({
+			`${JSON.stringify({
 				type: "session",
 				version: 3,
 				id: "test-session-2",
 				timestamp: new Date().toISOString(),
 				cwd: dir,
-			}) + "\n",
+			})}\n`,
 		);
 
 		// Write metadata as it would be persisted after the fix
@@ -109,27 +109,31 @@ describe("auto-exit persistence (no headless override leakage)", () => {
 		assert.ok(metadata, "metadata should be readable");
 
 		// Simulate the resume-tool logic
-		const resumedAutoExit = metadata!.autoExit ?? true;
+		const resumedAutoExit = metadata.autoExit ?? true;
 		assert.equal(resumedAutoExit, false, "resume should honor auto-exit: false");
 
 		// Verify model params are also preserved
-		assert.equal(metadata!.modelRef, "zai-messages/glm-5-turbo:low", "modelRef with thinking should be preserved");
+		assert.equal(
+			metadata.modelRef,
+			"zai-messages/glm-5-turbo:low",
+			"modelRef with thinking should be preserved",
+		);
 	});
 
 	it("handles missing auto-exit field gracefully (no agent default)", async () => {
-		const dir = "/tmp/pi-subagent-test-" + Math.random().toString(16).slice(2);
+		const dir = `/tmp/pi-subagent-test-${Math.random().toString(16).slice(2)}`;
 		mkdirSync(dir, { recursive: true });
 		const sessionFile = join(dir, "child.jsonl");
 
 		writeFileSync(
 			sessionFile,
-			JSON.stringify({
+			`${JSON.stringify({
 				type: "session",
 				version: 3,
 				id: "test-session-3",
 				timestamp: new Date().toISOString(),
 				cwd: dir,
-			}) + "\n",
+			})}\n`,
 		);
 
 		// Metadata without autoExit field
@@ -153,23 +157,23 @@ describe("auto-exit persistence (no headless override leakage)", () => {
 		const metadata = readSubagentLaunchMetadataForTest(sessionFile);
 		assert.ok(metadata, "metadata should be readable even without autoExit");
 		// autoExit should be undefined when not set
-		assert.equal(metadata!.autoExit, undefined, "autoExit should be undefined when not in metadata");
+		assert.equal(metadata.autoExit, undefined, "autoExit should be undefined when not in metadata");
 	});
 
 	it("round-trips auto-exit: true correctly", async () => {
-		const dir = "/tmp/pi-subagent-test-" + Math.random().toString(16).slice(2);
+		const dir = `/tmp/pi-subagent-test-${Math.random().toString(16).slice(2)}`;
 		mkdirSync(dir, { recursive: true });
 		const sessionFile = join(dir, "child.jsonl");
 
 		writeFileSync(
 			sessionFile,
-			JSON.stringify({
+			`${JSON.stringify({
 				type: "session",
 				version: 3,
 				id: "test-session-4",
 				timestamp: new Date().toISOString(),
 				cwd: dir,
-			}) + "\n",
+			})}\n`,
 		);
 
 		await writeSubagentLaunchMetadataEntryForTest(sessionFile, {
@@ -194,7 +198,7 @@ describe("auto-exit persistence (no headless override leakage)", () => {
 
 		const metadata = readSubagentLaunchMetadataForTest(sessionFile);
 		assert.ok(metadata, "metadata should be readable");
-		assert.equal(metadata!.autoExit, true, "autoExit should be true");
-		assert.equal(metadata!.model, "nahcrof/deepseek-v4-flash", "model preserved");
+		assert.equal(metadata.autoExit, true, "autoExit should be true");
+		assert.equal(metadata.model, "nahcrof/deepseek-v4-flash", "model preserved");
 	});
 });

@@ -27,6 +27,15 @@ export function getArtifactStorageRoot(): string {
 	return envRoot ? resolve(envRoot) : join(homedir(), ".pi", "history");
 }
 
+/**
+ * The run artifact root: the one directory that holds every run's durable
+ * artifacts, for all projects. The run store creates it with mode 0700 and
+ * a format marker.
+ */
+export function getRunArtifactRoot(artifactRoot: string): string {
+	return join(artifactRoot, "runs");
+}
+
 export function getArtifactProjectName(cwd: string): string {
 	return basename(resolveArtifactProjectRoot(cwd));
 }

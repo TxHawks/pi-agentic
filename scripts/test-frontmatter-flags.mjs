@@ -77,7 +77,9 @@ writeAgent(
 		flags: "--verbose",
 		extensions: extFile,
 	},
-	["First call the report_flags tool exactly once.", "Then reply with exactly `FM_FLAGS_OK`."].join("\n"),
+	["First call the report_flags tool exactly once.", "Then reply with exactly `FM_FLAGS_OK`."].join(
+		"\n",
+	),
 );
 
 const prompt = [
@@ -116,7 +118,9 @@ try {
 
 	// Check the child session launch metadata for the flags field
 	// The flags are stored in the pi-subagents_launch_metadata custom entry
-	const metadata = childEvents.find((e) => e.type === "custom" && e.customType === "pi-subagents_launch_metadata");
+	const metadata = childEvents.find(
+		(e) => e.type === "custom" && e.customType === "pi-subagents_launch_metadata",
+	);
 	if (!metadata) {
 		throw new Error("No launch metadata found in child session.");
 	}
@@ -129,7 +133,9 @@ try {
 	console.log(`Launch metadata contains flags: ${JSON.stringify(persistedFlags)}`);
 
 	verified = true;
-	console.log(`frontmatter \`flags\` ok: --verbose flag persisted in launch metadata (${details.id})`);
+	console.log(
+		`frontmatter \`flags\` ok: --verbose flag persisted in launch metadata (${details.id})`,
+	);
 } finally {
 	ctx.cleanup();
 }

@@ -1,7 +1,7 @@
 import {
 	resolveResumeHerdrPlacementPolicy,
 	resolveResumeZellijPlacementPolicy,
-} from "../../src/runtime/resume-service.ts";
+} from "../../src/runtime/resume-invocation.ts";
 import {
 	assert,
 	createTestDir,
@@ -31,7 +31,9 @@ describe("subagent_resume Herdr placement", () => {
 	it("lets the current parent default override a persisted operator policy", () => {
 		assert.equal(
 			resolveResumeHerdrPlacementPolicy(
-				{ herdrPlacementPolicy: "down-stack" } as Parameters<typeof resolveResumeHerdrPlacementPolicy>[0],
+				{ herdrPlacementPolicy: "down-stack" } as Parameters<
+					typeof resolveResumeHerdrPlacementPolicy
+				>[0],
 				"tab",
 			),
 			"tab",
@@ -83,7 +85,9 @@ describe("subagent_resume Zellij placement", () => {
 	it("lets the current parent default override a persisted operator policy", () => {
 		assert.equal(
 			resolveResumeZellijPlacementPolicy(
-				{ zellijPlacementPolicy: "down-stack" } as Parameters<typeof resolveResumeZellijPlacementPolicy>[0],
+				{ zellijPlacementPolicy: "down-stack" } as Parameters<
+					typeof resolveResumeZellijPlacementPolicy
+				>[0],
 				"floating",
 			),
 			"floating",
@@ -110,7 +114,9 @@ describe("subagent_resume Zellij placement", () => {
 	it("treats an empty current parent value as an explicit auto override", () => {
 		assert.equal(
 			resolveResumeZellijPlacementPolicy(
-				{ zellijPlacementPolicy: "down-stack" } as Parameters<typeof resolveResumeZellijPlacementPolicy>[0],
+				{ zellijPlacementPolicy: "down-stack" } as Parameters<
+					typeof resolveResumeZellijPlacementPolicy
+				>[0],
 				"",
 			),
 			"auto",
@@ -153,7 +159,7 @@ describe("subagent_resume name identity", () => {
 
 		const launchMetadata = readSubagentLaunchMetadataForTest(sessionFile);
 		assert.ok(launchMetadata);
-		assert.equal(launchMetadata!.name, "magician");
+		assert.equal(launchMetadata.name, "magician");
 
 		const metadata = resolveResumeLaunchMetadataForTest(sessionFile);
 		assert.equal(metadata.name, "magician");

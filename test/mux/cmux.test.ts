@@ -13,13 +13,6 @@ const ORIGINAL_ENV = {
 	FAKE_CMUX_GEOMETRY: process.env.FAKE_CMUX_GEOMETRY,
 };
 
-afterEach(() => {
-	for (const [key, value] of Object.entries(ORIGINAL_ENV)) {
-		if (value == null) delete process.env[key];
-		else process.env[key] = value;
-	}
-});
-
 function installFakeCmux(): { dir: string; log: string } {
 	const dir = mkdtempSync(join(tmpdir(), "pi-subagents-cmux-test-"));
 	const log = join(dir, "cmux.log");
@@ -79,6 +72,15 @@ function readLog(log: string): string[][] {
 }
 
 describe("cmux surface creation", async () => {
+	// Inside the describe so the hook scopes to this suite only; the shared
+	// test entry point runs every suite in one process.
+	afterEach(() => {
+		for (const [key, value] of Object.entries(ORIGINAL_ENV)) {
+			if (value == null) delete process.env[key];
+			else process.env[key] = value;
+		}
+	});
+
 	it("creates cmux splits without stealing focus", async () => {
 		const { dir, log } = installFakeCmux();
 		try {
@@ -90,7 +92,9 @@ describe("cmux surface creation", async () => {
 			assert.ok(identifyIdx >= 0, "expected identify --json call");
 			assert.ok(splitIdx >= 0, "expected new-split call");
 			assert.ok(
-				!calls.some((args) => args[0] === "new-split" && args.includes("--focus") && args.includes("true")),
+				!calls.some(
+					(args) => args[0] === "new-split" && args.includes("--focus") && args.includes("true"),
+				),
 				"should NOT use --focus true",
 			);
 		} finally {

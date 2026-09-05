@@ -1,0 +1,41 @@
+{
+	"scenario": "tool-ping",
+	"source": "recorded",
+	"format": "Pi SessionManager JSONL (not stdout events)",
+	"piVersion": "0.85.0",
+	"requestedModel": "claude-bridge/haiku-4-5",
+	"model": "claude-bridge/claude-haiku-4-5",
+	"recordedAt": "2026-09-05T12:05:05.391Z",
+	"recorder": "scripts/record-pi-session-fixtures.mjs",
+	"rawSessionSha256": "003bfa140fb8a05c1cac59b8dbc1b102c3ef7c7fea17f7e31c640c8ac80427cb",
+	"transforms": [],
+	"fixtureExtension": {
+		"origin": "scripts/record-pi-session-fixtures.mjs",
+		"sha256": "74ef0f0758a719459ecd91ea35eac74d812009af607f09d74297f44202a9fdf1",
+		"callerPing": "Temporary tool; records real model arguments and allows a final reply.",
+		"completionMarker": "Temporary extension calls pi.appendEntry after agent_settled.",
+		"contextPressureForced": false
+	},
+	"providerExtensions": [
+		{
+			"file": "index.ts",
+			"sha256": "28306907d266ccc7e36fb1250fa35ae268f83aa419fbbb6f1a1e1fd113099ac3"
+		}
+	],
+	"localProviderError": null,
+	"evidence": {
+		"model": "claude-bridge/claude-haiku-4-5",
+		"api": "claude-bridge",
+		"assistantCount": 3,
+		"outputTokens": [168, 163, 111],
+		"totalOutputTokens": 442,
+		"pingArguments": [
+			{
+				"message": "Fixture help: confirm the next step."
+			}
+		],
+		"completionReasons": ["normal"],
+		"terminalStopReason": "stop",
+		"terminalError": null
+	}
+}

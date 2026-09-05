@@ -36,7 +36,8 @@ export function shouldRecoverProviderErrorMessage(errorMessage: string): boolean
 }
 
 export function shouldDeferErrorForPiRecovery(message: unknown): boolean {
-	return isContextOverflow(message as any);
+	// @ts-expect-error Pi requires a full assistant message, but without a context window it reads only stopReason and errorMessage.
+	return isContextOverflow(message);
 }
 
 /**
@@ -46,14 +47,19 @@ export function shouldDeferErrorForPiRecovery(message: unknown): boolean {
  * failures recover by default; clearly permanent quota, billing, auth, and
  * missing-model failures fail immediately.
  */
-export function findLatestAssistantError(messages: any[] | undefined): SubagentErrorInfo | null {
+export function findLatestAssistantError(
+	messages: unknown[] | undefined,
+): SubagentErrorInfo | null {
 	if (!messages) return null;
 	for (let i = messages.length - 1; i >= 0; i--) {
-		const msg = messages[i];
+		const msg = messages[i] as
+			| { role?: unknown; stopReason?: unknown; errorMessage?: unknown }
+			| undefined;
 		if (msg?.role !== "assistant") continue;
 		if (msg.stopReason !== "error") return null;
 		const raw = typeof msg.errorMessage === "string" ? msg.errorMessage.trim() : "";
-		const errorMessage = raw || "Subagent agent loop ended with stopReason=error (no errorMessage field).";
+		const errorMessage =
+			raw || "Subagent agent loop ended with stopReason=error (no errorMessage field).";
 		const recoveryKind: SubagentErrorRecoveryKind =
 			raw && shouldDeferErrorForPiRecovery(msg)
 				? "pi"
@@ -72,7 +78,10 @@ export function findLatestAssistantError(messages: any[] | undefined): SubagentE
 
 export type InputStreamingBehavior = "steer" | "followUp" | undefined;
 
-export function shouldMarkUserTookOver(agentStarted: boolean, streamingBehavior?: InputStreamingBehavior): boolean {
+export function shouldMarkUserTookOver(
+	agentStarted: boolean,
+	streamingBehavior?: InputStreamingBehavior,
+): boolean {
 	return agentStarted || streamingBehavior === "steer" || streamingBehavior === "followUp";
 }
 

@@ -34,7 +34,9 @@ export function zellijPlacementGroupId(
 	sessionName = process.env.ZELLIJ_SESSION_NAME ?? "default",
 ): string {
 	return createHash("sha256")
-		.update(`${zellijSessionSlug(sessionName)}\0${runtimeId}\0${groupKey}\0${parentPaneId}\0${policy}`)
+		.update(
+			`${zellijSessionSlug(sessionName)}\0${runtimeId}\0${groupKey}\0${parentPaneId}\0${policy}`,
+		)
 		.digest("hex")
 		.slice(0, 24);
 }
@@ -61,7 +63,9 @@ export function writeZellijPlacementState(
 	renameSync(temporaryPath, path);
 }
 
-export function resetZellijPlacementState(sessionName = process.env.ZELLIJ_SESSION_NAME ?? "default"): void {
+export function resetZellijPlacementState(
+	sessionName = process.env.ZELLIJ_SESSION_NAME ?? "default",
+): void {
 	const path = zellijPlacementStatePath(sessionName);
 	if (existsSync(path)) rmSync(path, { force: true });
 }

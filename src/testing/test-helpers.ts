@@ -63,7 +63,7 @@ import {
 	clearPublishedRunningSubagentCountForTest,
 	publishRunningSubagentCount,
 } from "../runtime/nested-lifecycle.ts";
-import { resolveResumeLaunchMetadataForInvocation } from "../runtime/resume-service.ts";
+import { resolveResumeLaunchMetadataForInvocation } from "../runtime/resume-invocation.ts";
 import { ChildSessionStorage } from "../session/child-session-storage.ts";
 import {
 	buildPiPromptArgs,
@@ -125,7 +125,9 @@ export function buildSubagentSessionTitleForTest(params: SubagentTitleParams) {
 	return buildSubagentSessionTitle(params);
 }
 
-export function getSubagentDisplayTitleForTest(params: Pick<SubagentParamsInput, "title" | "task">) {
+export function getSubagentDisplayTitleForTest(
+	params: Pick<SubagentParamsInput, "title" | "task">,
+) {
 	return getSubagentDisplayTitle(params);
 }
 
@@ -149,7 +151,10 @@ export function getTerminalAssistantSummaryForTest(entries: SessionEntryLike[]) 
 	return getTerminalAssistantSummary(entries);
 }
 
-export function getTerminalAssistantSummaryAfterLaunchForTest(entries: SessionEntryLike[], launchEntryCount: number) {
+export function getTerminalAssistantSummaryAfterLaunchForTest(
+	entries: SessionEntryLike[],
+	launchEntryCount: number,
+) {
 	return getTerminalAssistantSummary(entries.slice(launchEntryCount));
 }
 
@@ -195,7 +200,10 @@ export function resolveTaskSessionModeForTest(agentDefs: AgentDefaults | null) {
 	return resolveTaskSessionMode(agentDefs, resolveSubagentNoSession, getNoSessionSeedMode);
 }
 
-export async function writeSubagentLaunchMetadataEntryForTest(path: string, metadata: PersistedSubagentLaunchMetadata) {
+export async function writeSubagentLaunchMetadataEntryForTest(
+	path: string,
+	metadata: PersistedSubagentLaunchMetadata,
+) {
 	await writeSubagentLaunchMetadataEntryWhenReady(path, metadata, 0);
 }
 
@@ -218,7 +226,14 @@ export function buildPersistedSubagentLaunchMetadataForTest(
 	boundarySystemPrompt: boolean,
 	systemPrompt?: string,
 ) {
-	return buildPersistedSubagentLaunchMetadata(prepared, params, mode, sessionMode, boundarySystemPrompt, systemPrompt);
+	return buildPersistedSubagentLaunchMetadata(
+		prepared,
+		params,
+		mode,
+		sessionMode,
+		boundarySystemPrompt,
+		systemPrompt,
+	);
 }
 
 export function getPersistedSessionParityArgsForTest(
@@ -235,10 +250,18 @@ export function resolveResumeLaunchMetadataForInvocationForTest(
 	modelRegistry?: Parameters<typeof resolveResumeLaunchMetadataForInvocation>[3],
 	requestedThinking?: string,
 ) {
-	return resolveResumeLaunchMetadataForInvocation(metadata, requestedModel, requestedThinking, modelRegistry);
+	return resolveResumeLaunchMetadataForInvocation(
+		metadata,
+		requestedModel,
+		requestedThinking,
+		modelRegistry,
+	);
 }
 
-export function splitModelRefThinkingForTest(model: string | undefined, fallbackThinking: string | undefined) {
+export function splitModelRefThinkingForTest(
+	model: string | undefined,
+	fallbackThinking: string | undefined,
+) {
 	return splitModelRefThinking(model, fallbackThinking);
 }
 
@@ -294,7 +317,12 @@ export function writeSystemPromptArtifactForTest(
 	return writeSystemPromptArtifact(name, systemPrompt, ctx);
 }
 
-export function writeResumeTaskArtifactForTest(name: string, task: string, sessionFile: string, cwd: string) {
+export function writeResumeTaskArtifactForTest(
+	name: string,
+	task: string,
+	sessionFile: string,
+	cwd: string,
+) {
 	return writeResumeTaskArtifact(name, task, sessionFile, cwd);
 }
 
@@ -329,11 +357,17 @@ export function getSubagentAgentOverrideErrorForTest(
 	return getSubagentAgentOverrideError(params, agentDefs);
 }
 
-export function resolveSubagentBlockingForTest(params: Partial<SubagentParamsInput>, agentDefs: AgentDefaults | null) {
+export function resolveSubagentBlockingForTest(
+	params: Partial<SubagentParamsInput>,
+	agentDefs: AgentDefaults | null,
+) {
 	return resolveSubagentBlocking(params, agentDefs);
 }
 
-export function enforceAgentFrontmatterForTest(params: SubagentParamsInput, agentDefs: AgentDefaults | null) {
+export function enforceAgentFrontmatterForTest(
+	params: SubagentParamsInput,
+	agentDefs: AgentDefaults | null,
+) {
 	return enforceAgentFrontmatter(params, agentDefs);
 }
 
@@ -369,7 +403,10 @@ export function getSubagentToolLaunchArgsForTest(
 	return getSubagentToolLaunchArgs(tools, new Set(deniedTools), spawningAllowed);
 }
 
-export function getSubagentToolDeniedNamesForTest(tools?: string, deniedTools: Iterable<string> = []) {
+export function getSubagentToolDeniedNamesForTest(
+	tools?: string,
+	deniedTools: Iterable<string> = [],
+) {
 	return [...addToolModeDeniedNames(new Set(deniedTools), tools)];
 }
 
@@ -410,12 +447,19 @@ export function parseEnvStringForTest(env: string | undefined) {
 
 export function isPreparedChildSpawningAllowedForTest(childBudget: number | null | undefined) {
 	return isPreparedChildSpawningAllowed({
-		...(childBudget === undefined ? {} : { spawnPolicy: { allowed: true, childBudget, spawnableAgents: true, effectiveWidth: null } }),
+		...(childBudget === undefined
+			? {}
+			: {
+					spawnPolicy: { allowed: true, childBudget, spawnableAgents: true, effectiveWidth: null },
+				}),
 	} as PreparedSubagentLaunch);
 }
 
 export function getPreparedSessionLaunchArgsForTest(
-	agentDefs: AgentDefaults | null | Pick<PreparedSubagentLaunch, "agentDefs" | "subagentSessionFile" | "sessionTitle">,
+	agentDefs:
+		| AgentDefaults
+		| null
+		| Pick<PreparedSubagentLaunch, "agentDefs" | "subagentSessionFile" | "sessionTitle">,
 ) {
 	return getPreparedSessionLaunchArgs(
 		agentDefs && "subagentSessionFile" in agentDefs

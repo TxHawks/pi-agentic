@@ -1,3 +1,9 @@
+import type {
+	ExtensionAPI,
+	ExtensionHandler,
+	SessionStartEvent,
+} from "@earendil-works/pi-coding-agent";
+import { withoutAmbientSpawnGrant } from "../support/ambient-spawn-grant.ts";
 import {
 	afterEach,
 	assert,
@@ -29,7 +35,6 @@ import {
 	writeFileSync,
 	writeSystemPromptArtifactForTest,
 } from "../support/index.ts";
-import { withoutAmbientSpawnGrant } from "../support/ambient-spawn-grant.ts";
 
 describe("ambient agents and runtime paths", () => {
 	afterEach(() => {
@@ -49,62 +54,66 @@ describe("ambient agents and runtime paths", () => {
 		);
 
 		const start = () => {
-			const handlers = new Map<string, any>();
-			const sent: any[] = [];
-			subagentsExtension({
-				on(event: string, handler: any) {
+			const handlers = new Map<string, ExtensionHandler<SessionStartEvent>>();
+			const sent: Parameters<ExtensionAPI["sendMessage"]>[0][] = [];
+			const pi = {
+				on(event: string, handler: ExtensionHandler<SessionStartEvent>) {
 					handlers.set(event, handler);
 				},
 				registerCommand() {},
 				registerMessageRenderer() {},
 				registerTool() {},
-				sendMessage(message: any) {
+				sendMessage(message: Parameters<ExtensionAPI["sendMessage"]>[0]) {
 					sent.push(message);
 				},
 				getThinkingLevel: () => "low" as const,
-			} as any);
+			};
+			// @ts-expect-error This test supplies only the API methods used by these hooks.
+			subagentsExtension(pi);
 			return { handlers, sent };
 		};
 
 		try {
 			const child = start();
-			child.handlers.get("session_start")(
-				{ type: "session_start", reason: "startup" },
-				{
-					cwd: dir,
-					hasUI: false,
-					ui: { setWidget() {} },
-					sessionManager: {
-						getHeader: () => ({
-							id: "child",
-							type: "session",
-							timestamp: "",
-							cwd: dir,
-							parentSession: "/tmp/root.jsonl",
-						}),
-					},
+			const childStart = child.handlers.get("session_start");
+			assert.ok(childStart);
+			const childContext = {
+				cwd: dir,
+				hasUI: false,
+				ui: { setWidget() {} },
+				sessionManager: {
+					getHeader: () => ({
+						id: "child",
+						type: "session",
+						timestamp: "",
+						cwd: dir,
+						parentSession: "/tmp/root.jsonl",
+					}),
 				},
-			);
+			};
+			// @ts-expect-error The startup hook only needs the context fields supplied here.
+			childStart({ type: "session_start", reason: "startup" }, childContext);
 			assert.equal(child.sent.length, 0);
 
 			process.env.PI_DENY_TOOLS = "subagent";
 			const denied = start();
-			denied.handlers.get("session_start")(
-				{ type: "session_start", reason: "startup" },
-				{
-					cwd: dir,
-					hasUI: false,
-					ui: { setWidget() {} },
-					sessionManager: {
-						getHeader: () => ({
-							id: "root",
-							type: "session",
-							timestamp: "",
-							cwd: dir,
-						}),
-					},
+			const deniedStart = denied.handlers.get("session_start");
+			assert.ok(deniedStart);
+			const deniedContext = {
+				cwd: dir,
+				hasUI: false,
+				ui: { setWidget() {} },
+				sessionManager: {
+					getHeader: () => ({
+						id: "root",
+						type: "session",
+						timestamp: "",
+						cwd: dir,
+					}),
 				},
-			);
+			};
+			// @ts-expect-error The startup hook only needs the context fields supplied here.
+			deniedStart({ type: "session_start", reason: "startup" }, deniedContext);
 			assert.equal(denied.sent.length, 0);
 		} finally {
 			if (prevDenied == null) delete process.env.PI_DENY_TOOLS;
@@ -113,7 +122,10 @@ describe("ambient agents and runtime paths", () => {
 	});
 
 	it("rejects missing or unknown named agents", () => {
-		const missing = getSubagentAgentRequirementErrorForTest({ name: "No agent", task: "Work" }, null);
+		const missing = getSubagentAgentRequirementErrorForTest(
+			{ name: "No agent", task: "Work" },
+			null,
+		);
 		assert.equal(missing?.details.error, "agent_required");
 
 		const unknown = getSubagentAgentRequirementErrorForTest(
@@ -157,7 +169,10 @@ describe("ambient agents and runtime paths", () => {
 		};
 
 		assert.equal(
-			getSubagentAgentOverrideErrorForTest({ agent: "reviewer", background: true, blocking: false }, defs),
+			getSubagentAgentOverrideErrorForTest(
+				{ agent: "reviewer", background: true, blocking: false },
+				defs,
+			),
 			null,
 		);
 	});
@@ -172,7 +187,10 @@ describe("ambient agents and runtime paths", () => {
 
 		assert.equal(resolveEffectiveSessionModeForTest({ agent: "reviewer" }, defs), "lineage-only");
 		assert.equal(
-			resolveEffectiveSessionModeForTest({ agent: "reviewer" }, { ...defs, sessionMode: "fork" as const }),
+			resolveEffectiveSessionModeForTest(
+				{ agent: "reviewer" },
+				{ ...defs, sessionMode: "fork" as const },
+			),
 			"fork",
 		);
 		assert.equal(
@@ -219,26 +237,34 @@ describe("ambient agents and runtime paths", () => {
 			`---\nname: reviewer\nmode: interactive\nasync: true\n---\n\nReviewer body.`,
 		);
 
-		const tools = new Map<string, any>();
+		const tools = new Map<string, Parameters<ExtensionAPI["registerTool"]>[0]>();
 		const prevCwd = process.cwd();
 		try {
 			process.chdir(dir);
-			subagentsExtension({
+			const pi = {
 				on() {},
 				registerCommand() {},
 				registerMessageRenderer() {},
 				sendMessage() {},
-				registerTool(definition: any) {
+				registerTool(definition: Parameters<ExtensionAPI["registerTool"]>[0]) {
 					tools.set(definition.name, definition);
 					return definition;
 				},
 				getThinkingLevel: () => "low" as const,
-			} as any);
+			};
+			// @ts-expect-error This test supplies only the API methods used by these hooks.
+			subagentsExtension(pi);
 
 			const tool = tools.get("subagent");
 			assert.ok(tool);
-			const executeWithoutAmbientSpawnGrant = (...args: any[]) =>
+			const executeWithoutAmbientSpawnGrant = (...args: Parameters<typeof tool.execute>) =>
 				withoutAmbientSpawnGrant(() => tool.execute(...args));
+			const context = {
+				cwd: dir,
+				hasUI: false,
+				ui: { setWidget() {} },
+				sessionManager: { getSessionFile: () => null },
+			};
 			await assert.rejects(
 				() =>
 					executeWithoutAmbientSpawnGrant(
@@ -253,12 +279,8 @@ describe("ambient agents and runtime paths", () => {
 						},
 						undefined,
 						undefined,
-						{
-							cwd: dir,
-							hasUI: false,
-							ui: { setWidget() {} },
-							sessionManager: { getSessionFile: () => null },
-						},
+						// @ts-expect-error This minimal context deliberately has no parent session file.
+						context,
 					),
 				{
 					message:
@@ -277,7 +299,10 @@ describe("ambient agents and runtime paths", () => {
 			resolveSubagentCwdForTest("roles/tester", "/tmp/custom-agent-root"),
 			"/tmp/custom-agent-root/roles/tester",
 		);
-		assert.equal(resolveSubagentCwdForTest("/tmp/already-absolute", "/tmp/base"), "/tmp/already-absolute");
+		assert.equal(
+			resolveSubagentCwdForTest("/tmp/already-absolute", "/tmp/base"),
+			"/tmp/already-absolute",
+		);
 	});
 
 	it("prefers a target project's .pi/agent dir for subagent config isolation", () => {
@@ -298,14 +323,23 @@ describe("ambient agents and runtime paths", () => {
 		mkdirSync(localAgentDir, { recursive: true });
 
 		const parentSessionDir = join(dir, "parent-sessions");
-		const paths = resolveSubagentRuntimePathsForTest({ cwd: "packages/worker" }, null, dir, parentSessionDir);
+		const paths = resolveSubagentRuntimePathsForTest(
+			{ cwd: "packages/worker" },
+			null,
+			dir,
+			parentSessionDir,
+		);
 		assert.equal(paths.effectiveCwd, target);
 		assert.equal(paths.localAgentConfigDir, localAgentDir);
 		assert.equal(paths.effectiveAgentConfigDir, localAgentDir);
 		assert.equal(paths.targetCwdForSession, target);
 		assert.equal(
 			paths.sessionDir,
-			join(localAgentDir, "sessions", `--${target.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`),
+			join(
+				localAgentDir,
+				"sessions",
+				`--${target.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`,
+			),
 		);
 	});
 
@@ -318,7 +352,12 @@ describe("ambient agents and runtime paths", () => {
 
 		try {
 			const parentSessionDir = join(dir, "parent-sessions");
-			const paths = resolveSubagentRuntimePathsForTest({ cwd: "missing-child" }, null, dir, parentSessionDir);
+			const paths = resolveSubagentRuntimePathsForTest(
+				{ cwd: "missing-child" },
+				null,
+				dir,
+				parentSessionDir,
+			);
 			assert.equal(paths.localAgentConfigDir, null);
 			assert.equal(paths.effectiveAgentConfigDir, globalAgentDir);
 			assert.equal(paths.targetCwdForSession, join(dir, "missing-child"));
@@ -339,7 +378,11 @@ describe("ambient agents and runtime paths", () => {
 		});
 
 		assert.equal(readFileSync(artifactPath, "utf8"), systemPrompt);
-		assert.ok(artifactPath.startsWith(join(getSessionArtifactDir(dir, sessionId), "context", "spec-agent-sysprompt-")));
+		assert.ok(
+			artifactPath.startsWith(
+				join(getSessionArtifactDir(dir, sessionId), "context", "spec-agent-sysprompt-"),
+			),
+		);
 		assert.match(artifactPath, /\.md$/);
 	});
 
@@ -354,7 +397,7 @@ describe("ambient agents and runtime paths", () => {
 						content: [{ type: "text", text: "DONE" }],
 					},
 				},
-			] as any[]),
+			]),
 			"DONE",
 		);
 
@@ -368,7 +411,7 @@ describe("ambient agents and runtime paths", () => {
 						content: [{ type: "text", text: "Not final" }],
 					},
 				},
-			] as any[]),
+			]),
 			null,
 		);
 
@@ -389,7 +432,7 @@ describe("ambient agents and runtime paths", () => {
 						content: [{ type: "text", text: "later" }],
 					},
 				},
-			] as any[]),
+			]),
 			null,
 		);
 	});
@@ -413,7 +456,10 @@ describe("ambient agents and runtime paths", () => {
 			"this-name-is-way-too-long-for-a-subagent-handle",
 			" scout-auth",
 		]) {
-			assert.match(getSubagentNameErrorForTest(name) ?? "", /Error: subagent name|Error: name is required/);
+			assert.match(
+				getSubagentNameErrorForTest(name) ?? "",
+				/Error: subagent name|Error: name is required/,
+			);
 		}
 	});
 
@@ -479,7 +525,10 @@ describe("ambient agents and runtime paths", () => {
 		const dir = createTestDir();
 		const parent = join(dir, "parent.jsonl");
 		const child = join(dir, "child.jsonl");
-		writeFileSync(parent, `${[SESSION_HEADER, MODEL_CHANGE].map((entry) => JSON.stringify(entry)).join("\n")}\n`);
+		writeFileSync(
+			parent,
+			`${[SESSION_HEADER, MODEL_CHANGE].map((entry) => JSON.stringify(entry)).join("\n")}\n`,
+		);
 
 		seedSubagentSessionFileForTest("fork", parent, child, dir, {
 			sessionName: "[reviewer] Gilfoyle-level review of all changes",
@@ -494,7 +543,10 @@ describe("ambient agents and runtime paths", () => {
 		const dir = createTestDir();
 		const parent = join(dir, "parent.jsonl");
 		const child = join(dir, "child.jsonl");
-		writeFileSync(parent, `${[SESSION_HEADER, MODEL_CHANGE].map((entry) => JSON.stringify(entry)).join("\n")}\n`);
+		writeFileSync(
+			parent,
+			`${[SESSION_HEADER, MODEL_CHANGE].map((entry) => JSON.stringify(entry)).join("\n")}\n`,
+		);
 
 		// No context window provided — should succeed and produce a valid child session.
 		seedSubagentSessionFileForTest("fork", parent, child, dir);

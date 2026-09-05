@@ -1,5 +1,9 @@
-import { getAgentListEntries, getAgentListSignature, renderAgentListReminder } from "../../src/agents/agent-list.ts";
-import { getEffectiveAgentDefinitions } from "../../src/agents/definitions.ts";
+import {
+	getAgentListEntries,
+	getAgentListSignature,
+	renderAgentListReminder,
+} from "../../src/agents/agent-list.ts";
+import type { getEffectiveAgentDefinitions } from "../../src/agents/definitions.ts";
 import {
 	afterEach,
 	assert,
@@ -160,10 +164,16 @@ describe("roster limit fields", () => {
 		assert.doesNotMatch(reminder, /stop early soon after launch/);
 
 		writeLimitedAgent(dir, "context-warn-threshold: 80%");
-		assert.doesNotMatch(renderAgentListReminder(listEntries(dir)), /already using part of its window/);
+		assert.doesNotMatch(
+			renderAgentListReminder(listEntries(dir)),
+			/already using part of its window/,
+		);
 
 		writeLimitedAgent(dir, "session-mode: fork");
-		assert.doesNotMatch(renderAgentListReminder(listEntries(dir)), /already using part of its window/);
+		assert.doesNotMatch(
+			renderAgentListReminder(listEntries(dir)),
+			/already using part of its window/,
+		);
 	});
 
 	it("changes the signature when a step-only edit collapses the schedule", () => {

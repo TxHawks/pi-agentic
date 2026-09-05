@@ -1,5 +1,5 @@
-import { SPAWNING_TOOL_NAMES } from "../tools/tool-names.ts";
 import { MAX_SPAWN_WIDTH } from "../runtime/spawn-width.ts";
+import { SPAWNING_TOOL_NAMES } from "../tools/tool-names.ts";
 
 export interface SpawnPolicyInput {
 	callerAgent: string | null;

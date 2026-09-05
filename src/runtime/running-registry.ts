@@ -1,22 +1,29 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import type { CompletedSubagentResult, RunningSubagent, StartedSubagentToolDetails, SubagentResult } from "../types.ts";
+import type {
+	CompletedSubagentResult,
+	RunningSubagent,
+	StartedSubagentToolDetails,
+	SubagentResult,
+} from "../types.ts";
 import { deliverCompletedSubagentResult, routeSubagentOutcome } from "./result-router.ts";
+import { releaseSpawnWidthSlot } from "./spawn-width.ts";
 import {
+	type asSubagentToolResult,
 	clearSubagentShutdownTimer,
 	completedSubagentResults,
 	getSubagentBatchStopMetadata,
 	isSubagentBatchBlocking,
 	requestSubagentBatchStop,
 	runningSubagents,
+	type withSubagentBatchStop,
 } from "./state.ts";
-import { releaseSpawnWidthSlot } from "./spawn-width.ts";
 
 export interface RunningRegistryRuntime {
 	formatElapsed(elapsed: number): string;
 	updateWidget(): void;
 	waitForSubagentResult(params: { id: string }, signal?: AbortSignal): Promise<unknown>;
-	withSubagentBatchStop(result: any): any;
-	asSubagentToolResult(result: unknown): any;
+	withSubagentBatchStop: typeof withSubagentBatchStop;
+	asSubagentToolResult: typeof asSubagentToolResult;
 }
 
 export function findRunningSubagent(query: string): {
@@ -35,7 +42,9 @@ export function findRunningSubagent(query: string): {
 	}
 
 	const normalizedQuery = query.toLowerCase();
-	const ciMatches = [...runningSubagents.values()].filter((agent) => agent.name.toLowerCase() === normalizedQuery);
+	const ciMatches = [...runningSubagents.values()].filter(
+		(agent) => agent.name.toLowerCase() === normalizedQuery,
+	);
 	if (ciMatches.length === 1) return { running: ciMatches[0] };
 	if (ciMatches.length > 1) {
 		return {
@@ -57,7 +66,9 @@ export function findTrackedSubagent(query: string): {
 	const runningById = runningSubagents.get(query);
 	if (runningById) return { id: runningById.id, running: runningById };
 
-	const exactCachedMatches = [...completedSubagentResults.values()].filter((agent) => agent.name === query);
+	const exactCachedMatches = [...completedSubagentResults.values()].filter(
+		(agent) => agent.name === query,
+	);
 	if (exactCachedMatches.length === 1) {
 		return { id: exactCachedMatches[0].id, cached: exactCachedMatches[0] };
 	}
@@ -67,7 +78,9 @@ export function findTrackedSubagent(query: string): {
 		};
 	}
 
-	const exactRunningMatches = [...runningSubagents.values()].filter((agent) => agent.name === query);
+	const exactRunningMatches = [...runningSubagents.values()].filter(
+		(agent) => agent.name === query,
+	);
 	if (exactRunningMatches.length === 1) {
 		return { id: exactRunningMatches[0].id, running: exactRunningMatches[0] };
 	}
@@ -188,7 +201,9 @@ export async function getLaunchedSubagentResult(
  * Shared between the subagent and subagent_resume tools so both paths agree
  * on the await decision and inherit the same mixed-batch sync semantics.
  */
-export function shouldAwaitSubagentLaunch(running: Pick<RunningSubagent, "blocking" | "async">): boolean {
+export function shouldAwaitSubagentLaunch(
+	running: Pick<RunningSubagent, "blocking" | "async">,
+): boolean {
 	return (running.blocking ?? false) || isSubagentBatchBlocking();
 }
 

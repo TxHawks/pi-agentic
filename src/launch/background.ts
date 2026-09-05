@@ -5,12 +5,12 @@ import { getSubagentDisplayTitle } from "../agents/titles.ts";
 import { clearSubagentExitSidecar } from "../session/exit-sidecar.ts";
 import { buildPiPromptArgs } from "../session/session-files.ts";
 import { getSubagentToolLaunchArgs } from "../tools/policy.ts";
+import { PI_SUBAGENT_TIMEOUT_STARTED_AT } from "../tools/timeout-reminders.ts";
 import type { RunningSubagent, SubagentParamsInput } from "../types.ts";
 import { buildAppendSystemInheritancePlan } from "./append-system.ts";
 import { getPiInvocation, getSubagentChildProcessEnv } from "./child-command.ts";
 import { CHILD_CONTEXT_BOUNDARY_SYSTEM_PROMPT } from "./context-boundary.ts";
 import { coordinateSubagentLaunch } from "./launch-coordinator.ts";
-import { PI_SUBAGENT_TIMEOUT_STARTED_AT } from "../tools/timeout-reminders.ts";
 import {
 	resolveSubagentNoContextFiles,
 	resolveSubagentParentClosePolicy,
@@ -47,7 +47,11 @@ export async function launchBackgroundSubagent(
 		mode: "background",
 	});
 	const { prepared, noSession, directTask } = launch;
-	const subagentDonePath = join(dirname(dirname(fileURLToPath(import.meta.url))), "tools", "subagent-done.ts");
+	const subagentDonePath = join(
+		dirname(dirname(fileURLToPath(import.meta.url))),
+		"tools",
+		"subagent-done.ts",
+	);
 	const roleBlock = getPreparedRoleBlock(prepared);
 	const modeHint = prepared.agentDefs?.autoExit
 		? "Complete your task autonomously."
@@ -59,7 +63,9 @@ export async function launchBackgroundSubagent(
 		enabled: prepared.agentDefs?.taskExpansion === "shell",
 		cwd: prepared.runtimePaths.effectiveCwd ?? ctx.cwd,
 	});
-	let fullTask = directTask ? expandedTask : `${roleBlock}\n\n${modeHint}\n\n${expandedTask}\n\n${summaryInstruction}`;
+	let fullTask = directTask
+		? expandedTask
+		: `${roleBlock}\n\n${modeHint}\n\n${expandedTask}\n\n${summaryInstruction}`;
 	const skillInjection = getPreparedSkillInjection(prepared);
 	if (skillInjection) fullTask = `${skillInjection}\n\n${fullTask}`;
 
@@ -76,12 +82,18 @@ export async function launchBackgroundSubagent(
 		inheritAppendSystem: launch.launchMetadata.inheritAppendSystem === true,
 		systemPromptMode: launch.launchMetadata.systemPromptMode,
 		systemPrompt: launch.launchMetadata.systemPrompt,
-		boundarySystemPrompt: launch.boundarySystemPrompt ? CHILD_CONTEXT_BOUNDARY_SYSTEM_PROMPT : undefined,
+		boundarySystemPrompt: launch.boundarySystemPrompt
+			? CHILD_CONTEXT_BOUNDARY_SYSTEM_PROMPT
+			: undefined,
 	});
 	args.push(...appendSystemPlan.promptArgs);
 	args.push(...getApprovalLaunchArgs(prepared.agentDefs, "background"));
 	args.push(
-		...getSubagentToolLaunchArgs(prepared.effectiveTools, prepared.denySet, isPreparedChildSpawningAllowed(prepared)),
+		...getSubagentToolLaunchArgs(
+			prepared.effectiveTools,
+			prepared.denySet,
+			isPreparedChildSpawningAllowed(prepared),
+		),
 	);
 	args.push(...getPreparedSkillLaunchArgs(prepared));
 	args.push(...getFlagsLaunchArgs(prepared.agentDefs?.flags));

@@ -9,13 +9,21 @@ import {
 import { PI_SUBAGENT_APPEND_SYSTEM_PROMPT } from "../launch/append-system.ts";
 import { getPublishedRunningSubagentCount } from "../runtime/nested-lifecycle.ts";
 import { installSubagentContextReminders } from "./context-reminders.ts";
+import { filterToolNames, getDeniedToolNames, shouldRegisterSubagentDone } from "./denied-tools.ts";
 import { createExitSignalWriter } from "./exit-signal.ts";
-import { installSubagentTimeoutReminders } from "./timeout-reminders.ts";
 import { type FinalContextSnapshot, getFinalContextSnapshot } from "./final-context-snapshot.ts";
 import { isMissingOptionalDependency, optionalRequire } from "./optional-dependency.ts";
-import { ProviderErrorRecoveryController, resolveProviderRecoveryDelaysMs } from "./provider-error-recovery.ts";
+import {
+	ProviderErrorRecoveryController,
+	resolveProviderRecoveryDelaysMs,
+} from "./provider-error-recovery.ts";
 import { registerSetTabTitleTool, shouldRegisterSetTabTitleTool } from "./set-tab-title.ts";
-import { CALLER_PING_TOOL_NAME, SUBAGENT_DONE_TOOL_NAME, SUBAGENT_LAUNCH_TOOL_NAMES } from "./tool-names.ts";
+import { installSubagentTimeoutReminders } from "./timeout-reminders.ts";
+import {
+	CALLER_PING_TOOL_NAME,
+	SUBAGENT_DONE_TOOL_NAME,
+	SUBAGENT_LAUNCH_TOOL_NAMES,
+} from "./tool-names.ts";
 
 const TOOL_BOUNDARY_RECOVERY_NUDGE = "continue";
 const MAX_CONSECUTIVE_TOOL_BOUNDARY_ENDS = 3;
@@ -24,77 +32,11 @@ export function isMissingOptionalDependencyForTest(error: unknown, id: string): 
 	return isMissingOptionalDependency(error, id);
 }
 
-export function getDeniedToolNames(autoExit: boolean, deniedEnv = process.env.PI_DENY_TOOLS ?? ""): string[] {
-	const denied = deniedEnv
-		.split(",")
-		.map((s) => s.trim())
-		.filter(Boolean);
-	if (autoExit && !denied.includes(SUBAGENT_DONE_TOOL_NAME)) {
-		denied.push(SUBAGENT_DONE_TOOL_NAME);
-	}
-	return denied;
-}
-
-export function filterToolNames(toolNames: string[], deniedTools: string[]): string[] {
-	const denied = new Set(deniedTools);
-	const seen = new Set<string>();
-	return toolNames.filter((name) => {
-		if (!name || denied.has(name) || seen.has(name)) return false;
-		seen.add(name);
-		return true;
-	});
-}
-
-export function shouldRegisterSubagentDone(autoExit: boolean, deniedTools: string[], isInteractive = false): boolean {
-	if (deniedTools.includes(SUBAGENT_DONE_TOOL_NAME)) return false;
-	if (autoExit) return false;
-	if (isInteractive) return false;
-	return true;
-}
-
-type ToolControlAPI = Pick<ExtensionAPI, "getAllTools" | "getActiveTools" | "setActiveTools" | "registerTool">;
-
 type WidgetThemeLike = {
 	bg(tone: string, text: string): string;
 	bold(text: string): string;
 	fg(tone: string, text: string): string;
 };
-
-export function installDeniedToolGuards(
-	pi: ToolControlAPI,
-	autoExit: boolean,
-	onChange?: (activeTools: string[], deniedTools: string[]) => void,
-) {
-	const originalRegisterTool = pi.registerTool.bind(pi);
-	const originalSetActiveTools = pi.setActiveTools.bind(pi);
-
-	const notify = (activeTools: string[], deniedTools: string[]) => {
-		onChange?.([...activeTools].sort(), [...deniedTools]);
-	};
-
-	const applyDeniedTools = (): string[] => {
-		const deniedTools = getDeniedToolNames(autoExit);
-		const allowedTools = filterToolNames(pi.getActiveTools(), deniedTools);
-		originalSetActiveTools(allowedTools);
-		notify(allowedTools, deniedTools);
-		return allowedTools;
-	};
-
-	pi.setActiveTools = (toolNames: string[]) => {
-		const deniedTools = getDeniedToolNames(autoExit);
-		const allowedTools = filterToolNames(toolNames, deniedTools);
-		originalSetActiveTools(allowedTools);
-		notify(allowedTools, deniedTools);
-	};
-
-	pi.registerTool = (definition) => {
-		const result = originalRegisterTool(definition);
-		applyDeniedTools();
-		return result;
-	};
-
-	return { applyDeniedTools };
-}
 
 export default function (pi: ExtensionAPI) {
 	const typebox = optionalRequire("typebox") as typeof import("typebox") | null;
@@ -240,7 +182,10 @@ export default function (pi: ExtensionAPI) {
 			"subagent-tools",
 			(_tui: unknown, theme: WidgetThemeLike) => ({
 				render: () => {
-					const avail = Math.max(1, ((_tui as { terminal?: { columns?: number } })?.terminal?.columns ?? 80) - 1);
+					const avail = Math.max(
+						1,
+						((_tui as { terminal?: { columns?: number } })?.terminal?.columns ?? 80) - 1,
+					);
 
 					// Build visible text first, truncate BEFORE ANSI wrapping
 					const visibleLabel = subagentAgent ? `${subagentName} (${subagentAgent})` : subagentName;
@@ -249,13 +194,14 @@ export default function (pi: ExtensionAPI) {
 					let displayLabel = visibleLabel;
 					if (visiblePrefix.length + visibleLabel.length > avail) {
 						const maxLabel = Math.max(0, avail - visiblePrefix.length - 1);
-						displayLabel = visibleLabel.slice(0, maxLabel) + "…";
+						displayLabel = `${visibleLabel.slice(0, maxLabel)}…`;
 					}
 
 					// Split truncated label into name and suffix for different styling
 					const nameLen = Math.min(subagentName.length, displayLabel.length);
 					const styledName = theme.bold(displayLabel.slice(0, nameLen));
-					const styledSuffix = nameLen < displayLabel.length ? theme.fg("muted", displayLabel.slice(nameLen)) : "";
+					const styledSuffix =
+						nameLen < displayLabel.length ? theme.fg("muted", displayLabel.slice(nameLen)) : "";
 
 					const line = `${theme.fg("accent", "▸")} ${theme.fg("accent", "Agent")} ${styledName}${styledSuffix}`;
 					return [line];
@@ -312,7 +258,9 @@ export default function (pi: ExtensionAPI) {
 		if (!pending) return;
 		if (event.reason !== "overflow" || !event.willRetry) return;
 		armPiRecoveryFailureTimer(piRecoveryCompactionTimeoutMs);
-		event.signal.addEventListener("abort", () => failPendingPiRecovery(pending.token), { once: true });
+		event.signal.addEventListener("abort", () => failPendingPiRecovery(pending.token), {
+			once: true,
+		});
 	});
 
 	pi.on("session_compact", (event) => {
@@ -345,9 +293,12 @@ export default function (pi: ExtensionAPI) {
 		// no input event). Notifying at the disable moment — not from an agent_end
 		// branch gated on operatorInputQueuedThisRun, which a follow-up/idle prompt's
 		// new agent_start clears — keeps follow-ups and idle prompts from going silent.
-		const disableAutoExitByOperator = (
-			ctx: { ui: { setStatus(key: string, message?: string): void; notify(message: string, tone?: string): void } },
-		) => {
+		const disableAutoExitByOperator = (ctx: {
+			ui: {
+				setStatus(key: string, message?: string): void;
+				notify(message: string, tone?: string): void;
+			};
+		}) => {
 			const alreadyDisabled = autoExitDisabledByOperator;
 			autoExitDisabledByOperator = true;
 			if (alreadyDisabled) return;

@@ -1,9 +1,14 @@
+import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getArtifactStorageRoot } from "../artifact-storage.ts";
 import { buildAppendSystemInheritancePlan } from "../launch/append-system.ts";
-import { getPiInvocation, getPiShellParts, getSubagentChildProcessEnv } from "../launch/child-command.ts";
+import {
+	getPiInvocation,
+	getPiShellParts,
+	getSubagentChildProcessEnv,
+} from "../launch/child-command.ts";
 import { CHILD_CONTEXT_BOUNDARY_SYSTEM_PROMPT } from "../launch/context-boundary.ts";
 import { parseEnvString } from "../launch/env.ts";
 import { buildInteractiveSentinelShellCommands } from "../launch/interactive-sentinel.ts";
@@ -13,14 +18,21 @@ import {
 	getPersistedSessionParityArgs,
 } from "../launch/prep.ts";
 import { writeResumeTaskArtifact } from "../launch/prompt-artifacts.ts";
-import { buildResumePiArgs, buildShellChangeDirectoryPrefix, getResumeCwd } from "../launch/resume.ts";
+import {
+	buildResumePiArgs,
+	buildShellChangeDirectoryPrefix,
+	getResumeCwd,
+} from "../launch/resume.ts";
+import { closeSurfaceAsync } from "../mux/io.ts";
 import { createZellijCommandSurface } from "../mux/zellij-placement.ts";
 import { getZellijShellCommand, resolveZellijTarget } from "../mux/zellij-runtime.ts";
-import { closeSurfaceAsync } from "../mux/io.ts";
 import { createSurface, getMuxBackend, sendShellCommand, shellEscape } from "../mux.ts";
 import { clearSubagentExitSidecar } from "../session/exit-sidecar.ts";
 import { getDoneSentinelFile } from "../session/session-files.ts";
-import { PI_SUBAGENT_CONTEXT_WARN_STEP, PI_SUBAGENT_CONTEXT_WARN_THRESHOLD } from "../tools/context-reminders.ts";
+import {
+	PI_SUBAGENT_CONTEXT_WARN_STEP,
+	PI_SUBAGENT_CONTEXT_WARN_THRESHOLD,
+} from "../tools/context-reminders.ts";
 import {
 	formatTimeoutWarning,
 	PI_SUBAGENT_IDLE_TIMEOUT,
@@ -38,7 +50,9 @@ export interface TimeoutWrapUpRuntime {
 
 function throwIfAborted(signal?: AbortSignal): void {
 	if (!signal?.aborted) return;
-	throw signal.reason instanceof Error ? signal.reason : new Error("Timeout wrap-up restart aborted.");
+	throw signal.reason instanceof Error
+		? signal.reason
+		: new Error("Timeout wrap-up restart aborted.");
 }
 
 function waitForDelay(ms: number, signal?: AbortSignal): Promise<void> {
@@ -49,7 +63,11 @@ function waitForDelay(ms: number, signal?: AbortSignal): Promise<void> {
 	return new Promise((resolve, reject) => {
 		const onAbort = () => {
 			clearTimeout(timer);
-			reject(signal?.reason instanceof Error ? signal.reason : new Error("Timeout wrap-up restart aborted."));
+			reject(
+				signal?.reason instanceof Error
+					? signal.reason
+					: new Error("Timeout wrap-up restart aborted."),
+			);
 		};
 		const timer = setTimeout(() => {
 			signal?.removeEventListener("abort", onAbort);
@@ -66,8 +84,10 @@ function rememberTail(current: string | undefined, chunk: Buffer | string): stri
 
 function getWrapUpPrompt(running: RunningSubagent): string {
 	const wrapUp = running.timeoutWrapUp;
-	if (!wrapUp) throw new Error("Cannot restart timeout wrap-up before a soft deadline is recorded.");
-	const baseline = wrapUp.kind === "timeout" ? running.startTime : (running.lastProgressAt ?? running.startTime);
+	if (!wrapUp)
+		throw new Error("Cannot restart timeout wrap-up before a soft deadline is recorded.");
+	const baseline =
+		wrapUp.kind === "timeout" ? running.startTime : (running.lastProgressAt ?? running.startTime);
 	const spentSeconds = Math.max(0, Math.round((Date.now() - baseline) / 1000));
 	return (
 		`${formatTimeoutWarning(wrapUp.kind, wrapUp.seconds, spentSeconds)}\n\n` +
@@ -77,7 +97,10 @@ function getWrapUpPrompt(running: RunningSubagent): string {
 	);
 }
 
-async function getWrapUpLaunchParts(running: RunningSubagent, signal?: AbortSignal): Promise<{
+async function getWrapUpLaunchParts(
+	running: RunningSubagent,
+	signal?: AbortSignal,
+): Promise<{
 	args: string[];
 	env: Record<string, string>;
 	cwd: string | undefined;
@@ -85,12 +108,21 @@ async function getWrapUpLaunchParts(running: RunningSubagent, signal?: AbortSign
 }> {
 	const metadata = running.launchMetadata;
 	if (!metadata) throw new Error("The original launch metadata is unavailable.");
-	const subagentDonePath = join(dirname(fileURLToPath(import.meta.url)), "..", "tools", "subagent-done.ts");
+	const subagentDonePath = join(
+		dirname(fileURLToPath(import.meta.url)),
+		"..",
+		"tools",
+		"subagent-done.ts",
+	);
 	const invocationMetadata = {
 		...metadata,
 		...(running.modelRef ? { modelRef: running.modelRef } : {}),
 	};
-	const extensionArgs = getExtensionLaunchArgs(invocationMetadata.extensions, subagentDonePath, false);
+	const extensionArgs = getExtensionLaunchArgs(
+		invocationMetadata.extensions,
+		subagentDonePath,
+		false,
+	);
 	const parityArgs = [
 		...getPersistedPromptLaunchArgs(invocationMetadata),
 		...(await getPersistedSessionParityArgs(invocationMetadata, running.mode, false)),
@@ -104,10 +136,13 @@ async function getWrapUpLaunchParts(running: RunningSubagent, signal?: AbortSign
 			inheritAppendSystem: invocationMetadata.inheritAppendSystem === true,
 			systemPromptMode: invocationMetadata.systemPromptMode,
 			systemPrompt: invocationMetadata.systemPrompt,
-			boundarySystemPrompt: invocationMetadata.boundarySystemPrompt ? CHILD_CONTEXT_BOUNDARY_SYSTEM_PROMPT : undefined,
+			boundarySystemPrompt: invocationMetadata.boundarySystemPrompt
+				? CHILD_CONTEXT_BOUNDARY_SYSTEM_PROMPT
+				: undefined,
 		}).env,
 	);
-	if (invocationMetadata.agentConfigDir) env.PI_CODING_AGENT_DIR = invocationMetadata.agentConfigDir;
+	if (invocationMetadata.agentConfigDir)
+		env.PI_CODING_AGENT_DIR = invocationMetadata.agentConfigDir;
 	if (invocationMetadata.extensions !== undefined) {
 		env.PI_SUBAGENT_EXTENSIONS = invocationMetadata.extensions.join(",");
 	}
@@ -184,7 +219,8 @@ export async function restartSubagentForTimeoutWrapUp(
 		return;
 	}
 
-	const metadata = running.launchMetadata!;
+	const metadata = running.launchMetadata;
+	assert.ok(metadata, "The checked launch metadata must be available.");
 	const backend = getMuxBackend();
 	const zellijTarget = backend === "zellij" ? await resolveZellijTarget() : undefined;
 	throwIfAborted(signal);
@@ -238,7 +274,8 @@ export async function restartSubagentForTimeoutWrapUp(
 		} else {
 			await waitForDelay(runtime.getShellReadyDelayMs(), signal);
 			throwIfAborted(signal);
-			sendShellCommand(surface!, command);
+			assert.ok(surface, "The child surface must exist before sending a command.");
+			sendShellCommand(surface, command);
 		}
 		running.doneSentinelFile = doneSentinelFile;
 		running.zellijTarget = zellijTarget;

@@ -93,15 +93,21 @@ describe("session.ts", () => {
 
 		it("reports the correct original line number for invalid new entries", () => {
 			const file = join(dir, "invalid-new-entries.jsonl");
-			writeFileSync(file, `${[JSON.stringify(SESSION_HEADER), JSON.stringify(MODEL_CHANGE), "not-json"].join("\n")}\n`);
+			writeFileSync(
+				file,
+				`${[JSON.stringify(SESSION_HEADER), JSON.stringify(MODEL_CHANGE), "not-json"].join("\n")}\n`,
+			);
 
-			assert.throws(() => getNewEntries(file, 2), /Invalid session JSONL at .*invalid-new-entries\.jsonl:3:/);
+			assert.throws(
+				() => getNewEntries(file, 2),
+				/Invalid session JSONL at .*invalid-new-entries\.jsonl:3:/,
+			);
 		});
 	});
 
 	describe("findLastAssistantMessage", () => {
 		it("finds last assistant text", () => {
-			const entries = [USER_MSG, ASSISTANT_MSG, ASSISTANT_MSG_2] as any[];
+			const entries = [USER_MSG, ASSISTANT_MSG, ASSISTANT_MSG_2];
 			const text = findLastAssistantMessage(entries);
 			assert.equal(text, "Updated outline with details.");
 		});
@@ -118,25 +124,26 @@ describe("session.ts", () => {
 						],
 					},
 				},
-			] as any[];
+			];
 
+			// @ts-expect-error These reader fixtures omit entry IDs, which the reader does not use.
 			assert.equal(findLastAssistantMessage(entries), "First line\nSecond line");
 		});
 
 		it("skips thinking blocks, gets text only", () => {
-			const entries = [ASSISTANT_MSG_2] as any[];
+			const entries = [ASSISTANT_MSG_2];
 			const text = findLastAssistantMessage(entries);
 			assert.equal(text, "Updated outline with details.");
 		});
 
 		it("skips tool results", () => {
-			const entries = [ASSISTANT_MSG, TOOL_RESULT] as any[];
+			const entries = [ASSISTANT_MSG, TOOL_RESULT];
 			const text = findLastAssistantMessage(entries);
 			assert.equal(text, "Here is my outline...");
 		});
 
 		it("returns null when no assistant messages", () => {
-			const entries = [USER_MSG] as any[];
+			const entries = [USER_MSG];
 			assert.equal(findLastAssistantMessage(entries), null);
 		});
 
@@ -159,7 +166,8 @@ describe("session.ts", () => {
 					content: [],
 				},
 			};
-			const entries = [realMsg, emptyMsg] as any[];
+			const entries = [realMsg, emptyMsg];
+			// @ts-expect-error These reader fixtures omit entry IDs, which the reader does not use.
 			assert.equal(findLastAssistantMessage(entries), "Real summary content.");
 		});
 
@@ -180,8 +188,12 @@ describe("session.ts", () => {
 					errorMessage: "Anthropic 529 Overloaded after 3 retries",
 				},
 			};
-			const entries = [earlierGood, overloadError] as any[];
-			assert.equal(findLastAssistantMessage(entries), "Subagent error: Anthropic 529 Overloaded after 3 retries");
+			const entries = [earlierGood, overloadError];
+			assert.equal(
+				// @ts-expect-error These reader fixtures omit entry IDs, which the reader does not use.
+				findLastAssistantMessage(entries),
+				"Subagent error: Anthropic 529 Overloaded after 3 retries",
+			);
 		});
 
 		it("prefers text content even when error stopReason is set", () => {
@@ -194,7 +206,8 @@ describe("session.ts", () => {
 					errorMessage: "stream interrupted",
 				},
 			};
-			assert.equal(findLastAssistantMessage([msg] as any[]), "Here is partial output.");
+			// @ts-expect-error These reader fixtures omit entry IDs, which the reader does not use.
+			assert.equal(findLastAssistantMessage([msg]), "Here is partial output.");
 		});
 
 		it("surfaces a generic error when stop=error has no errorMessage", () => {
@@ -213,7 +226,8 @@ describe("session.ts", () => {
 					stopReason: "error",
 				},
 			};
-			assert.equal(findLastAssistantMessage([earlierStatus, msg] as any[]), "Subagent error");
+			// @ts-expect-error These reader fixtures omit entry IDs, which the reader does not use.
+			assert.equal(findLastAssistantMessage([earlierStatus, msg]), "Subagent error");
 		});
 
 		it("does not scan past a final assistant length stop with no text", () => {
@@ -234,7 +248,8 @@ describe("session.ts", () => {
 			};
 
 			assert.equal(
-				findLastAssistantMessage([earlierStatus, finalLengthStop] as any[]),
+				// @ts-expect-error These reader fixtures omit entry IDs, which the reader does not use.
+				findLastAssistantMessage([earlierStatus, finalLengthStop]),
 				"Subagent stopped before producing a result (stopReason: length)",
 			);
 		});
@@ -261,8 +276,9 @@ describe("session.ts", () => {
 						},
 					},
 				},
-			] as any[];
+			];
 
+			// @ts-expect-error These reader fixtures omit entry IDs, which the reader does not use.
 			assert.equal(findLatestAssistantContextTokens(entries), 145_000);
 		});
 	});
@@ -278,8 +294,9 @@ describe("session.ts", () => {
 						content: [{ type: "text", text: "Final assistant summary." }],
 					},
 				},
-			] as any[];
+			];
 
+			// @ts-expect-error These reader fixtures omit entry IDs, which the reader does not use.
 			assert.equal(findLastSubagentOutput(entries), "Final assistant summary.");
 		});
 
@@ -294,7 +311,8 @@ describe("session.ts", () => {
 				},
 			};
 
-			assert.deepEqual(findLastSubagentOutputWithSource([terminalError] as any[]), {
+			// @ts-expect-error These reader fixtures omit entry IDs, which the reader does not use.
+			assert.deepEqual(findLastSubagentOutputWithSource([terminalError]), {
 				summary: "Subagent error: Provider unavailable",
 				summarySource: "runtime",
 			});
@@ -325,9 +343,13 @@ describe("session.ts", () => {
 						stopReason: "length",
 					},
 				},
-			] as any[];
+			];
 
-			assert.equal(findLastSubagentOutput(entries), "Subagent stopped before producing a result (stopReason: length)");
+			assert.equal(
+				// @ts-expect-error These reader fixtures omit entry IDs, which the reader does not use.
+				findLastSubagentOutput(entries),
+				"Subagent stopped before producing a result (stopReason: length)",
+			);
 		});
 
 		it("uses a terminating tool result after a textless tool-use boundary", () => {
@@ -348,8 +370,9 @@ describe("session.ts", () => {
 						content: [{ type: "text", text: "INTENTIONAL_TOOL_RESULT_OK" }],
 					},
 				},
-			] as any[];
+			];
 
+			// @ts-expect-error These reader fixtures omit entry IDs, which the reader does not use.
 			assert.deepEqual(findLastSubagentOutputWithSource(entries), {
 				summary: "INTENTIONAL_TOOL_RESULT_OK",
 				summarySource: "subagent",
@@ -381,8 +404,9 @@ describe("session.ts", () => {
 						content: [{ type: "text", text: "Shutting down subagent session." }],
 					},
 				},
-			] as any[];
+			];
 
+			// @ts-expect-error These reader fixtures omit entry IDs, which the reader does not use.
 			assert.equal(findLastSubagentOutput(entries), "Actual child output.");
 		});
 	});
@@ -438,7 +462,10 @@ describe("session.ts", () => {
 				sourceFile,
 				`${[SESSION_HEADER, USER_MSG, ASSISTANT_MSG].map((e) => JSON.stringify(e)).join("\n")}\n`,
 			);
-			writeFileSync(targetFile, `${[SESSION_HEADER, USER_MSG].map((e) => JSON.stringify(e)).join("\n")}\n`);
+			writeFileSync(
+				targetFile,
+				`${[SESSION_HEADER, USER_MSG].map((e) => JSON.stringify(e)).join("\n")}\n`,
+			);
 
 			const merged = mergeNewEntries(sourceFile, targetFile, 2);
 			assert.equal(merged.length, 1);

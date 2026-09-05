@@ -35,7 +35,10 @@ describe("resume model launch configuration", () => {
 		assert.equal(ignored?.modelRef, "provider/default:low");
 		assert.equal(ignored?.ignoredModelOverride, "provider/requested:high");
 
-		const overridden = resolveResumeLaunchMetadataForInvocationForTest(base, "provider/requested:high");
+		const overridden = resolveResumeLaunchMetadataForInvocationForTest(
+			base,
+			"provider/requested:high",
+		);
 		assert.equal(overridden?.modelRef, "provider/requested:high");
 		assert.equal(overridden?.modelSource, "resume-override");
 
@@ -79,14 +82,22 @@ describe("resume model launch configuration", () => {
 			/Model 'openai-ws\/gpt-5\.5:low' is not allowed for agent 'code-review'/,
 		);
 
-		const defaultAllowed = resolveResumeLaunchMetadataForInvocationForTest(base, "zai-messages/glm-5.1:high", {
-			getAvailable: () => [{ provider: "zai-messages", id: "glm-5.1" }],
-		});
+		const defaultAllowed = resolveResumeLaunchMetadataForInvocationForTest(
+			base,
+			"zai-messages/glm-5.1:high",
+			{
+				getAvailable: () => [{ provider: "zai-messages", id: "glm-5.1" }],
+			},
+		);
 		assert.equal(defaultAllowed?.modelRef, "zai-messages/glm-5.1:high");
 
-		const extraAllowed = resolveResumeLaunchMetadataForInvocationForTest(base, "nahcrof/glm-5.1:off", {
-			getAvailable: () => [{ provider: "nahcrof", id: "glm-5.1" }],
-		});
+		const extraAllowed = resolveResumeLaunchMetadataForInvocationForTest(
+			base,
+			"nahcrof/glm-5.1:off",
+			{
+				getAvailable: () => [{ provider: "nahcrof", id: "glm-5.1" }],
+			},
+		);
 		assert.equal(extraAllowed?.modelRef, "nahcrof/glm-5.1:off");
 	});
 
@@ -114,16 +125,20 @@ describe("resume model launch configuration", () => {
 			boundarySystemPrompt: true,
 		};
 
-		const defaultAllowed = resolveResumeLaunchMetadataForInvocationForTest(base, "openai-cpa/gpt-5.5:xhigh", {
-			getAvailable: () => [
-				{
-					provider: "openai-cpa",
-					id: "gpt-5.5",
-					reasoning: true,
-					thinkingLevelMap: { xhigh: "xhigh" },
-				},
-			],
-		});
+		const defaultAllowed = resolveResumeLaunchMetadataForInvocationForTest(
+			base,
+			"openai-cpa/gpt-5.5:xhigh",
+			{
+				getAvailable: () => [
+					{
+						provider: "openai-cpa",
+						id: "gpt-5.5",
+						reasoning: true,
+						thinkingLevelMap: { xhigh: "xhigh" },
+					},
+				],
+			},
+		);
 		assert.equal(defaultAllowed?.modelRef, "openai-cpa/gpt-5.5:xhigh");
 	});
 
@@ -318,10 +333,13 @@ describe("resume model launch configuration", () => {
 	});
 
 	it("validates model override names and drops unsupported inherited thinking", () => {
-		assert.deepEqual(resolveAvailableModelRefForTest("glm-5.1", "low", false, "zai-messages/glm-5-turbo"), {
-			model: "zai-messages/glm-5.1",
-			thinking: "low",
-		});
+		assert.deepEqual(
+			resolveAvailableModelRefForTest("glm-5.1", "low", false, "zai-messages/glm-5-turbo"),
+			{
+				model: "zai-messages/glm-5.1",
+				thinking: "low",
+			},
+		);
 
 		assert.throws(
 			() => resolveAvailableModelRefForTest("zai-messages/glm-5-turbo", "high", true),

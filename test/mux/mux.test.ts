@@ -163,7 +163,8 @@ describe("mux.ts", async () => {
 		});
 	});
 
-	const canRunTmuxIntegration = !!ORIGINAL_ENV.TMUX && !!ORIGINAL_ENV.TMUX_PANE && isTmuxAvailable();
+	const canRunTmuxIntegration =
+		!!ORIGINAL_ENV.TMUX && !!ORIGINAL_ENV.TMUX_PANE && isTmuxAvailable();
 
 	describe("tmux integration", async () => {
 		const maybeIt = canRunTmuxIntegration ? it : it.skip;
@@ -182,7 +183,10 @@ describe("mux.ts", async () => {
 				await sleep(250);
 
 				assert.match(readScreen(splitSurface, 20).replace(/\s+/g, ""), new RegExp(marker));
-				assert.match((await readScreenAsync(splitSurface, 20)).replace(/\s+/g, ""), new RegExp(marker));
+				assert.match(
+					(await readScreenAsync(splitSurface, 20)).replace(/\s+/g, ""),
+					new RegExp(marker),
+				);
 			} finally {
 				if (splitSurface) {
 					try {
@@ -205,19 +209,36 @@ describe("mux.ts", async () => {
 		});
 
 		maybeIt("renames the current tmux window and session", async () => {
-			const paneId = ORIGINAL_ENV.TMUX_PANE!;
-			const windowId = execFileSync("tmux", ["display-message", "-p", "-t", paneId, "#{window_id}"], {
-				encoding: "utf8",
-			}).trim();
-			const sessionId = execFileSync("tmux", ["display-message", "-p", "-t", paneId, "#{session_id}"], {
-				encoding: "utf8",
-			}).trim();
-			const originalWindowName = execFileSync("tmux", ["display-message", "-p", "-t", paneId, "#{window_name}"], {
-				encoding: "utf8",
-			}).trim();
-			const originalSessionName = execFileSync("tmux", ["display-message", "-p", "-t", paneId, "#{session_name}"], {
-				encoding: "utf8",
-			}).trim();
+			const paneId = ORIGINAL_ENV.TMUX_PANE;
+			assert.ok(paneId);
+			const windowId = execFileSync(
+				"tmux",
+				["display-message", "-p", "-t", paneId, "#{window_id}"],
+				{
+					encoding: "utf8",
+				},
+			).trim();
+			const sessionId = execFileSync(
+				"tmux",
+				["display-message", "-p", "-t", paneId, "#{session_id}"],
+				{
+					encoding: "utf8",
+				},
+			).trim();
+			const originalWindowName = execFileSync(
+				"tmux",
+				["display-message", "-p", "-t", paneId, "#{window_name}"],
+				{
+					encoding: "utf8",
+				},
+			).trim();
+			const originalSessionName = execFileSync(
+				"tmux",
+				["display-message", "-p", "-t", paneId, "#{session_name}"],
+				{
+					encoding: "utf8",
+				},
+			).trim();
 
 			try {
 				process.env.PI_SUBAGENT_RENAME_TMUX_WINDOW = "1";
@@ -238,8 +259,12 @@ describe("mux.ts", async () => {
 					"Pi Test Session",
 				);
 			} finally {
-				execFileSync("tmux", ["rename-window", "-t", windowId, originalWindowName], { encoding: "utf8" });
-				execFileSync("tmux", ["rename-session", "-t", sessionId, originalSessionName], { encoding: "utf8" });
+				execFileSync("tmux", ["rename-window", "-t", windowId, originalWindowName], {
+					encoding: "utf8",
+				});
+				execFileSync("tmux", ["rename-session", "-t", sessionId, originalSessionName], {
+					encoding: "utf8",
+				});
 			}
 		});
 

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
-import { pickFinalUsageSource } from "../../src/runtime/interactive-watch.ts";
 import type { PollResult } from "../../src/mux/poll.ts";
+import { pickFinalUsageSource } from "../../src/runtime/interactive-watch.ts";
 import { assert } from "../support/index.ts";
 
 describe("interactive watch final usage source", () => {
@@ -22,14 +22,29 @@ describe("interactive watch final usage source", () => {
 
 	it("prefers the sidecar when it has counts the poll result lacks", () => {
 		const pollResult = { reason: "done", exitCode: 0 } as PollResult;
-		const exitSignal = { reason: "done", exitCode: 0, contextTokens: 5, contextWindow: 10 } as PollResult;
+		const exitSignal = {
+			reason: "done",
+			exitCode: 0,
+			contextTokens: 5,
+			contextWindow: 10,
+		} as PollResult;
 
 		assert.equal(pickFinalUsageSource(pollResult, exitSignal)?.contextTokens, 5);
 	});
 
 	it("uses the poll result once it has its own counts", () => {
-		const pollResult = { reason: "done", exitCode: 0, contextTokens: 7, contextWindow: 10 } as PollResult;
-		const exitSignal = { reason: "done", exitCode: 0, contextTokens: 5, contextWindow: 10 } as PollResult;
+		const pollResult = {
+			reason: "done",
+			exitCode: 0,
+			contextTokens: 7,
+			contextWindow: 10,
+		} as PollResult;
+		const exitSignal = {
+			reason: "done",
+			exitCode: 0,
+			contextTokens: 5,
+			contextWindow: 10,
+		} as PollResult;
 
 		assert.equal(pickFinalUsageSource(pollResult, exitSignal)?.contextTokens, 7);
 	});

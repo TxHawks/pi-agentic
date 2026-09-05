@@ -1,0 +1,7 @@
+{
+	"scenario": "provider-error",
+	"source": "recorded",
+	"piVersion": "0.85.0",
+	"model": "fixture-broken/fixture-model",
+	"recordedAt": "2026-09-04T22:38:12.893Z"
+}

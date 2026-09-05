@@ -23,7 +23,10 @@ function settleWithin<T>(promise: Promise<T>, ms: number, label: string): Promis
 	return Promise.race([
 		promise,
 		new Promise<never>((_resolve, reject) => {
-			const timer = setTimeout(() => reject(new Error(`watcher did not settle within ${ms}ms: ${label}`)), ms);
+			const timer = setTimeout(
+				() => reject(new Error(`watcher did not settle within ${ms}ms: ${label}`)),
+				ms,
+			);
 			timer.unref?.();
 		}),
 	]);
@@ -37,12 +40,18 @@ function makeSession(): string {
 		{
 			type: "message",
 			id: "a1",
-			message: { role: "assistant", content: [{ type: "text", text: "Halfway through the sweep." }] },
+			message: {
+				role: "assistant",
+				content: [{ type: "text", text: "Halfway through the sweep." }],
+			},
 		},
 	]);
 }
 
-function makeRunning(sessionFile: string, overrides: Partial<RunningSubagent> = {}): RunningSubagent {
+function makeRunning(
+	sessionFile: string,
+	overrides: Partial<RunningSubagent> = {},
+): RunningSubagent {
 	return {
 		id: "pane-child",
 		name: "pane-child",
@@ -288,7 +297,10 @@ describe("interactive watcher timeout outcome", () => {
 							`${JSON.stringify({
 								type: "message",
 								id: "short-pane-report",
-								message: { role: "assistant", content: [{ type: "text", text: "Short pane report." }] },
+								message: {
+									role: "assistant",
+									content: [{ type: "text", text: "Short pane report." }],
+								},
 							})}\n`,
 						);
 					},
@@ -354,11 +366,18 @@ describe("interactive watcher timeout outcome", () => {
 							`${JSON.stringify({
 								type: "message",
 								id: "replacement-report",
-								message: { role: "assistant", content: [{ type: "text", text: "Replacement report." }] },
+								message: {
+									role: "assistant",
+									content: [{ type: "text", text: "Replacement report." }],
+								},
 							})}\n`,
 						);
 					},
-					async pollForExit(_surface: string, _signal: AbortSignal, options: { onTick?: () => void }) {
+					async pollForExit(
+						_surface: string,
+						_signal: AbortSignal,
+						options: { onTick?: () => void },
+					) {
 						generation += 1;
 						if (generation === 1) {
 							await sleep(1050);
@@ -381,7 +400,11 @@ describe("interactive watcher timeout outcome", () => {
 		);
 
 		assert.equal(result.timedOut, undefined);
-		assert.equal(replacementClosedEarly, false, "an old retry must stay bound to the original pane");
+		assert.equal(
+			replacementClosedEarly,
+			false,
+			"an old retry must stay bound to the original pane",
+		);
 	});
 
 	it("cancels an interactive replacement created after manual stop during restart", async () => {
@@ -424,11 +447,18 @@ describe("interactive watcher timeout outcome", () => {
 						`${JSON.stringify({
 							type: "message",
 							id: "cancelled-pane-report",
-							message: { role: "assistant", content: [{ type: "text", text: "Must not complete." }] },
+							message: {
+								role: "assistant",
+								content: [{ type: "text", text: "Must not complete." }],
+							},
 						})}\n`,
 					);
 				},
-				async pollForExit(_surface: string, _signal: AbortSignal, options: { onTick?: () => void }) {
+				async pollForExit(
+					_surface: string,
+					_signal: AbortSignal,
+					options: { onTick?: () => void },
+				) {
 					generation += 1;
 					if (generation === 1) {
 						await sleep(1050);
@@ -449,7 +479,11 @@ describe("interactive watcher timeout outcome", () => {
 
 		await settleWithin(entered, 2500, "interactive restart entry");
 		await stopRunningSubagent(running, closeSurface);
-		const result = await settleWithin(resultPromise, 3000, "interactive manual stop during restart");
+		const result = await settleWithin(
+			resultPromise,
+			3000,
+			"interactive manual stop during restart",
+		);
 
 		assert.equal(result.error, "cancelled");
 		assert.equal(replacementClosed, true, "a pane created after abort must be closed");

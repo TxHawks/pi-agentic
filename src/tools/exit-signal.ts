@@ -4,7 +4,7 @@ import {
 	SUBAGENT_COMPLETION_ENTRY,
 	SUBAGENT_CONTEXT_PRESSURE_FAILURE_REASON,
 	SUBAGENT_CONTEXT_PRESSURE_REASON,
-} from "./context-reminders.ts";
+} from "../session/session.ts";
 import type { FinalContextSnapshot } from "./final-context-snapshot.ts";
 
 export interface ExitSignalWriterDeps {
@@ -18,7 +18,10 @@ export interface ExitSignalWriterDeps {
  * the durable completion marker the resume guard reads.
  */
 export function createExitSignalWriter(deps: ExitSignalWriterDeps) {
-	return function writeExitSignal(payload: object, opts?: { supersede?: boolean; autonomous?: boolean }) {
+	return function writeExitSignal(
+		payload: object,
+		opts?: { supersede?: boolean; autonomous?: boolean },
+	) {
 		const sessionFile = process.env.PI_SUBAGENT_SESSION;
 		if (!sessionFile) return;
 		// Only a normal completion the child itself decided can be owned by the

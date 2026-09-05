@@ -3,15 +3,15 @@ import {
 	describe,
 	filterToolNames,
 	getDeniedToolNames,
+	getExtensionLaunchArgsForTest,
+	getSubagentsExtensionPathForTest,
 	getSubagentToolAllowlistForTest,
 	getSubagentToolDeniedNamesForTest,
 	getSubagentToolLaunchArgsForTest,
 	getSubagentToolsWarningForTest,
-	getExtensionLaunchArgsForTest,
-	getSubagentsExtensionPathForTest,
 	installDeniedToolGuards,
-	it,
 	isPreparedChildSpawningAllowedForTest,
+	it,
 	withToolWarningForTest,
 } from "../support/index.ts";
 
@@ -30,19 +30,26 @@ function withSetTabTitleEnv<T>(value: string | undefined, run: () => T): T {
 describe("tool policy", () => {
 	describe("deny-tools enforcement", () => {
 		it("adds subagent_done to denied tools for auto-exit agents", () => {
-			assert.deepEqual(getDeniedToolNames(true, "ask_user_question"), ["ask_user_question", "subagent_done"]);
+			assert.deepEqual(getDeniedToolNames(true, "ask_user_question"), [
+				"ask_user_question",
+				"subagent_done",
+			]);
 		});
 
 		it("filters denied tool names and de-duplicates survivors", () => {
-			assert.deepEqual(filterToolNames(["read", "ask_user_question", "read", "bash"], ["ask_user_question"]), [
-				"read",
-				"bash",
-			]);
+			assert.deepEqual(
+				filterToolNames(["read", "ask_user_question", "read", "bash"], ["ask_user_question"]),
+				["read", "bash"],
+			);
 		});
 
 		it("keeps required subagent protocol tools available when built-in tools are narrowed", () => {
 			withSetTabTitleEnv(undefined, () => {
-				assert.deepEqual(getSubagentToolAllowlistForTest("bash"), ["bash", "caller_ping", "subagent_done"]);
+				assert.deepEqual(getSubagentToolAllowlistForTest("bash"), [
+					"bash",
+					"caller_ping",
+					"subagent_done",
+				]);
 			});
 		});
 
@@ -63,11 +70,10 @@ describe("tool policy", () => {
 					"--tools",
 					"caller_ping,subagent_done",
 				]);
-				assert.deepEqual(getSubagentToolLaunchArgsForTest("set_tab_title", ["caller_ping", "subagent_done"]), [
-					"--no-tools",
-					"--exclude-tools",
-					"caller_ping,subagent_done",
-				]);
+				assert.deepEqual(
+					getSubagentToolLaunchArgsForTest("set_tab_title", ["caller_ping", "subagent_done"]),
+					["--no-tools", "--exclude-tools", "caller_ping,subagent_done"],
+				);
 			});
 		});
 
@@ -96,23 +102,19 @@ describe("tool policy", () => {
 
 		it("keeps spawning tools out of a narrowed tools list without a spawn grant", () => {
 			withSetTabTitleEnv(undefined, () => {
-				assert.deepEqual(getSubagentToolAllowlistForTest("exec_command", ["subagent", "subagent_resume"], false), [
-					"exec_command",
-					"caller_ping",
-					"subagent_done",
-				]);
+				assert.deepEqual(
+					getSubagentToolAllowlistForTest("exec_command", ["subagent", "subagent_resume"], false),
+					["exec_command", "caller_ping", "subagent_done"],
+				);
 			});
 		});
 
 		it("lets deny-tools remove a granted spawning tool from the narrowed allowlist", () => {
 			withSetTabTitleEnv(undefined, () => {
-				assert.deepEqual(getSubagentToolAllowlistForTest("exec_command", ["subagent_resume"], true), [
-					"exec_command",
-					"caller_ping",
-					"subagent_done",
-					"subagent",
-					"subagent_kill",
-				]);
+				assert.deepEqual(
+					getSubagentToolAllowlistForTest("exec_command", ["subagent_resume"], true),
+					["exec_command", "caller_ping", "subagent_done", "subagent", "subagent_kill"],
+				);
 			});
 		});
 
@@ -127,10 +129,18 @@ describe("tool policy", () => {
 
 		it("keeps subagent_kill available so a spawning child can stop its own runs", () => {
 			withSetTabTitleEnv(undefined, () => {
-				assert.equal(getSubagentToolAllowlistForTest("exec_command", [], true).includes("subagent_kill"), true);
-				assert.equal(getSubagentToolAllowlistForTest("exec_command", [], false).includes("subagent_kill"), false);
 				assert.equal(
-					getSubagentToolAllowlistForTest("exec_command", ["subagent_kill"], true).includes("subagent_kill"),
+					getSubagentToolAllowlistForTest("exec_command", [], true).includes("subagent_kill"),
+					true,
+				);
+				assert.equal(
+					getSubagentToolAllowlistForTest("exec_command", [], false).includes("subagent_kill"),
+					false,
+				);
+				assert.equal(
+					getSubagentToolAllowlistForTest("exec_command", ["subagent_kill"], true).includes(
+						"subagent_kill",
+					),
 					false,
 				);
 			});
@@ -146,7 +156,10 @@ describe("tool policy", () => {
 			assert.deepEqual(getSubagentToolLaunchArgsForTest(undefined), []);
 			assert.deepEqual(getSubagentToolLaunchArgsForTest("all"), []);
 			assert.deepEqual(getSubagentToolLaunchArgsForTest(" all "), []);
-			assert.deepEqual(getSubagentToolLaunchArgsForTest("all", ["bash"]), ["--exclude-tools", "bash"]);
+			assert.deepEqual(getSubagentToolLaunchArgsForTest("all", ["bash"]), [
+				"--exclude-tools",
+				"bash",
+			]);
 		});
 
 		it("maps tools none to no built-in tools while preserving extension tools", () => {
@@ -170,7 +183,10 @@ describe("tool policy", () => {
 
 		it("maps narrowed built-in tools to a tool allowlist with protocol tools", () => {
 			withSetTabTitleEnv(undefined, () => {
-				assert.deepEqual(getSubagentToolLaunchArgsForTest("bash", []), ["--tools", "bash,caller_ping,subagent_done"]);
+				assert.deepEqual(getSubagentToolLaunchArgsForTest("bash", []), [
+					"--tools",
+					"bash,caller_ping,subagent_done",
+				]);
 			});
 		});
 
@@ -267,8 +283,9 @@ describe("tool policy", () => {
 					allTools.push({ name: definition.name });
 					activeTools.push(definition.name);
 				},
-			} as any;
+			};
 
+			// @ts-expect-error These test tool listings need names only, not full Pi tool descriptions.
 			const { applyDeniedTools } = installDeniedToolGuards(pi, false);
 			assert.deepEqual(applyDeniedTools(), ["caller_ping"]);
 			assert.deepEqual(activeTools, ["caller_ping"]);
@@ -287,11 +304,12 @@ describe("tool policy", () => {
 				registerTool: (definition: { name: string }) => {
 					allTools.push({ name: definition.name });
 				},
-			} as any;
+			};
 
 			const original = process.env.PI_DENY_TOOLS;
 			process.env.PI_DENY_TOOLS = "ask_user_question";
 			try {
+				// @ts-expect-error These test tool listings need names only, not full Pi tool descriptions.
 				const { applyDeniedTools } = installDeniedToolGuards(pi, false, (active, denied) => {
 					changes.push({ active: [...active], denied: [...denied] });
 				});
@@ -324,38 +342,45 @@ describe("tool policy", () => {
 
 	describe("spawning tool availability behind an extensions allowlist", () => {
 		it("force-loads pi-subagents when an extensions list would drop it from a granted child", () => {
-			assert.deepEqual(getExtensionLaunchArgsForTest(["npm:pi-fancy-footer"], "/tmp/subagent-done.ts", true), [
-				"--no-extensions",
-				"-e",
-				"/tmp/subagent-done.ts",
-				"-e",
-				"npm:pi-fancy-footer",
-				"-e",
-				getSubagentsExtensionPathForTest(),
-			]);
+			assert.deepEqual(
+				getExtensionLaunchArgsForTest(["npm:pi-fancy-footer"], "/tmp/subagent-done.ts", true),
+				[
+					"--no-extensions",
+					"-e",
+					"/tmp/subagent-done.ts",
+					"-e",
+					"npm:pi-fancy-footer",
+					"-e",
+					getSubagentsExtensionPathForTest(),
+				],
+			);
 		});
 
 		it("leaves the extension list alone for a child without a spawn grant", () => {
-			assert.deepEqual(getExtensionLaunchArgsForTest(["npm:pi-fancy-footer"], "/tmp/subagent-done.ts", false), [
-				"--no-extensions",
-				"-e",
-				"/tmp/subagent-done.ts",
-				"-e",
-				"npm:pi-fancy-footer",
-			]);
+			assert.deepEqual(
+				getExtensionLaunchArgsForTest(["npm:pi-fancy-footer"], "/tmp/subagent-done.ts", false),
+				["--no-extensions", "-e", "/tmp/subagent-done.ts", "-e", "npm:pi-fancy-footer"],
+			);
 		});
 
 		it("does not force-load pi-subagents twice when the list already names it", () => {
-			assert.deepEqual(getExtensionLaunchArgsForTest(["npm:pi-subagents"], "/tmp/subagent-done.ts", true), [
-				"--no-extensions",
-				"-e",
-				"/tmp/subagent-done.ts",
-				"-e",
-				"npm:pi-subagents",
-			]);
 			assert.deepEqual(
-				getExtensionLaunchArgsForTest(["/home/u/.pi/agent/extensions/pi-subagents/src/index.ts"], "/tmp/done.ts", true),
-				["--no-extensions", "-e", "/tmp/done.ts", "-e", "/home/u/.pi/agent/extensions/pi-subagents/src/index.ts"],
+				getExtensionLaunchArgsForTest(["npm:pi-subagents"], "/tmp/subagent-done.ts", true),
+				["--no-extensions", "-e", "/tmp/subagent-done.ts", "-e", "npm:pi-subagents"],
+			);
+			assert.deepEqual(
+				getExtensionLaunchArgsForTest(
+					["/home/u/.pi/agent/extensions/pi-subagents/src/index.ts"],
+					"/tmp/done.ts",
+					true,
+				),
+				[
+					"--no-extensions",
+					"-e",
+					"/tmp/done.ts",
+					"-e",
+					"/home/u/.pi/agent/extensions/pi-subagents/src/index.ts",
+				],
 			);
 		});
 

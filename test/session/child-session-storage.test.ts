@@ -107,15 +107,42 @@ describe("child session storage", () => {
 		const parent = join(dir, "parent-mid.jsonl");
 		const child = join(dir, "child-mid.jsonl");
 		// message → roster → message → leaf: dropping the roster must not orphan the rest.
-		const msg1 = { type: "message", id: "m1", parentId: null, message: { role: "user", content: "first" } };
-		const roster = { type: "custom_message", customType: "subagent_roster", id: "r1", parentId: "m1", content: "x" };
-		const msg2 = { type: "message", id: "m2", parentId: "r1", message: { role: "assistant", content: "second" } };
-		const leaf = { type: "message", id: "m3", parentId: "m2", message: { role: "user", content: "third" } };
-		writeFileSync(parent, `${[SESSION_HEADER, msg1, roster, msg2, leaf].map((e) => JSON.stringify(e)).join("\n")}\n`);
+		const msg1 = {
+			type: "message",
+			id: "m1",
+			parentId: null,
+			message: { role: "user", content: "first" },
+		};
+		const roster = {
+			type: "custom_message",
+			customType: "subagent_roster",
+			id: "r1",
+			parentId: "m1",
+			content: "x",
+		};
+		const msg2 = {
+			type: "message",
+			id: "m2",
+			parentId: "r1",
+			message: { role: "assistant", content: "second" },
+		};
+		const leaf = {
+			type: "message",
+			id: "m3",
+			parentId: "m2",
+			message: { role: "user", content: "third" },
+		};
+		writeFileSync(
+			parent,
+			`${[SESSION_HEADER, msg1, roster, msg2, leaf].map((e) => JSON.stringify(e)).join("\n")}\n`,
+		);
 
 		new ChildSessionStorage(child).seed("fork", parent, dir, { activeLeafId: "m3" });
 
-		const entries = readFileSync(child, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+		const entries = readFileSync(child, "utf8")
+			.trim()
+			.split("\n")
+			.map((l) => JSON.parse(l));
 		const byId = new Map(entries.filter((e) => e.id).map((e) => [e.id, e]));
 		assert.ok(!byId.has("r1"), "roster stripped");
 		// m2 must be re-pointed at m1 (not the dropped r1), m3 at m2 — the walk reaches m1.

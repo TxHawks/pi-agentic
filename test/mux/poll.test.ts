@@ -17,7 +17,10 @@ describe("interpretExitSidecar", () => {
 	it("does not invent a completion reason", () => {
 		const decoded = interpretExitSidecar({ type: "done", outputTokens: 4 });
 		assert.equal("completionReason" in decoded, false);
-		assert.equal(interpretExitSidecar({ type: "done", completionReason: "bogus" }).completionReason, undefined);
+		assert.equal(
+			interpretExitSidecar({ type: "done", completionReason: "bogus" }).completionReason,
+			undefined,
+		);
 	});
 
 	it("decodes ping payloads", () => {
@@ -43,18 +46,16 @@ describe("interpretExitSidecar", () => {
 	});
 
 	it("decodes error payloads with non-zero exit code and errorMessage", () => {
-		assert.deepEqual(
-			interpretExitSidecar({
-				type: "error",
-				errorMessage: "Anthropic 529 Overloaded after 3 retries",
-				stopReason: "error",
-			}),
-			{
-				reason: "error",
-				exitCode: 1,
-				errorMessage: "Anthropic 529 Overloaded after 3 retries",
-			},
-		);
+		const payload = {
+			type: "error",
+			errorMessage: "Anthropic 529 Overloaded after 3 retries",
+			stopReason: "error",
+		};
+		assert.deepEqual(interpretExitSidecar(payload), {
+			reason: "error",
+			exitCode: 1,
+			errorMessage: "Anthropic 529 Overloaded after 3 retries",
+		});
 	});
 
 	it("falls back when error payload has no errorMessage", () => {

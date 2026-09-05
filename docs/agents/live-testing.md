@@ -1,0 +1,56 @@
+# Live testing: subagent runtime behavior
+
+How to run a live repro for changes to subagent runtime behavior. `AGENTS.md` names the triggers; this file owns the procedure, the outcome classification, and the cleanup.
+
+## Model refs are per-user
+
+Model and provider refs are part of each user's own Pi config. Another contributor's Pi will not have the same providers.
+
+- Before a live Pi run, read `.pi/live-test-models.json` if it exists. Its `models` array holds the user's approved refs for this project. Reuse those choices instead of asking each time.
+- Ask the user for model refs when there are no saved choices. Save approved choices in that file. `.pi/` is gitignored; do not put user-specific refs in tracked files or change Pi's startup model.
+- Check saved refs with `pi --list-models` before use. If a ref is unavailable, ask the user; do not substitute another model.
+- Pass each selected ref through `PI_SUBAGENT_LIVE_MODEL=provider/model[:thinking]` for the Herdr and frontmatter checks. The scripts do not read the saved file themselves.
+- Prefer `thinking high` for non-trivial orchestration changes.
+- A single-model pass is not proof. Test with at least two models from different families the user has available.
+
+## Load-bearing live probes
+
+The release proof has three tiers (decided on issue #16). Tier A is the
+automated gates that run on every change. Tier B is the live gate: scripted
+probes that launch a real Pi child, assert on run artifacts, and write a
+pass receipt. Tier C is the scheduled Pi-release drift job.
+
+The launch wrapper's real signal behavior is proven only by the Tier B live
+probes: the wrapper's TERM trap, the Pi child's clean SIGTERM exit (wait
+status 143), and the exit-record write after a parent death. The unit tests
+run on the scripted fake launcher and on plain `sh` children; they cannot
+prove Pi's signal handling. The Tier B probes are load-bearing and must
+never be weakened.
+
+## Temporary live-test agents
+
+This repo does not commit fixed smoke agents (`.pi/` is gitignored). For each live repro, create a temporary agent file shaped for the behavior under test, either under `.pi/agents/` or under a temp root pointed at by `PI_CODING_AGENT_DIR`. Remove it (or set `enabled: false`) once the repro is done.
+
+## Standard procedure
+
+- Prefer `pi -p` for deterministic repros.
+- Use a temporary `--session-dir`.
+- Inspect session JSONL when behavior is subtle.
+- Check both parent and child sessions.
+- For env-var or frontmatter branches, test both the enabled and the disabled state.
+
+## Classify parent/child outcomes
+
+Classify each outcome:
+
+- `duplicate` — parent and child did the same work.
+- `auxiliary` — child did work that did not advance the parent's goal.
+- `clean_yield` — child did the delegated work and the parent surfaced it.
+
+For guard or coordination changes, verify three things: direct parent tools were blocked when expected, allowed when opt-out was enabled, and the behavior held for the full parent response rather than one internal continuation step.
+
+## Cleanup
+
+- Restore or delete temporary agent files created for the repro.
+- Remove temporary session dirs that are no longer needed.
+- Clear test-only environment variables.

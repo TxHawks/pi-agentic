@@ -3,7 +3,11 @@ import {
 	type BackgroundLaunchRuntime,
 	launchBackgroundSubagent as launchBackgroundSubagentWithRuntime,
 } from "../launch/background.ts";
-import { getPiInvocation, getPiShellParts, getSubagentChildProcessEnv } from "../launch/child-command.ts";
+import {
+	getPiInvocation,
+	getPiShellParts,
+	getSubagentChildProcessEnv,
+} from "../launch/child-command.ts";
 import { type InteractiveLaunchRuntime, launchInteractiveSubagent } from "../launch/interactive.ts";
 import type { SubagentLaunchContext } from "../launch/prep.ts";
 import { cleanupNoSessionSessionFile } from "../launch/prep.ts";
@@ -20,7 +24,10 @@ import {
 	type BackgroundWatchRuntime,
 	watchBackgroundSubagent as watchBackgroundSubagentWithRuntime,
 } from "./background-watch.ts";
-import { type InteractiveWatchRuntime, watchSubagent as watchSubagentWithRuntime } from "./interactive-watch.ts";
+import {
+	type InteractiveWatchRuntime,
+	watchSubagent as watchSubagentWithRuntime,
+} from "./interactive-watch.ts";
 import {
 	deliverCompletedSubagentResultViaSteer as deliverCompletedSubagentResultViaSteerWithDeps,
 	findTrackedSubagent,
@@ -46,8 +53,11 @@ import {
 	widgetManager,
 	withSubagentBatchStop,
 } from "./state.ts";
-import { type WaitRuntime, waitForSubagentResult as waitForSubagentResultWithRuntime } from "./wait.ts";
 import { restartSubagentForTimeoutWrapUp } from "./timeout-wrap-up.ts";
+import {
+	type WaitRuntime,
+	waitForSubagentResult as waitForSubagentResultWithRuntime,
+} from "./wait.ts";
 
 export {
 	getWatcherSignal,
@@ -210,7 +220,11 @@ export async function launchBackgroundSubagent(
 	params: SubagentParamsInput,
 	ctx: SubagentLaunchContext,
 ): Promise<RunningSubagent> {
-	const running = await launchBackgroundSubagentWithRuntime(params, ctx, getBackgroundLaunchRuntime());
+	const running = await launchBackgroundSubagentWithRuntime(
+		params,
+		ctx,
+		getBackgroundLaunchRuntime(),
+	);
 	runningSubagents.set(running.id, running);
 	return running;
 }
@@ -244,7 +258,12 @@ export async function launchSubagent(
 	ctx: SubagentLaunchContext,
 	options?: { surface?: string },
 ): Promise<RunningSubagent> {
-	const running = await launchInteractiveSubagent(params, ctx, getInteractiveLaunchRuntime(), options);
+	const running = await launchInteractiveSubagent(
+		params,
+		ctx,
+		getInteractiveLaunchRuntime(),
+		options,
+	);
 	runningSubagents.set(running.id, running);
 	return running;
 }
@@ -259,7 +278,11 @@ function getInteractiveWatchRuntime(): InteractiveWatchRuntime {
 }
 
 export async function watchSubagent(running: RunningSubagent, signal?: AbortSignal) {
-	return watchSubagentWithRuntime(running, getInteractiveWatchRuntime(), signal ?? moduleAbortController.signal);
+	return watchSubagentWithRuntime(
+		running,
+		getInteractiveWatchRuntime(),
+		signal ?? moduleAbortController.signal,
+	);
 }
 
 function getShutdownRuntime(): ShutdownRuntime {

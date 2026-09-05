@@ -1,3 +1,4 @@
+import type { RunningSubagent, SubagentResult } from "../../src/types.ts";
 import {
 	afterEach,
 	assert,
@@ -16,8 +17,10 @@ describe("subagent wait behavior", () => {
 		resetSubagentStateForTest();
 	});
 
-	function waitForResult(result: any) {
-		const running = {
+	function waitForResult(
+		result: SubagentResult & Pick<RunningSubagent, "reportContextUsage" | "sessionFile">,
+	) {
+		const running: RunningSubagent = {
 			id: `child-wait-${Math.random()}`,
 			name: result.name,
 			task: result.task,
@@ -68,8 +71,9 @@ describe("subagent wait behavior", () => {
 			text,
 			/Resume: pi --session \/tmp\/context-child\.jsonl\n\nSub-agent context: 145K\/200K tokens \(72%\) used at finish\.$/,
 		);
-		assert.equal((waited.details as any).contextTokens, 145_000);
-		assert.equal((waited.details as any).contextWindow, 200_000);
+		const details = waited.details as { contextTokens: number; contextWindow: number };
+		assert.equal(details.contextTokens, 145_000);
+		assert.equal(details.contextWindow, 200_000);
 	});
 
 	it("keeps awaited context telemetry structured when the agent definition hides it from the parent result", async () => {
@@ -87,8 +91,9 @@ describe("subagent wait behavior", () => {
 		});
 		const text = (waited.content[0] as { text: string }).text;
 		assert.doesNotMatch(text, /Sub-agent context:/);
-		assert.equal((waited.details as any).contextTokens, 145_000);
-		assert.equal((waited.details as any).contextWindow, 200_000);
+		const details = waited.details as { contextTokens: number; contextWindow: number };
+		assert.equal(details.contextTokens, 145_000);
+		assert.equal(details.contextWindow, 200_000);
 	});
 
 	it("classifies an awaited enforced timeout wrap-up", async () => {
@@ -106,7 +111,8 @@ describe("subagent wait behavior", () => {
 		assert.match(text, /completed its time-limit wrap-up/);
 		assert.match(text, /interrupted its active operation at 50% of its whole-run limit/);
 		assert.match(text, /Reported the committed portion/);
-		assert.deepEqual((waited.details as any).timeoutWrapUp, {
+		const details = waited.details as { timeoutWrapUp: SubagentResult["timeoutWrapUp"] };
+		assert.deepEqual(details.timeoutWrapUp, {
 			kind: "timeout",
 			seconds: 60,
 			threshold: 50,
@@ -144,8 +150,8 @@ describe("subagent wait behavior", () => {
 	});
 
 	it("returns cached result when wait follows steer delivery", async () => {
-		const sent: Array<{ message: any; options: any }> = [];
-		const running = {
+		const sent: Array<{ message: unknown; options: unknown }> = [];
+		const running: RunningSubagent = {
 			id: "child-wait-2",
 			name: "Already delivered child",
 			task: "Too late",
@@ -159,7 +165,7 @@ describe("subagent wait behavior", () => {
 
 		routeDetachedSubagentCompletionForTest(
 			{
-				sendMessage(message: any, options: any) {
+				sendMessage(message, options) {
 					sent.push({ message, options });
 				},
 			},
@@ -176,20 +182,27 @@ describe("subagent wait behavior", () => {
 
 		const waited = await waitForSubagentForTest({ id: running.id });
 		assert.equal(sent.length, 1);
-		assert.equal((waited.details as any).id, running.id);
-		assert.equal((waited.details as any).name, running.name);
-		assert.equal((waited.details as any).status, "completed");
-		assert.equal((waited.details as any).deliveryState, "awaited");
-		assert.equal((waited.details as any).exitCode, 0);
+		const details = waited.details as {
+			id: string;
+			name: string;
+			status: string;
+			deliveryState: string;
+			exitCode: number;
+		};
+		assert.equal(details.id, running.id);
+		assert.equal(details.name, running.name);
+		assert.equal(details.status, "completed");
+		assert.equal(details.deliveryState, "awaited");
+		assert.equal(details.exitCode, 0);
 	});
 
 	it("returns pending on wait timeout and restores detached delivery", async () => {
-		const sent: Array<{ message: any; options: any }> = [];
-		let resolveCompletion!: (result: any) => void;
-		const completionPromise = new Promise<any>((resolve) => {
+		const sent: Array<{ message: unknown; options: unknown }> = [];
+		let resolveCompletion!: (result: SubagentResult) => void;
+		const completionPromise = new Promise<SubagentResult>((resolve) => {
 			resolveCompletion = resolve;
 		});
-		const running = {
+		const running: RunningSubagent = {
 			id: "child-wait-3",
 			name: "Slow child",
 			task: "Still running",
@@ -206,7 +219,7 @@ describe("subagent wait behavior", () => {
 		completionPromise.then((result) => {
 			routeDetachedSubagentCompletionForTest(
 				{
-					sendMessage(message: any, options: any) {
+					sendMessage(message, options) {
 						sent.push({ message, options });
 					},
 				},
@@ -221,8 +234,9 @@ describe("subagent wait behavior", () => {
 			onTimeout: "detach",
 		});
 
-		assert.equal((waited.details as any).status, "pending");
-		assert.equal((waited.details as any).deliveryState, "detached");
+		const details = waited.details as { status: string; deliveryState: string };
+		assert.equal(details.status, "pending");
+		assert.equal(details.deliveryState, "detached");
 		assert.equal(running.deliveryState, "detached");
 
 		resolveCompletion({
@@ -236,18 +250,24 @@ describe("subagent wait behavior", () => {
 		await sleep(0);
 
 		assert.equal(sent.length, 1);
-		assert.equal((sent[0].message.details as any).id, running.id);
-		assert.equal((sent[0].message.details as any).deliveryState, "detached");
+		assert.equal(
+			(sent[0].message as { details: { id: string; deliveryState: string } }).details.id,
+			running.id,
+		);
+		assert.equal(
+			(sent[0].message as { details: { id: string; deliveryState: string } }).details.deliveryState,
+			"detached",
+		);
 		assert.equal(getCompletedSubagentResultForTest(running.id)?.deliveredTo, "steer");
 	});
 
 	it("returns timeout errors for wait and restores detached delivery", async () => {
-		const sent: Array<{ message: any; options: any }> = [];
-		let resolveCompletion!: (result: any) => void;
-		const completionPromise = new Promise<any>((resolve) => {
+		const sent: Array<{ message: unknown; options: unknown }> = [];
+		let resolveCompletion!: (result: SubagentResult) => void;
+		const completionPromise = new Promise<SubagentResult>((resolve) => {
 			resolveCompletion = resolve;
 		});
-		const running = {
+		const running: RunningSubagent = {
 			id: "child-wait-timeout-error",
 			name: "Timeout child",
 			task: "Miss the deadline",
@@ -264,7 +284,7 @@ describe("subagent wait behavior", () => {
 		completionPromise.then((result) => {
 			routeDetachedSubagentCompletionForTest(
 				{
-					sendMessage(message: any, options: any) {
+					sendMessage(message, options) {
 						sent.push({ message, options });
 					},
 				},
@@ -277,9 +297,10 @@ describe("subagent wait behavior", () => {
 			id: running.id,
 			timeout: 0.01,
 		});
-		assert.equal((waited.details as any).error, "timeout");
+		const details = waited.details as { error: string };
+		assert.equal(details.error, "timeout");
 		assert.equal(running.deliveryState, "detached");
-		assert.equal((running as any).resultOwner, undefined);
+		assert.equal(running.resultOwner, undefined);
 
 		resolveCompletion({
 			name: running.name,
@@ -292,17 +313,20 @@ describe("subagent wait behavior", () => {
 		await sleep(0);
 
 		assert.equal(sent.length, 1);
-		assert.equal((sent[0].message.details as any).id, running.id);
+		assert.equal(
+			(sent[0].message as { details: { id: string; deliveryState: string } }).details.id,
+			running.id,
+		);
 		assert.equal(getCompletedSubagentResultForTest(running.id)?.deliveredTo, "steer");
 	});
 
 	it("releases awaited children back to steer when wait is interrupted", async () => {
-		const sent: Array<{ message: any; options: any }> = [];
-		let resolveCompletion!: (result: any) => void;
-		const completionPromise = new Promise<any>((resolve) => {
+		const sent: Array<{ message: unknown; options: unknown }> = [];
+		let resolveCompletion!: (result: SubagentResult) => void;
+		const completionPromise = new Promise<SubagentResult>((resolve) => {
 			resolveCompletion = resolve;
 		});
-		const running = {
+		const running: RunningSubagent = {
 			id: "child-wait-interrupt-1",
 			name: "Interrupted wait child",
 			task: "Resume detached delivery",
@@ -319,7 +343,7 @@ describe("subagent wait behavior", () => {
 		completionPromise.then((result) => {
 			routeDetachedSubagentCompletionForTest(
 				{
-					sendMessage(message: any, options: any) {
+					sendMessage(message, options) {
 						sent.push({ message, options });
 					},
 				},
@@ -334,9 +358,10 @@ describe("subagent wait behavior", () => {
 
 		abort.abort();
 		const waited = await waitPromise;
-		assert.equal((waited.details as any).error, "interrupted");
+		const details = waited.details as { error: string };
+		assert.equal(details.error, "interrupted");
 		assert.equal(running.deliveryState, "detached");
-		assert.equal((running as any).resultOwner, undefined);
+		assert.equal(running.resultOwner, undefined);
 
 		resolveCompletion({
 			name: running.name,
@@ -349,7 +374,7 @@ describe("subagent wait behavior", () => {
 		await sleep(0);
 
 		assert.equal(sent.length, 1);
-		assert.equal(sent[0].options.deliverAs, "steer");
+		assert.equal((sent[0].options as { deliverAs: string }).deliverAs, "steer");
 		assert.equal(getCompletedSubagentResultForTest(running.id)?.deliveredTo, "steer");
 	});
 

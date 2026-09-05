@@ -1,5 +1,9 @@
 import { existsSync } from "node:fs";
-import { getMuxBackend, resolveHerdrPlacementPolicy, resolveZellijPlacementPolicy } from "../mux.ts";
+import {
+	getMuxBackend,
+	resolveHerdrPlacementPolicy,
+	resolveZellijPlacementPolicy,
+} from "../mux.ts";
 import { ChildSessionStorage } from "../session/child-session-storage.ts";
 import { getEntryCount } from "../session/session.ts";
 import {
@@ -50,21 +54,32 @@ export async function coordinateSubagentLaunch(
 	const noSession = resolveSubagentNoSession(prepared.agentDefs);
 	const noSessionSeedMode = noSession ? getNoSessionSeedMode(sessionMode) : null;
 	const directTask = sessionMode === "fork" || noSessionSeedMode === "fork";
-	const { seedMode, boundarySystemPrompt } = seedPreparedSubagentSession(prepared, params, ctx, sessionMode, noSession);
+	const { seedMode, boundarySystemPrompt } = seedPreparedSubagentSession(
+		prepared,
+		params,
+		ctx,
+		sessionMode,
+		noSession,
+	);
 	const systemPrompt = getCoordinatedSystemPrompt(prepared);
 	const agentEnv = parseEnvString(prepared.agentDefs?.env);
 	const herdrPlacementPolicy =
 		options.mode === "interactive" && getMuxBackend() === "herdr"
-			? resolveHerdrPlacementPolicy(agentEnv.PI_SUBAGENT_HERDR_PLACEMENT ?? process.env.PI_SUBAGENT_HERDR_PLACEMENT)
+			? resolveHerdrPlacementPolicy(
+					agentEnv.PI_SUBAGENT_HERDR_PLACEMENT ?? process.env.PI_SUBAGENT_HERDR_PLACEMENT,
+				)
 			: undefined;
 	const zellijPlacementPolicy =
 		options.mode === "interactive" && process.env.ZELLIJ_PANE_ID
-			? resolveZellijPlacementPolicy(agentEnv.PI_SUBAGENT_ZELLIJ_PLACEMENT ?? process.env.PI_SUBAGENT_ZELLIJ_PLACEMENT)
+			? resolveZellijPlacementPolicy(
+					agentEnv.PI_SUBAGENT_ZELLIJ_PLACEMENT ?? process.env.PI_SUBAGENT_ZELLIJ_PLACEMENT,
+				)
 			: undefined;
 	const zellijPlacement = zellijPlacementPolicy
 		? {
 				zellijPlacementPolicy,
-				zellijPlacementGroupKey: prepared.sessionFile ?? `session:${ctx.sessionManager.getSessionId()}`,
+				zellijPlacementGroupKey:
+					prepared.sessionFile ?? `session:${ctx.sessionManager.getSessionId()}`,
 			}
 		: undefined;
 	const launchMetadata = buildPersistedSubagentLaunchMetadata(
@@ -73,7 +88,8 @@ export async function coordinateSubagentLaunch(
 		options.mode,
 		sessionMode,
 		boundarySystemPrompt,
-		systemPrompt?.text ?? (prepared.identityInSystemPrompt ? prepared.identity : options.systemPrompt),
+		systemPrompt?.text ??
+			(prepared.identityInSystemPrompt ? prepared.identity : options.systemPrompt),
 		{
 			...(herdrPlacementPolicy ? { herdrPlacementPolicy } : {}),
 			...zellijPlacement,
@@ -89,12 +105,16 @@ export async function coordinateSubagentLaunch(
 		inheritAppendSystem: launchMetadata.inheritAppendSystem === true,
 		systemPromptMode: launchMetadata.systemPromptMode,
 		systemPrompt: launchMetadata.systemPrompt,
-		boundarySystemPrompt: launchMetadata.boundarySystemPrompt ? CHILD_CONTEXT_BOUNDARY_SYSTEM_PROMPT : undefined,
+		boundarySystemPrompt: launchMetadata.boundarySystemPrompt
+			? CHILD_CONTEXT_BOUNDARY_SYSTEM_PROMPT
+			: undefined,
 	});
 	Object.assign(envVars, appendSystemPlan.env);
 	if (prepared.agentDefs?.autoExit) envVars.PI_SUBAGENT_AUTO_EXIT = "1";
 	envVars.PI_SUBAGENT_SESSION = prepared.subagentSessionFile;
-	const launchEntryCount = existsSync(prepared.subagentSessionFile) ? getEntryCount(prepared.subagentSessionFile) : 0;
+	const launchEntryCount = existsSync(prepared.subagentSessionFile)
+		? getEntryCount(prepared.subagentSessionFile)
+		: 0;
 
 	return {
 		prepared,
@@ -110,13 +130,18 @@ export async function coordinateSubagentLaunch(
 	};
 }
 
-function getCoordinatedSystemPrompt(prepared: PreparedSubagentLaunch): CoordinatedSystemPrompt | undefined {
+function getCoordinatedSystemPrompt(
+	prepared: PreparedSubagentLaunch,
+): CoordinatedSystemPrompt | undefined {
 	if (!prepared.identityInSystemPrompt || !prepared.identity) return undefined;
 	if (prepared.agentDefs?.systemPromptMode === "append" && prepared.agentDefs.inheritAppendSystem) {
 		return undefined;
 	}
 	return {
-		flag: prepared.agentDefs?.systemPromptMode === "replace" ? "--system-prompt" : "--append-system-prompt",
+		flag:
+			prepared.agentDefs?.systemPromptMode === "replace"
+				? "--system-prompt"
+				: "--append-system-prompt",
 		text: prepared.identity,
 	};
 }

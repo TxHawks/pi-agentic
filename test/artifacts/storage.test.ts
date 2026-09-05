@@ -11,6 +11,7 @@ import {
 	getArtifactProjectName,
 	getArtifactStorageRoot,
 	getProjectArtifactsDir,
+	getRunArtifactRoot,
 	getSessionArtifactDir,
 	homedir,
 	it,
@@ -67,7 +68,9 @@ describe("artifact storage", () => {
 	});
 
 	it("falls back to the cwd when no markers exist", () => {
-		const base = existsSync("/dev/shm") ? mkdtempSync(join("/dev/shm", "subagents-test-")) : join(dir, "plain-root");
+		const base = existsSync("/dev/shm")
+			? mkdtempSync(join("/dev/shm", "subagents-test-"))
+			: join(dir, "plain-root");
 		const plain = join(base, "plain", "folder");
 		try {
 			mkdirSync(plain, { recursive: true });
@@ -86,15 +89,30 @@ describe("artifact storage", () => {
 
 		assert.equal(getArtifactProjectName(nested), "artifact-project");
 		assert.equal(getArtifactStorageRoot(), join(homedir(), ".pi", "history"));
-		assert.equal(getProjectArtifactsDir(nested), join(homedir(), ".pi", "history", "artifact-project", "artifacts"));
+		assert.equal(
+			getProjectArtifactsDir(nested),
+			join(homedir(), ".pi", "history", "artifact-project", "artifacts"),
+		);
 		assert.equal(
 			getSessionArtifactDir(nested, "session-123"),
 			join(homedir(), ".pi", "history", "artifact-project", "artifacts", "session-123"),
 		);
 		assert.equal(
 			resolveSessionArtifactPath(nested, "session-123", "context/notes.md"),
-			join(homedir(), ".pi", "history", "artifact-project", "artifacts", "session-123", "context/notes.md"),
+			join(
+				homedir(),
+				".pi",
+				"history",
+				"artifact-project",
+				"artifacts",
+				"session-123",
+				"context/notes.md",
+			),
 		);
+	});
+
+	it("places the run artifact root under the artifact storage root", () => {
+		assert.equal(getRunArtifactRoot("/data/pi-history"), join("/data/pi-history", "runs"));
 	});
 
 	it("keeps the repo-derived project name when PI_ARTIFACT_PROJECT_ROOT is set", () => {

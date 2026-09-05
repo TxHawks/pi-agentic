@@ -1,4 +1,9 @@
-import { getHerdrCurrentPane, getHerdrServerStatus, getHerdrTab, getHerdrWorkspace } from "../../src/mux/herdr.ts";
+import {
+	getHerdrCurrentPane,
+	getHerdrServerStatus,
+	getHerdrTab,
+	getHerdrWorkspace,
+} from "../../src/mux/herdr.ts";
 import {
 	assert,
 	closeSurface,
@@ -356,7 +361,10 @@ describe("Herdr mux backend", async () => {
 			process.env.PI_SUBAGENT_MUX = "herdr";
 			process.env.PI_SUBAGENT_HERDR_PLACEMENT = "tab";
 
-			await assert.rejects(() => createSurface("Herdr Child"), /Herdr tab create returned malformed pane record/);
+			await assert.rejects(
+				() => createSurface("Herdr Child"),
+				/Herdr tab create returned malformed pane record/,
+			);
 
 			const log = readFileSync(logFile, "utf8");
 			assert.match(log, /tab create --workspace w1 --cwd .* --label Herdr Child --no-focus/);
@@ -368,10 +376,16 @@ describe("Herdr mux backend", async () => {
 				const { logFile } = useFakeHerdr();
 				process.env.PI_SUBAGENT_MUX = "herdr";
 
-				assert.equal(createSurfaceSplit("Herdr Split", direction, "w1:p1"), `w1:p-split-${direction}`);
+				assert.equal(
+					createSurfaceSplit("Herdr Split", direction, "w1:p1"),
+					`w1:p-split-${direction}`,
+				);
 
 				const log = readFileSync(logFile, "utf8");
-				assert.match(log, new RegExp(`pane split w1:p1 --direction ${direction} --cwd .* --no-focus`));
+				assert.match(
+					log,
+					new RegExp(`pane split w1:p1 --direction ${direction} --cwd .* --no-focus`),
+				);
 				assert.match(log, new RegExp(`pane rename w1:p-split-${direction} Herdr Split`));
 				assert.doesNotMatch(log, /tab create/);
 			});
@@ -472,7 +486,10 @@ describe("Herdr mux backend", async () => {
 			process.env.PI_SUBAGENT_MUX = "herdr";
 
 			assert.doesNotThrow(() => closeSurface("w1:closed"));
-			assert.throws(() => closeSurface("w1:bad"), /Herdr pane close failed: permission_denied: fake close refused/);
+			assert.throws(
+				() => closeSurface("w1:bad"),
+				/Herdr pane close failed: permission_denied: fake close refused/,
+			);
 
 			const log = readFileSync(logFile, "utf8");
 			assert.match(log, /pane close w1:closed/);
@@ -517,7 +534,8 @@ describe("Herdr mux backend", async () => {
 				paneCount: 1,
 			});
 
-			const log = readFileSync(process.env.FAKE_HERDR_LOG!, "utf8");
+			assert.ok(process.env.FAKE_HERDR_LOG);
+			const log = readFileSync(process.env.FAKE_HERDR_LOG, "utf8");
 			assert.match(log, /status server --json/);
 			assert.match(log, /pane current --current/);
 			assert.match(log, /tab get w1:t1/);
@@ -527,7 +545,10 @@ describe("Herdr mux backend", async () => {
 		it("reports Herdr API errors with the failing operation name", async () => {
 			useFakeHerdr("api-error");
 
-			assert.throws(() => getHerdrCurrentPane(), /Herdr pane current failed: boom: fake current failed/);
+			assert.throws(
+				() => getHerdrCurrentPane(),
+				/Herdr pane current failed: boom: fake current failed/,
+			);
 		});
 
 		it("reports malformed JSON with the failing operation name", async () => {

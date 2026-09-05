@@ -52,7 +52,10 @@ export function findDueTimeoutWrapUp(
 	lastProgressAt: number,
 	now: number,
 ): DueTimeoutWrapUp | null {
-	if (budget.timeoutSeconds && now - startedAt >= (budget.timeoutSeconds * 1000 * threshold) / 100) {
+	if (
+		budget.timeoutSeconds &&
+		now - startedAt >= (budget.timeoutSeconds * 1000 * threshold) / 100
+	) {
 		return { kind: "timeout", seconds: budget.timeoutSeconds, threshold };
 	}
 	if (
@@ -97,7 +100,10 @@ export function observeSubagentProgress(
  * The expired budget for a child that is not already being killed. Returns
  * null once a kill is underway so a slow-dying child is never re-reported.
  */
-export function checkSubagentTimeout(running: RunningSubagent, now: number): ExpiredTimeoutBudget | null {
+export function checkSubagentTimeout(
+	running: RunningSubagent,
+	now: number,
+): ExpiredTimeoutBudget | null {
 	if (!running.timeoutBudget || running.timeoutExpiry) return null;
 	if (
 		running.timeoutBudget.timeoutSeconds &&
@@ -105,7 +111,10 @@ export function checkSubagentTimeout(running: RunningSubagent, now: number): Exp
 	) {
 		return { kind: "timeout", seconds: running.timeoutBudget.timeoutSeconds };
 	}
-	if (running.timeoutWrapUp?.kind === "idle-timeout" && running.timeoutWrapUpDeadlineAt !== undefined) {
+	if (
+		running.timeoutWrapUp?.kind === "idle-timeout" &&
+		running.timeoutWrapUpDeadlineAt !== undefined
+	) {
 		if (now >= running.timeoutWrapUpDeadlineAt) {
 			return { kind: "idle-timeout", seconds: running.timeoutWrapUp.seconds };
 		}
@@ -123,7 +132,10 @@ export function checkSubagentTimeout(running: RunningSubagent, now: number): Exp
  * The report-only soft deadline for a child that has not already entered its
  * one allowed wrap-up phase.
  */
-export function checkSubagentTimeoutWrapUp(running: RunningSubagent, now: number): DueTimeoutWrapUp | null {
+export function checkSubagentTimeoutWrapUp(
+	running: RunningSubagent,
+	now: number,
+): DueTimeoutWrapUp | null {
 	if (!running.timeoutBudget || !running.timeoutWarnThreshold || running.timeoutWrapUp) return null;
 	return findDueTimeoutWrapUp(
 		running.timeoutBudget,
@@ -143,9 +155,11 @@ export function getSubagentHardDeadlineAt(running: RunningSubagent): number | un
 	}
 	if (running.timeoutBudget.idleTimeoutSeconds) {
 		deadlines.push(
-			running.timeoutWrapUp?.kind === "idle-timeout" && running.timeoutWrapUpDeadlineAt !== undefined
+			running.timeoutWrapUp?.kind === "idle-timeout" &&
+				running.timeoutWrapUpDeadlineAt !== undefined
 				? running.timeoutWrapUpDeadlineAt
-				: (running.lastProgressAt ?? running.startTime) + running.timeoutBudget.idleTimeoutSeconds * 1000,
+				: (running.lastProgressAt ?? running.startTime) +
+						running.timeoutBudget.idleTimeoutSeconds * 1000,
 		);
 	}
 	return deadlines.length > 0 ? Math.min(...deadlines) : undefined;
@@ -234,7 +248,8 @@ export function formatTimeoutOutcome(
 	hasOutput: boolean,
 	formatElapsed: (elapsed: number) => string,
 ): string {
-	const budget = result.timedOutAfter !== undefined ? formatTimeoutSeconds(result.timedOutAfter) : "its";
+	const budget =
+		result.timedOutAfter !== undefined ? formatTimeoutSeconds(result.timedOutAfter) : "its";
 	const headline =
 		result.timedOut === "idle-timeout"
 			? `Sub-agent "${result.name}" stopped producing output, so the system stopped it ` +
@@ -258,6 +273,7 @@ export function formatTimeoutOutcome(
 		: "";
 	return `${headline}\n\n${body}\n\n${guidance}${killWarning}`;
 }
+
 import type { SessionEntry } from "../session/session.ts";
 
 /**

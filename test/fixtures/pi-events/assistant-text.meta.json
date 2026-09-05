@@ -1,0 +1,7 @@
+{
+	"scenario": "assistant-text",
+	"source": "recorded",
+	"piVersion": "0.85.0",
+	"model": "claude-bridge/claude-haiku-4-5",
+	"recordedAt": "2026-09-04T22:38:04.286Z"
+}

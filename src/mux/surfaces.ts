@@ -25,7 +25,10 @@ export interface SurfaceCreationOptions {
 	zellij?: ZellijPlacementContext;
 }
 
-export async function createSurface(name: string, options?: SurfaceCreationOptions): Promise<string> {
+export async function createSurface(
+	name: string,
+	options?: SurfaceCreationOptions,
+): Promise<string> {
 	const backend = getMuxBackend();
 
 	if (backend === "cmux") {
@@ -77,7 +80,8 @@ function readTmuxPlacementGeometry(pane: string | undefined): TmuxPlacementGeome
 			],
 			{ encoding: "utf8" },
 		).trim();
-		const [paneColumnsRaw, paneRowsRaw, windowColumnsRaw, windowRowsRaw, windowPanesRaw] = output.split(/\s+/, 5);
+		const [paneColumnsRaw, paneRowsRaw, windowColumnsRaw, windowRowsRaw, windowPanesRaw] =
+			output.split(/\s+/, 5);
 		const paneColumns = positiveNumber(paneColumnsRaw);
 		const paneRows = positiveNumber(paneRowsRaw);
 		const windowColumns = positiveNumber(windowColumnsRaw);
@@ -160,7 +164,10 @@ function createTmuxSurface(name: string): string {
 	return createTmuxWindow(name);
 }
 
-function rebalanceTmuxWindow(pane: string | undefined, layout: "even-horizontal" | "even-vertical" | "tiled"): void {
+function rebalanceTmuxWindow(
+	pane: string | undefined,
+	layout: "even-horizontal" | "even-vertical" | "tiled",
+): void {
 	if (!pane) return;
 	try {
 		execFileSync("tmux", ["select-layout", "-t", pane, layout], {
@@ -177,7 +184,11 @@ function moveTmuxPaneToWindow(pane: string, name: string): void {
 	} catch {}
 }
 
-function createTmuxSplit(_name: string, direction: "left" | "right" | "up" | "down", fromSurface?: string): string {
+function createTmuxSplit(
+	_name: string,
+	direction: "left" | "right" | "up" | "down",
+	fromSurface?: string,
+): string {
 	const args = ["split-window", "-d"];
 	args.push(direction === "left" || direction === "right" ? "-h" : "-v");
 	if (direction === "left" || direction === "up") args.push("-b");
@@ -193,17 +204,25 @@ function createTmuxSplit(_name: string, direction: "left" | "right" | "up" | "do
 }
 
 function createWezTermSurface(name: string): string {
-	const paneId = execFileSync("wezterm", ["cli", "spawn", "--cwd", process.cwd()], { encoding: "utf8" }).trim();
+	const paneId = execFileSync("wezterm", ["cli", "spawn", "--cwd", process.cwd()], {
+		encoding: "utf8",
+	}).trim();
 	if (!paneId || !/^\d+$/.test(paneId)) {
 		throw new Error(`Unexpected wezterm spawn output: ${paneId || "(empty)"}`);
 	}
 	try {
-		execFileSync("wezterm", ["cli", "set-tab-title", "--pane-id", paneId, name], { encoding: "utf8" });
+		execFileSync("wezterm", ["cli", "set-tab-title", "--pane-id", paneId, name], {
+			encoding: "utf8",
+		});
 	} catch {}
 	return paneId;
 }
 
-function createWezTermSplit(name: string, direction: "left" | "right" | "up" | "down", fromSurface?: string): string {
+function createWezTermSplit(
+	name: string,
+	direction: "left" | "right" | "up" | "down",
+	fromSurface?: string,
+): string {
 	const args = ["cli", "split-pane"];
 	if (direction === "left") args.push("--left");
 	else if (direction === "right") args.push("--right");
@@ -216,12 +235,18 @@ function createWezTermSplit(name: string, direction: "left" | "right" | "up" | "
 		throw new Error(`Unexpected wezterm split-pane output: ${paneId || "(empty)"}`);
 	}
 	try {
-		execFileSync("wezterm", ["cli", "set-tab-title", "--pane-id", paneId, name], { encoding: "utf8" });
+		execFileSync("wezterm", ["cli", "set-tab-title", "--pane-id", paneId, name], {
+			encoding: "utf8",
+		});
 	} catch {}
 	return paneId;
 }
 
-function createZellijSplit(name: string, direction: "left" | "right" | "up" | "down", fromSurface?: string): string {
+function createZellijSplit(
+	name: string,
+	direction: "left" | "right" | "up" | "down",
+	fromSurface?: string,
+): string {
 	const directionArg = direction === "left" || direction === "right" ? "right" : "down";
 	const args = ["new-pane", "--direction", directionArg, "--name", name, "--cwd", process.cwd()];
 
@@ -309,16 +334,22 @@ export function renameCurrentTab(title: string): void {
 export function renameWorkspace(title: string): void {
 	const backend = requireMuxBackend();
 	if (backend === "cmux") {
-		execSync(`cmux workspace-action --action rename --title ${shellEscape(title)}`, { encoding: "utf8" });
+		execSync(`cmux workspace-action --action rename --title ${shellEscape(title)}`, {
+			encoding: "utf8",
+		});
 		return;
 	}
 	if (backend === "tmux") {
 		if (process.env.PI_SUBAGENT_RENAME_TMUX_SESSION !== "1") return;
 		const paneId = process.env.TMUX_PANE;
 		if (!paneId) throw new Error("TMUX_PANE not set");
-		const sessionId = execFileSync("tmux", ["display-message", "-p", "-t", paneId, "#{session_id}"], {
-			encoding: "utf8",
-		}).trim();
+		const sessionId = execFileSync(
+			"tmux",
+			["display-message", "-p", "-t", paneId, "#{session_id}"],
+			{
+				encoding: "utf8",
+			},
+		).trim();
 		execFileSync("tmux", ["rename-session", "-t", sessionId, title], {
 			encoding: "utf8",
 		});

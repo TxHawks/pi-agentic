@@ -3,12 +3,12 @@ import {
 	assert,
 	createTestDir,
 	describe,
+	it,
 	join,
 	loadAgentDefaults,
 	mkdirSync,
 	resetSubagentStateForTest,
 	resolveDenyToolsForTest,
-	it,
 	writeFileSync,
 } from "../support/index.ts";
 
@@ -30,7 +30,10 @@ describe("spawn-related agent fields", () => {
 	});
 
 	it("parses spawning lists and the true sentinel", () => {
-		assert.deepEqual(loadDefinition("spawning: agent-b, , agent-d")?.spawning, ["agent-b", "agent-d"]);
+		assert.deepEqual(loadDefinition("spawning: agent-b, , agent-d")?.spawning, [
+			"agent-b",
+			"agent-d",
+		]);
 		assert.equal(loadDefinition("spawning: true")?.spawning, true);
 		assert.equal(loadDefinition("spawning: false")?.spawning, false);
 	});
@@ -44,7 +47,10 @@ describe("spawn-related agent fields", () => {
 	it("requires positive integer spawn depth and width", () => {
 		assert.throws(() => loadDefinition("spawn-depth: 0"), /spawn-depth.*positive safe integer/);
 		assert.throws(() => loadDefinition("spawn-depth: -1"), /spawn-depth.*positive safe integer/);
-		assert.throws(() => loadDefinition("spawn-depth: 100000000000000000000"), /spawn-depth.*positive safe integer/);
+		assert.throws(
+			() => loadDefinition("spawn-depth: 100000000000000000000"),
+			/spawn-depth.*positive safe integer/,
+		);
 		assert.throws(() => loadDefinition("spawn-width: 0"), /spawn-width.*positive safe integer/);
 		assert.throws(() => loadDefinition("spawn-width: nope"), /spawn-width.*positive safe integer/);
 		assert.equal(loadDefinition("spawn-depth: 2\nspawn-width: 3")?.spawnDepth, 2);
@@ -64,7 +70,9 @@ describe("spawn-related agent fields", () => {
 	it("rejects mixed visible-to all values and keeps literal suffixes", () => {
 		assert.throws(() => loadDefinition("visible-to: all, agent-b"), /visible-to.*all/);
 		assert.deepEqual(loadDefinition("visible-to: root, , agent-b")?.visibleTo, ["root", "agent-b"]);
-		assert.deepEqual(loadDefinition("spawning: agent-b # comment")?.spawning, ["agent-b # comment"]);
+		assert.deepEqual(loadDefinition("spawning: agent-b # comment")?.spawning, [
+			"agent-b # comment",
+		]);
 		assert.deepEqual(loadDefinition('spawning: "true"')?.spawning, ['"true"']);
 		assert.deepEqual(loadDefinition('visible-to: "all"')?.visibleTo, ['"all"']);
 	});

@@ -39,7 +39,9 @@ function assertSupportedHerdrSplitDirection(
 	direction: SurfaceSplitDirection,
 ): asserts direction is HerdrSplitDirection {
 	if (direction === "right" || direction === "down") return;
-	throw new Error(`Herdr split direction "${direction}" is unsupported; Herdr pane split supports only right and down`);
+	throw new Error(
+		`Herdr split direction "${direction}" is unsupported; Herdr pane split supports only right and down`,
+	);
 }
 
 function cleanNumberedHerdrTabTitle(title: string): string {
@@ -78,7 +80,9 @@ function herdrMinimums(): { columns: number; rows: number } {
 	};
 }
 
-export function resolveHerdrPlacementPolicy(value = process.env.PI_SUBAGENT_HERDR_PLACEMENT): HerdrPlacementPolicy {
+export function resolveHerdrPlacementPolicy(
+	value = process.env.PI_SUBAGENT_HERDR_PLACEMENT,
+): HerdrPlacementPolicy {
 	const policy = value?.trim().toLowerCase() || "auto";
 	if (
 		policy === "auto" ||
@@ -96,7 +100,11 @@ export function resolveHerdrPlacementPolicy(value = process.env.PI_SUBAGENT_HERD
 	);
 }
 
-function canSplitHerdrPane(pane: HerdrPaneRect, direction: HerdrSplitDirection, ratio: number): boolean {
+function canSplitHerdrPane(
+	pane: HerdrPaneRect,
+	direction: HerdrSplitDirection,
+	ratio: number,
+): boolean {
 	// Both halves must clear the minimum. Herdr spends ~1 cell on the split
 	// border, so this is one cell optimistic; harmless at the 50-col floor.
 	const minimums = herdrMinimums();
@@ -134,11 +142,16 @@ function selectOwnedAutoSplit(panes: HerdrPaneRect[]): HerdrSplitPlan | null {
 
 function placementGroupKey(parentPaneId: string, policy: HerdrPlacementPolicy): string {
 	const parentSession =
-		process.env.PI_SUBAGENT_SESSION ?? process.env.PI_SUBAGENT_PARENT_SESSION ?? `process:${process.pid}`;
+		process.env.PI_SUBAGENT_SESSION ??
+		process.env.PI_SUBAGENT_PARENT_SESSION ??
+		`process:${process.pid}`;
 	return `${parentSession}\0${parentPaneId}\0${policy}`;
 }
 
-function liveOwnedPanes(group: HerdrPlacementGroup | undefined, panes: HerdrPaneRect[]): HerdrPaneRect[] {
+function liveOwnedPanes(
+	group: HerdrPlacementGroup | undefined,
+	panes: HerdrPaneRect[],
+): HerdrPaneRect[] {
 	if (!group) return [];
 	return group.paneIds
 		.map((paneId) => panes.find((pane) => pane.paneId === paneId))
@@ -179,7 +192,9 @@ function createHerdrTabSurfaceForAgent(name: string): string {
 		focus: false,
 	});
 	if (parentPane.tabId && surface.tab.tabId === parentPane.tabId) {
-		throw new Error(`Herdr tab create returned the parent tab ${parentPane.tabId}; expected a non-shrinking new tab`);
+		throw new Error(
+			`Herdr tab create returned the parent tab ${parentPane.tabId}; expected a non-shrinking new tab`,
+		);
 	}
 	const tabNumber =
 		!isAgentTabTitle(name) && parentPane.workspaceId
@@ -196,7 +211,9 @@ function createHerdrTabSurfaceForAgent(name: string): string {
 }
 
 export function createHerdrSurface(name: string, context?: HerdrPlacementContext): string {
-	const policy = resolveHerdrPlacementPolicy(context?.policy ?? process.env.PI_SUBAGENT_HERDR_PLACEMENT);
+	const policy = resolveHerdrPlacementPolicy(
+		context?.policy ?? process.env.PI_SUBAGENT_HERDR_PLACEMENT,
+	);
 	if (policy === "tab") return createHerdrTabSurfaceForAgent(name);
 
 	const parentPane = getHerdrCurrentPane();
@@ -249,7 +266,11 @@ export function createHerdrSurface(name: string, context?: HerdrPlacementContext
 	return paneId;
 }
 
-export function createHerdrSplit(name: string, direction: SurfaceSplitDirection, fromSurface?: string): string {
+export function createHerdrSplit(
+	name: string,
+	direction: SurfaceSplitDirection,
+	fromSurface?: string,
+): string {
 	assertSupportedHerdrSplitDirection(direction);
 	// Let a real Herdr split failure propagate. Only the optional pane rename is
 	// rolled back so an explicit split never leaves an orphan pane.

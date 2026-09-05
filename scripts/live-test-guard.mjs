@@ -3,8 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
 
-export const LIVE_TEST_MODEL = process.env.PI_SUBAGENT_LIVE_MODEL ?? "zai-messages/glm-5-turbo:high";
-const LIVE_WINDOW_LOCK = process.env.PI_SUBAGENT_LIVE_LOCK_PATH ?? join(tmpdir(), "pi-subagents-live-window.lock");
+export const LIVE_TEST_MODEL =
+	process.env.PI_SUBAGENT_LIVE_MODEL ?? "zai-messages/glm-5-turbo:high";
+const LIVE_WINDOW_LOCK =
+	process.env.PI_SUBAGENT_LIVE_LOCK_PATH ?? join(tmpdir(), "pi-subagents-live-window.lock");
 
 export function requireLiveWindowOptIn(script) {
 	if (process.env.PI_SUBAGENT_ALLOW_LIVE_WINDOWS === "1") return;

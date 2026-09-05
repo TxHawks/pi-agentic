@@ -163,7 +163,9 @@ function getToolResults(events, toolName) {
 	return events
 		.filter(
 			(event) =>
-				event.type === "message" && event.message?.role === "toolResult" && event.message.toolName === toolName,
+				event.type === "message" &&
+				event.message?.role === "toolResult" &&
+				event.message.toolName === toolName,
 		)
 		.map((event) => event.message);
 }
@@ -187,10 +189,14 @@ function activeBuiltins(snapshot) {
 function assertToolSnapshot(agent, snapshot) {
 	const active = snapshot.active ?? [];
 	if (!active.includes("caller_ping")) {
-		throw new Error(`${agent} lost caller_ping extension tool. Snapshot: ${JSON.stringify(snapshot)}`);
+		throw new Error(
+			`${agent} lost caller_ping extension tool. Snapshot: ${JSON.stringify(snapshot)}`,
+		);
 	}
 	if (agent === "live-e2e-tools-none" && !active.includes("e2e_snapshot_probe")) {
-		throw new Error(`tools:none did not preserve extension tools. Snapshot: ${JSON.stringify(snapshot)}`);
+		throw new Error(
+			`tools:none did not preserve extension tools. Snapshot: ${JSON.stringify(snapshot)}`,
+		);
 	}
 }
 
@@ -262,7 +268,8 @@ try {
 		}
 
 		const snapshotFile = join(outputDir, `${agent}.json`);
-		if (!existsSync(snapshotFile)) throw new Error(`${agent}: child did not write active tool snapshot.`);
+		if (!existsSync(snapshotFile))
+			throw new Error(`${agent}: child did not write active tool snapshot.`);
 		const snapshot = JSON.parse(readFileSync(snapshotFile, "utf8"));
 		assertToolSnapshot(agent, snapshot);
 		snapshots.set(agent, snapshot);
@@ -286,7 +293,9 @@ try {
 		throw new Error(`tools:read active built-ins mismatch: ${readBuiltins.join(",")}`);
 	}
 	if (JSON.stringify(readProbeBuiltins) !== JSON.stringify(["read"])) {
-		throw new Error(`tools:read,e2e_snapshot_probe active built-ins mismatch: ${readProbeBuiltins.join(",")}`);
+		throw new Error(
+			`tools:read,e2e_snapshot_probe active built-ins mismatch: ${readProbeBuiltins.join(",")}`,
+		);
 	}
 	if (!readProbe.active?.includes("e2e_snapshot_probe")) {
 		throw new Error(

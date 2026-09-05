@@ -1,3 +1,4 @@
+import { resolveSubagentTimeoutState } from "../../src/launch/policy.ts";
 import {
 	checkSubagentTimeout,
 	checkSubagentTimeoutWrapUp,
@@ -7,7 +8,6 @@ import {
 	formatTimeoutSeconds,
 	observeSubagentProgress,
 } from "../../src/runtime/timeout-budget.ts";
-import { resolveSubagentTimeoutState } from "../../src/launch/policy.ts";
 import type { RunningSubagent } from "../../src/types.ts";
 import { assert, describe, it } from "../support/index.ts";
 
@@ -35,7 +35,10 @@ describe("timeout budget math", () => {
 	it("expires the wall-clock budget only once it is fully spent", () => {
 		const budget = { timeoutSeconds: 30 };
 		assert.equal(findExpiredTimeoutBudget(budget, 0, 0, 29_999), null);
-		assert.deepEqual(findExpiredTimeoutBudget(budget, 0, 0, 30_000), { kind: "timeout", seconds: 30 });
+		assert.deepEqual(findExpiredTimeoutBudget(budget, 0, 0, 30_000), {
+			kind: "timeout",
+			seconds: 30,
+		});
 	});
 
 	it("expires the idle budget from the last progress, not from launch", () => {
@@ -49,7 +52,12 @@ describe("timeout budget math", () => {
 	});
 
 	it("reports the wall clock when both budgets expire in the same tick", () => {
-		const expired = findExpiredTimeoutBudget({ timeoutSeconds: 30, idleTimeoutSeconds: 10 }, 0, 0, 60_000);
+		const expired = findExpiredTimeoutBudget(
+			{ timeoutSeconds: 30, idleTimeoutSeconds: 10 },
+			0,
+			0,
+			60_000,
+		);
 		assert.deepEqual(expired, { kind: "timeout", seconds: 30 });
 	});
 
@@ -60,11 +68,14 @@ describe("timeout budget math", () => {
 			seconds: 100,
 			threshold: 80,
 		});
-		assert.deepEqual(findDueTimeoutWrapUp({ timeoutSeconds: 200, idleTimeoutSeconds: 20 }, 80, 0, 70_000, 86_000), {
-			kind: "idle-timeout",
-			seconds: 20,
-			threshold: 80,
-		});
+		assert.deepEqual(
+			findDueTimeoutWrapUp({ timeoutSeconds: 200, idleTimeoutSeconds: 20 }, 80, 0, 70_000, 86_000),
+			{
+				kind: "idle-timeout",
+				seconds: 20,
+				threshold: 80,
+			},
+		);
 	});
 
 	it("does not let wrap-up output reset the idle hard deadline", () => {
@@ -146,7 +157,10 @@ describe("timeout budget math", () => {
 
 	it("stops reporting an expiry once a kill is already underway", () => {
 		const running = makeRunning({ timeoutBudget: { timeoutSeconds: 5 } });
-		assert.deepEqual(checkSubagentTimeout(running, running.startTime + 5_000), { kind: "timeout", seconds: 5 });
+		assert.deepEqual(checkSubagentTimeout(running, running.startTime + 5_000), {
+			kind: "timeout",
+			seconds: 5,
+		});
 		running.timeoutExpiry = { kind: "timeout", seconds: 5 };
 		assert.equal(checkSubagentTimeout(running, running.startTime + 9_000), null);
 	});

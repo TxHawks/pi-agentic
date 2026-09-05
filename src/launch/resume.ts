@@ -32,10 +32,14 @@ function normalizeSessionFilePath(file: string): string {
 }
 
 function sameSessionFile(left: unknown, right: string): boolean {
-	return typeof left === "string" && normalizeSessionFilePath(left) === normalizeSessionFilePath(right);
+	return (
+		typeof left === "string" && normalizeSessionFilePath(left) === normalizeSessionFilePath(right)
+	);
 }
 
-export function getResumeCwd(metadata: PersistedSubagentLaunchMetadata | undefined): string | undefined {
+export function getResumeCwd(
+	metadata: PersistedSubagentLaunchMetadata | undefined,
+): string | undefined {
 	return metadata?.cwd || undefined;
 }
 
@@ -87,7 +91,10 @@ function getParentSessionFileFromChildSession(sessionFile: string): string | nul
 	return null;
 }
 
-export function resolveResumeLaunchMetadata(sessionFile: string, explicitMode?: ResumeMode): ResumeLaunchMetadata {
+export function resolveResumeLaunchMetadata(
+	sessionFile: string,
+	explicitMode?: ResumeMode,
+): ResumeLaunchMetadata {
 	const launchMetadata = readSubagentLaunchMetadata(sessionFile);
 	if (launchMetadata) {
 		return {

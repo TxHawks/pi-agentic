@@ -20,14 +20,17 @@ type AssistantMessageLike = {
 	content?: unknown;
 };
 
-type AgentDefaultsLoader = (agent: string | undefined, cwd: string | undefined) => AgentDefaults | null;
+type AgentDefaultsLoader = (
+	agent: string | undefined,
+	cwd: string | undefined,
+) => AgentDefaults | null;
 
 function isCoordinatorOnlyTurnDisabled(): boolean {
 	return process.env.PI_SUBAGENT_DISABLE_COORDINATOR_ONLY_TURN === "1";
 }
 
 function getToolCalls(message: AssistantMessageLike): ToolCallLike[] {
-	if (!message || message.role !== "assistant") return [];
+	if (message?.role !== "assistant") return [];
 	const content = message.content;
 	if (!Array.isArray(content)) return [];
 	return content.filter(
@@ -59,7 +62,10 @@ function getRequestedSubagentChildren(args: Record<string, unknown>): SubagentCh
 	return [args as SubagentChildLike];
 }
 
-function isAsyncSubagentChildLaunch(child: SubagentChildLike, loadAgentDefaults: AgentDefaultsLoader): boolean {
+function isAsyncSubagentChildLaunch(
+	child: SubagentChildLike,
+	loadAgentDefaults: AgentDefaultsLoader,
+): boolean {
 	const agent = typeof child.agent === "string" ? child.agent : undefined;
 	const cwd = typeof child.cwd === "string" ? child.cwd : undefined;
 	const agentDefs = agent ? loadAgentDefaults(agent, cwd) : null;
@@ -69,7 +75,10 @@ function isAsyncSubagentChildLaunch(child: SubagentChildLike, loadAgentDefaults:
 	return !resolveSubagentBlocking(child as Partial<SubagentParamsInput>, agentDefs);
 }
 
-function isAsyncSubagentLaunch(call: ToolCallLike, loadAgentDefaults: AgentDefaultsLoader): boolean {
+function isAsyncSubagentLaunch(
+	call: ToolCallLike,
+	loadAgentDefaults: AgentDefaultsLoader,
+): boolean {
 	if (call.name === SUBAGENT_TOOL_NAME) {
 		// A `subagent` call is async-launching if ANY of its children
 		// (or its single top-level launch) resolves async. One async child

@@ -1,5 +1,14 @@
-import type { CompletedSubagentResult, RunningSubagent, SubagentPingMessageDetails, SubagentResult } from "../types.ts";
-import { formatContextExitNotice, formatFinalContextUsage, formatSessionRef } from "./final-context-usage.ts";
+import type {
+	CompletedSubagentResult,
+	RunningSubagent,
+	SubagentPingMessageDetails,
+	SubagentResult,
+} from "../types.ts";
+import {
+	formatContextExitNotice,
+	formatFinalContextUsage,
+	formatSessionRef,
+} from "./final-context-usage.ts";
 import { releaseSpawnWidthSlot } from "./spawn-width.ts";
 import {
 	buildCompletedSubagentResult,
@@ -9,7 +18,11 @@ import {
 	runningSubagents,
 	stopAfterCurrentSubagentBatch,
 } from "./state.ts";
-import { formatTimeoutOutcome, formatTimeoutWrapUpOutcome, getTimeoutResultDetails } from "./timeout-budget.ts";
+import {
+	formatTimeoutOutcome,
+	formatTimeoutWrapUpOutcome,
+	getTimeoutResultDetails,
+} from "./timeout-budget.ts";
 
 interface ParentMessageSink {
 	sendMessage(message: unknown, options: unknown): void;
@@ -76,7 +89,9 @@ export function deliverCompletedSubagentResult(
 	completed.deliveredTo = "steer";
 	const sessionRef = formatSessionRef(completed);
 	const contextRef =
-		completed.reportContextUsage === false ? formatContextExitNotice(completed) : formatFinalContextUsage(completed);
+		completed.reportContextUsage === false
+			? formatContextExitNotice(completed)
+			: formatFinalContextUsage(completed);
 	pi.sendMessage(
 		{
 			customType: "subagent_result",

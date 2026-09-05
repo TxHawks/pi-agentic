@@ -52,7 +52,9 @@ function expandHint(): string {
 }
 
 function stripSessionRef(text: string): string {
-	return text.replace(/\n\nSub-agent context: .+ used at finish\.$/, "").replace(/\n\nSession: .+\nResume: .+$/, "");
+	return text
+		.replace(/\n\nSub-agent context: .+ used at finish\.$/, "")
+		.replace(/\n\nSession: .+\nResume: .+$/, "");
 }
 
 /**
@@ -65,7 +67,9 @@ function stripSessionRef(text: string): string {
  * the child's context window was consumed, matching what the parent model was
  * told.
  */
-function formatContextUsageLine(details: SubagentCompletionDetails | undefined): string | undefined {
+function formatContextUsageLine(
+	details: SubagentCompletionDetails | undefined,
+): string | undefined {
 	if (!details) return undefined;
 	const formatted = formatFinalContextUsage({
 		contextTokens: details.contextTokens,
@@ -79,7 +83,10 @@ function firstTextContent(result: AgentToolResult<unknown>): string {
 	return first?.type === "text" ? first.text : "";
 }
 
-function getChildArg(args: SubagentBatchArgs | undefined, index: number): BatchChildArgs | undefined {
+function getChildArg(
+	args: SubagentBatchArgs | undefined,
+	index: number,
+): BatchChildArgs | undefined {
 	return Array.isArray(args?.children) ? args.children[index] : undefined;
 }
 
@@ -91,7 +98,11 @@ function getChildAgent(
 	return child.agent ?? getChildArg(args, index)?.agent;
 }
 
-function getChildName(child: SubagentCompletionDetails, args: SubagentBatchArgs | undefined, index: number): string {
+function getChildName(
+	child: SubagentCompletionDetails,
+	args: SubagentBatchArgs | undefined,
+	index: number,
+): string {
 	return child.name ?? getChildArg(args, index)?.name ?? "subagent";
 }
 
@@ -109,7 +120,10 @@ function extractSummary(
 		.replace(`Sub-agent "${name}" failed (exit code ${exitCode}).\n\n`, "")
 		.replace(`Sub-agent "${name}" failed (status failed).\n\n`, "")
 		.replace(`Sub-agent "${name}" was cancelled (status cancelled).\n\n`, "")
-		.replace(`Sub-agent "${name}" failed after ${elapsed} (provider/agent error — auto-retry exhausted).\n\n`, "");
+		.replace(
+			`Sub-agent "${name}" failed after ${elapsed} (provider/agent error — auto-retry exhausted).\n\n`,
+			"",
+		);
 }
 function appendExpandableLines(
 	lines: string[],
@@ -127,11 +141,19 @@ function appendExpandableLines(
 	}
 	const remaining = bodyLines.length - visibleLines.length;
 	if (!options.expanded && remaining > 0) {
-		lines.push(theme.fg("muted", `... (${remaining} more lines,`) + ` ${expandHint()}` + theme.fg("muted", ")"));
+		lines.push(
+			theme.fg("muted", `... (${remaining} more lines,`) +
+				` ${expandHint()}` +
+				theme.fg("muted", ")"),
+		);
 	}
 }
 
-export function formatTaskPreview(task: string | undefined, options: RenderOptions, theme: ThemeLike): string {
+export function formatTaskPreview(
+	task: string | undefined,
+	options: RenderOptions,
+	theme: ThemeLike,
+): string {
 	if (!task) return "";
 	const lines: string[] = [];
 	appendExpandableLines(lines, task, options, theme, 10, "toolOutput");
@@ -203,7 +225,9 @@ export function formatSubagentBatchLines(
 		if (index > 0) lines.push("");
 		const fallbackName = getChildName(child, args, index);
 		const fallbackAgent = getChildAgent(child, args, index);
-		lines.push(formatSubagentCompletionHeader(child, theme, formatElapsed, fallbackName, fallbackAgent));
+		lines.push(
+			formatSubagentCompletionHeader(child, theme, formatElapsed, fallbackName, fallbackAgent),
+		);
 
 		const summary = child.summary ?? "";
 		appendExpandableLines(lines, summary, options, theme);
@@ -236,7 +260,10 @@ export function renderSubagentCompletionText(
 	return text;
 }
 
-export function registerSubagentMessageRenderers(pi: ExtensionAPI, formatElapsed: (elapsed: number) => string): void {
+export function registerSubagentMessageRenderers(
+	pi: ExtensionAPI,
+	formatElapsed: (elapsed: number) => string,
+): void {
 	pi.registerMessageRenderer("subagent_result", (message, options, theme) => {
 		const details = message.details as SubagentResultMessageDetails | undefined;
 		if (!details) return undefined;
@@ -259,7 +286,13 @@ export function registerSubagentMessageRenderers(pi: ExtensionAPI, formatElapsed
 					details,
 				};
 				const box = new Box(options.outputPad ?? 1, 1, bgFn);
-				box.addChild(new Text(formatSubagentCompletionLines(result, options, theme, formatElapsed).join("\n"), 0, 0));
+				box.addChild(
+					new Text(
+						formatSubagentCompletionLines(result, options, theme, formatElapsed).join("\n"),
+						0,
+						0,
+					),
+				);
 				return ["", ...box.render(width)];
 			},
 		};
@@ -276,7 +309,8 @@ export function registerSubagentMessageRenderers(pi: ExtensionAPI, formatElapsed
 				const elapsed = details.elapsed != null ? formatElapsed(details.elapsed) : "?";
 				const agentTag = details.agent ? theme.fg("dim", ` (${details.agent})`) : "";
 				const header = `${theme.fg("accent", "?")} ${theme.fg("toolTitle", theme.bold(name))}${agentTag} ${theme.fg("dim", "—")} needs help ${theme.fg("dim", `(${elapsed})`)}`;
-				const rawMessage = details.message ?? (typeof message.content === "string" ? message.content : "");
+				const rawMessage =
+					details.message ?? (typeof message.content === "string" ? message.content : "");
 				const body = stripSessionRef(rawMessage);
 				const contentLines = [header];
 
@@ -287,7 +321,9 @@ export function registerSubagentMessageRenderers(pi: ExtensionAPI, formatElapsed
 					contentLines.push(theme.fg("dim", `Resume:  pi --session ${details.sessionFile}`));
 				}
 
-				const box = new Box(options.outputPad ?? 1, 1, (text: string) => theme.bg("toolPendingBg", text));
+				const box = new Box(options.outputPad ?? 1, 1, (text: string) =>
+					theme.bg("toolPendingBg", text),
+				);
 				box.addChild(new Text(contentLines.join("\n"), 0, 0));
 				return ["", ...box.render(width)];
 			},

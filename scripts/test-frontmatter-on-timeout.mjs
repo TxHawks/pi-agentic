@@ -91,7 +91,9 @@ try {
 	const blockedDetails = findSubagentChild(blockParent.events, "fm-block-child");
 	if (!blockedDetails) throw new Error("Could not find the subagent result for fm-block-child.");
 	if (blockedDetails.timedOut !== "timeout") {
-		throw new Error(`Expected the blocked child to time out, got ${JSON.stringify(blockedDetails.timedOut)}.`);
+		throw new Error(
+			`Expected the blocked child to time out, got ${JSON.stringify(blockedDetails.timedOut)}.`,
+		);
 	}
 	const blockedText = getAllSubagentText(blockParent.events);
 	if (blockedText.includes("Resume: pi --session")) {
@@ -132,18 +134,24 @@ try {
 
 	const resumeResults = getToolResults(reportParent.events, "subagent_resume");
 	if (resumeResults.length === 0) {
-		throw new Error("The parent never called subagent_resume, so budget inheritance was not exercised.");
+		throw new Error(
+			"The parent never called subagent_resume, so budget inheritance was not exercised.",
+		);
 	}
 	const resumeDetails = resumeResults.at(-1).details ?? {};
 	if (resumeDetails.error) {
-		throw new Error(`The default policy must allow resume, but it failed: ${JSON.stringify(resumeDetails)}.`);
+		throw new Error(
+			`The default policy must allow resume, but it failed: ${JSON.stringify(resumeDetails)}.`,
+		);
 	}
 	if (resumeDetails.timedOut !== "timeout") {
 		console.log(`Resume result details: ${JSON.stringify(resumeDetails)}`);
 		throw new Error("The resumed run was not bounded by the inherited budget.");
 	}
 	if (resumeDetails.timedOutAfter !== 12) {
-		throw new Error(`Resumed run used budget ${JSON.stringify(resumeDetails.timedOutAfter)}, expected 12.`);
+		throw new Error(
+			`Resumed run used budget ${JSON.stringify(resumeDetails.timedOutAfter)}, expected 12.`,
+		);
 	}
 
 	verified = true;

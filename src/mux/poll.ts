@@ -51,7 +51,16 @@ function withDefinedCompletionReason(obj: PollResult, reason: unknown): PollResu
  * Interpret an `.exit` sidecar payload. Centralized so both
  * consumeSubagentExitSignal and pollForExit decode the same way.
  */
-function interpretExitSidecar(data: any): PollResult {
+function interpretExitSidecar(data: {
+	type?: unknown;
+	outputTokens?: unknown;
+	contextTokens?: unknown;
+	contextWindow?: unknown;
+	completionReason?: unknown;
+	name?: string;
+	message?: string;
+	errorMessage?: unknown;
+}): PollResult {
 	const tokens = typeof data?.outputTokens === "number" ? data.outputTokens : undefined;
 	const contextTokens = typeof data?.contextTokens === "number" ? data.contextTokens : undefined;
 	const contextWindow = typeof data?.contextWindow === "number" ? data.contextWindow : undefined;

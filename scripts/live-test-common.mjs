@@ -69,7 +69,9 @@ export function setup(label, options = {}) {
 	const snapshotsDir = join(tmpRoot, "snapshots");
 	const envConfigDir = process.env.PI_CODING_AGENT_DIR;
 	const sourceConfigDir =
-		envConfigDir && existsSync(join(envConfigDir, "auth.json")) ? envConfigDir : join(homedir(), ".pi", "agent");
+		envConfigDir && existsSync(join(envConfigDir, "auth.json"))
+			? envConfigDir
+			: join(homedir(), ".pi", "agent");
 	const keepTmp = process.env.PI_SUBAGENT_KEEP_E2E_TMP === "1";
 	const model = options.modelOverride ?? LIVE_TEST_MODEL;
 
@@ -244,7 +246,17 @@ export function runPi(ctx, prompt, extraEnv = {}) {
 
 	return execFileSync(
 		"pi",
-		["-p", "--model", ctx.model, "--no-extensions", "-e", extensionSource, "--session-dir", ctx.sessionDir, prompt],
+		[
+			"-p",
+			"--model",
+			ctx.model,
+			"--no-extensions",
+			"-e",
+			extensionSource,
+			"--session-dir",
+			ctx.sessionDir,
+			prompt,
+		],
 		{
 			cwd: repoRoot,
 			encoding: "utf8",
@@ -315,7 +327,10 @@ export function getAssistantTexts(events) {
  */
 export function getToolResults(events, toolName) {
 	return events
-		.filter((e) => e.type === "message" && e.message?.role === "toolResult" && e.message.toolName === toolName)
+		.filter(
+			(e) =>
+				e.type === "message" && e.message?.role === "toolResult" && e.message.toolName === toolName,
+		)
 		.map((e) => e.message);
 }
 

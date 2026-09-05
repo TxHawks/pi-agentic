@@ -1,19 +1,27 @@
+import assert from "node:assert/strict";
 import type { AgentToolResult, ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { endedUnderContextPressure } from "../session/completion-reason.ts";
-import { readSubagentTimeoutSidecar } from "../session/timeout-sidecar.ts";
 import { type ResumeServiceRuntime, resumeSubagentSession } from "../runtime/resume-service.ts";
 import { shouldAwaitSubagentLaunch } from "../runtime/running-registry.ts";
 import { getSubagentBatchStopMetadata, requestSubagentBatchStop } from "../runtime/state.ts";
+import { endedUnderContextPressure } from "../session/completion-reason.ts";
 import { readSubagentLaunchMetadata } from "../session/session-files.ts";
+import { readSubagentTimeoutSidecar } from "../session/timeout-sidecar.ts";
 import type { RunningSubagent, SubagentResult } from "../types.ts";
 import { formatTaskPreview, renderSubagentCompletionText } from "./message-renderers.ts";
 import { SUBAGENT_RESUME_TOOL_NAME } from "./tool-names.ts";
 
 export interface ResumeToolRuntime extends ResumeServiceRuntime {
-	wireSubagentSteerBack(pi: ExtensionAPI, running: RunningSubagent, promise: Promise<SubagentResult>): void;
-	getLaunchedSubagentResult(running: RunningSubagent, signal?: AbortSignal): Promise<AgentToolResult<unknown>>;
+	wireSubagentSteerBack(
+		pi: ExtensionAPI,
+		running: RunningSubagent,
+		promise: Promise<SubagentResult>,
+	): void;
+	getLaunchedSubagentResult(
+		running: RunningSubagent,
+		signal?: AbortSignal,
+	): Promise<AgentToolResult<unknown>>;
 }
 
 export function registerSubagentResumeTool(
@@ -25,7 +33,8 @@ export function registerSubagentResumeTool(
 	pi.registerTool({
 		name: SUBAGENT_RESUME_TOOL_NAME,
 		label: "Resume Subagent",
-		description: "Continue a previous subagent session from its session file, optionally sending a follow-up task.",
+		description:
+			"Continue a previous subagent session from its session file, optionally sending a follow-up task.",
 		promptSnippet:
 			"Use subagent_resume when an earlier helper session was cancelled, left open, or needs follow-up work with its existing context.\n" +
 			"\n" +
@@ -50,7 +59,8 @@ export function registerSubagentResumeTool(
 			),
 			agent: Type.Optional(
 				Type.String({
-					description: "Agent name for display. Use the original agent name from the session being resumed.",
+					description:
+						"Agent name for display. Use the original agent name from the session being resumed.",
 				}),
 			),
 			model: Type.Optional(
@@ -87,7 +97,8 @@ export function registerSubagentResumeTool(
 				} catch {}
 			}
 			const agentBadge = agent ? theme.fg("dim", ` (${agent})`) : "";
-			const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			const text =
+				context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
 			text.setText(
 				"▸ " +
 					theme.fg("toolTitle", theme.bold("Resume")) +
@@ -101,7 +112,11 @@ export function registerSubagentResumeTool(
 		renderResult(result, opts, theme, context) {
 			const details = result.details as { status?: string } | undefined;
 			if (details?.status === "started") return new Text("", 0, 0);
-			if (details?.status === "completed" || details?.status === "failed" || details?.status === "cancelled") {
+			if (
+				details?.status === "completed" ||
+				details?.status === "failed" ||
+				details?.status === "cancelled"
+			) {
 				return renderSubagentCompletionText(
 					result,
 					opts,
@@ -112,7 +127,8 @@ export function registerSubagentResumeTool(
 			}
 			const firstContent = result.content?.[0];
 			const text = firstContent?.type === "text" ? firstContent.text : "";
-			const component = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			const component =
+				context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
 			component.setText(theme.fg("dim", text));
 			return component;
 		},
@@ -152,7 +168,8 @@ export function registerSubagentResumeTool(
 				runtime,
 			);
 
-			runtime.wireSubagentSteerBack(pi, running, running.completionPromise!);
+			assert.ok(running.completionPromise, "A resumed run must have completion tracking.");
+			runtime.wireSubagentSteerBack(pi, running, running.completionPromise);
 
 			const shouldAwait = shouldAwaitSubagentLaunch(running);
 			if (shouldAwait) {
