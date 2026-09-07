@@ -102,6 +102,7 @@ describe("extension registration gating", () => {
 					"message_end",
 					"session_shutdown",
 					"session_start",
+					"session_tree",
 					"tool_call",
 					"turn_start",
 				],

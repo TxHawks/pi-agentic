@@ -25,6 +25,7 @@ import "./session/completion-reason.test.ts";
 import "./tools/subagent-done-recovery.test.ts";
 import "./tools/provider-error-recovery.test.ts";
 import "./tools/subagents-view.test.ts";
+import "./tools/orchestrator-view.test.ts";
 import "./tools/message-renderers.test.ts";
 import "./artifacts/storage.test.ts";
 import "./launch/append-system-inheritance.test.ts";
@@ -61,6 +62,8 @@ import "./runtime/timeout-result-delivery.test.ts";
 import "./runtime/state.test.ts";
 import "./runtime/elapsed-format.test.ts";
 import "./runtime/fork-session-manager.test.ts";
+import "./runtime/orchestrator-controller.test.ts";
+import "./runtime/orchestrator-wiring.test.ts";
 
 import "./agents/ambient-runtime-paths.test.ts";
 import "./launch/fork-session.test.ts";

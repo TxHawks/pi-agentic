@@ -60,28 +60,6 @@ You can turn the parent session into an orchestrator — an agent that can only
 delegate. It spawns sub-agents, waits for results, and synthesizes answers.
 It cannot read files, run commands, edit code, or search the codebase itself.
 
-```bash
-PI_ORCHESTRATOR_MODE=1 pi
-```
-
-Export it in your shell rc to enable permanently:
-
-```bash
-export PI_ORCHESTRATOR_MODE=1
-```
-
-Enable that and two things change:
-
-1. **Tool restriction.** Removes read, bash, edit, write,
-   grep, find, and every other tool except subagent,
-   subagent_kill, subagent_resume. The LLMs cannot call what they cannot see.
-2. **System prompt replacement.** Pi's "expert coding assistant" prompt gets
-   replaced with one that defines the orchestrator role: decompose, delegate,
-   synthesize. The replacement preserves Pi's `APPEND_SYSTEM.md` content.
-
-Children do not inherit the parent agent's role or system prompt. Each child
-runs as a separate Pi process with its own agent definition and prompt chain.
-
 #### Why orchestrator mode exists
 
 Models default to doing work themselves. Given the chance, they read the file,
@@ -111,6 +89,42 @@ write cycles. The orchestrator defines the structure, dispatches each piece
 to the right agent, reads results, and writes the next round of instructions.
 
 Simple requests do not benefit. A single sub-agent handles those faster.
+
+#### How to use it
+
+Open `/subagents` or press `Alt+S`, then select Orchestrator. You can turn
+the mode on or off in the current conversation, or start a fresh conversation.
+Switching in place keeps your conversation. Starting fresh leaves the old
+conversation available through `/resume`.
+
+If Pi or any sub-agents are working, wait for them to finish or stop them
+before switching. Pi remembers the mode when you reopen the conversation.
+
+You can also choose whether new conversations start in orchestrator mode.
+Changing this default does not change existing conversations. The environment
+variable below overrides this default, but not a conversation's saved choice.
+
+```bash
+PI_ORCHESTRATOR_MODE=1 pi
+```
+
+To use it by default for new conversations, add this to your shell configuration:
+
+```bash
+export PI_ORCHESTRATOR_MODE=1
+```
+
+Enable that and two things change:
+
+1. **Tool restriction.** Removes read, bash, edit, write,
+   grep, find, and every other tool except subagent,
+   subagent_kill, subagent_resume. The LLMs cannot call what they cannot see.
+2. **System prompt replacement.** Pi's "expert coding assistant" prompt gets
+   replaced with one that defines the orchestrator role: decompose, delegate,
+   synthesize. The replacement preserves Pi's `APPEND_SYSTEM.md` content.
+
+Children do not inherit the parent agent's role or system prompt. Each child
+runs as a separate Pi process with its own agent definition and prompt chain.
 
 ## Agent definitions
 
